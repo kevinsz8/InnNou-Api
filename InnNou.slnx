@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/SolutionItems/">
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Project Path="src/InnNou.API/InnNou.API.csproj" Id="ef623048-872c-4527-8e37-da0f37310db6" />
+  <Project Path="src/InnNou.Application/InnNou.Application.csproj" Id="a944e098-f6f9-4e12-8e91-7b2450dbd981" />
+  <Project Path="src/InnNou.Domain/InnNou.Domain.csproj" Id="bb44ea53-aed6-41d5-af66-1fc198063811" />
+  <Project Path="src/InnNou.Infrastructure/InnNou.Infrastructure.csproj" Id="9a054878-bf1c-4c65-916a-e9e4fc1cc50d" />
+</Solution>

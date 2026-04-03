@@ -1,0 +1,111 @@
+using AutoMapper;
+using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
+using InnNou.Domain.Persistence;
+using InnNou.Infrastructure.Repositories.DbContexts;
+using InnNou.Infrastructure.Repositories.DbEntities;
+using Microsoft.EntityFrameworkCore;
+
+namespace InnNou.Infrastructure.Services
+{
+    public class UserService : IUserService
+    {
+        private readonly InnNouDbContext _dbContext;
+        private readonly IMapper _mapper;
+        public UserService(InnNouDbContext dbContext, IMapper mapper)
+        {
+            _dbContext = dbContext;
+            _mapper = mapper;
+        }
+        public async Task<UserDto?> CreateUserAsync(UserDto userDto, CancellationToken cancellationToken)
+        {
+            var user = _mapper.Map<User>(userDto);
+
+            user.UserToken = Guid.NewGuid();
+            user.CreatedBy = "System";
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password);
+            user.IsActive = true;
+
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return _mapper.Map<UserDto>(user);
+        }
+
+        public async Task<PagedResult<UserDto>> GetUsersAsync(int pageNumber, int pageSize, string? searchField, string? searchText, CancellationToken cancellationToken)
+        {
+            var query = _dbContext.Users
+                .AsNoTracking()
+                .AsQueryable()
+                .Where(x=>x.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(searchField) && !string.IsNullOrWhiteSpace(searchText))
+            {
+                searchText = searchText.Trim();
+
+                query = searchField.ToLower() switch
+                {
+                    "email" => query.Where(u => u.Email.ToLower().Contains(searchText.ToLower())),
+                    "firstname" => query.Where(u => u.FirstName.ToLower().Contains(searchText.ToLower())),
+                    "lastname" => query.Where(u => u.LastName.ToLower().Contains(searchText.ToLower())),
+                    "username" => query.Where(u => u.UserName.ToLower().Contains(searchText.ToLower())),
+                    _ => query
+                };
+            }
+
+            var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+            var safePageSize = pageSize < 1 ? 10 : pageSize;
+            var offset = (safePageNumber - 1) * safePageSize;
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var users = await query
+                .OrderBy(u => u.UserId)
+                .Skip(offset)
+                .Take(safePageSize)
+                .ToListAsync(cancellationToken);
+
+            return new PagedResult<UserDto>
+            {
+                Items = _mapper.Map<List<UserDto>>(users),
+                TotalCount = totalCount,
+                PageNumber = safePageNumber,
+                PageSize = safePageSize
+            };
+        }
+
+        public async Task<UserDto?> EditUserAsync(UserDto request, CancellationToken cancellationToken)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId, cancellationToken);
+            if (user == null)
+                return null;
+            if (!string.IsNullOrWhiteSpace(request.Email)) user.Email = request.Email;
+            if (!string.IsNullOrWhiteSpace(request.FirstName)) user.FirstName = request.FirstName;
+            if (!string.IsNullOrWhiteSpace(request.LastName)) user.LastName = request.LastName;
+            if (!string.IsNullOrWhiteSpace(request.UserName)) user.UserName = request.UserName;
+            if (!string.IsNullOrWhiteSpace(request.Password)) user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return _mapper.Map<UserDto>(user);
+        }
+
+        public async Task<bool> DeleteUserAsync(int userId, CancellationToken cancellationToken)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+            if (user == null)
+                return false;
+
+            user.IsActive = false;
+            //_dbContext.Users.Remove(user);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
+        public async Task<bool> IsUserExists(string email, CancellationToken cancellationToken)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            if (user != null)
+                return true;
+
+            return false;
+        }
+    }
+}
