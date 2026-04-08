@@ -3,9 +3,6 @@ using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Persistence;
 using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace InnNou.Application.Handlers
 {
@@ -23,7 +20,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<LoginResponse>.FailureResponse("INVALID_CREDENTIALS", "Invalid token.");
             var response = new LoginResponse
             {
-                UserId = login.UserId.ToString(),
+                UserId = login.UserId,
                 Email = login.Email,
                 Token = login.Token,
                 RefreshToken = login.RefreshToken

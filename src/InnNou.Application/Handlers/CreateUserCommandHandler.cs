@@ -1,8 +1,8 @@
 using InnNou.Application.Common;
+using InnNou.Application.Persistence;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
-using InnNou.Domain.Persistence;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -23,7 +23,8 @@ namespace InnNou.Application.Handlers
             //validate if user email exists
             var userExists = await _userService.IsUserExists(request.Email, cancellationToken);
 
-            if (userExists) {
+            if (userExists)
+            {
                 return ApiResponse<CreateUserCommandResponse>.FailureResponse("USER_ALREADY_EXISTS", "User already exists.");
             }
 

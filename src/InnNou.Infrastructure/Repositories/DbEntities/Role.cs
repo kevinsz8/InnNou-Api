@@ -11,6 +11,9 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
         public string Name { get; set; } = default!; // "Owner", "Admin", "FrontDesk", etc.
+        public int Level { get; set; }
+
+        public bool IsActive { get; set; } = true;
 
     }
 }

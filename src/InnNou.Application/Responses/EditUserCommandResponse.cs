@@ -1,5 +1,3 @@
-using System;
-
 namespace InnNou.Application.Responses
 {
     public class EditUserCommandResponse

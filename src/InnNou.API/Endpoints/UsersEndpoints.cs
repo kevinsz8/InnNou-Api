@@ -11,16 +11,19 @@ namespace InnNou.API.Endpoints
     {
         public void AddRoutes(IEndpointRouteBuilder app)
         {
-            app.MapPost("/users", HandleCreateUser)
+            var group = app.MapGroup("/users")
+                       .RequireAuthorization();
+
+            group.MapPost("/createUser", HandleCreateUser)
                 .Produces<ApiResponse<CreateUserCommandResponse>>(201);
 
-            app.MapPost("/getUsers", HandleGetUsers)
+            group.MapPost("/getUsers", HandleGetUsers)
                 .Produces<ApiResponse<GetUsersQueryResponse>>(200);
 
-            app.MapPost("/users/edit", HandleEditUser)
+            group.MapPost("/editUser", HandleEditUser)
                 .Produces<ApiResponse<EditUserCommandResponse>>(200);
 
-            app.MapPost("/users/delete", HandleDeleteUser)
+            group.MapPost("/deleteUser", HandleDeleteUser)
                 .Produces<ApiResponse<DeleteUserCommandResponse>>(200);
         }
 

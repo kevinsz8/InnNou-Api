@@ -1,5 +1,3 @@
-using System;
-
 namespace InnNou.Application.Responses.Common
 {
     public class User

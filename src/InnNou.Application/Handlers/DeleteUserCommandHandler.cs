@@ -1,10 +1,8 @@
 using InnNou.Application.Common;
+using InnNou.Application.Persistence;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
-using InnNou.Domain.Persistence;
 using MediatR;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace InnNou.Application.Handlers
 {

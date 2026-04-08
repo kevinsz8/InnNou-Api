@@ -1,10 +1,10 @@
-using InnNou.Application.Responses.Common;
+﻿using InnNou.Application.Responses.Common;
 
 namespace InnNou.Application.Responses
 {
-    public class GetUsersQueryResponse
+    public class GetHotelsQueryResponse
     {
-        public List<User> Users { get; set; } = new();
+        public List<Hotel> Hotels { get; set; } = new();
         public int TotalCount { get; set; }
         public int PageNumber { get; set; }
         public int PageSize { get; set; }

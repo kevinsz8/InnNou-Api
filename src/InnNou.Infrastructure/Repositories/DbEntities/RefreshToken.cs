@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace InnNou.Infrastructure.Repositories.DbEntities
 {
@@ -15,6 +12,8 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
 
         public DateTime ExpiresAt { get; set; }
         public bool IsRevoked { get; set; }
+        public DateTime? RevokedAt { get; set; }
+        public string? ReplacedByToken { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

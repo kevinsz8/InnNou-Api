@@ -1,7 +1,6 @@
 using InnNou.Application.Common;
 using InnNou.Application.Responses;
 using MediatR;
-using System;
 
 namespace InnNou.Application.Requests
 {

@@ -22,89 +22,177 @@ namespace InnNou.Infrastructure.Services
             _configuration = configuration;
         }
 
-        public async Task<InnNou.Domain.Models.Login?> LoginAsync(string email, string password, CancellationToken cancellationToken)
+        public async Task<Login?> LoginAsync(string email, string password, CancellationToken cancellationToken)
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            var user = await (from u in _dbContext.Users
+                              join r in _dbContext.Roles on u.RoleId equals r.RoleId
+                              where u.Email == email
+                              select new { User = u, Role = r })
+                              .FirstOrDefaultAsync(cancellationToken);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.User.PasswordHash))
                 return null;
 
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                //new Claim("tenant_id", user.TenantId.ToString())
-            };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: creds
+            var jwt = GenerateJwtToken(
+                user.User,
+                user.Role.Level,
+                user.User.HotelId
             );
 
             var refreshTokenValue = Guid.NewGuid().ToString();
 
-            var refreshToken = new RefreshToken
+            _dbContext.RefreshTokens.Add(new RefreshToken
             {
-                UserId = user.UserId,
+                UserId = user.User.UserId,
                 Token = refreshTokenValue,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
-            };
+            });
 
-            _dbContext.RefreshTokens.Add(refreshToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             return new Login
             {
-                Token = new JwtSecurityTokenHandler().WriteToken(token),
+                Token = jwt,
                 RefreshToken = refreshTokenValue,
-                Email = user.Email,
-                UserId = user.UserId,
-                UserToken = user.UserToken
+                Email = user.User.Email,
+                UserId = user.User.UserId,
+                UserToken = user.User.UserToken
             };
         }
 
         public async Task<Login?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken)
         {
             var tokenEntity = await (from r in _dbContext.RefreshTokens
-                join u in _dbContext.Users on r.UserId equals u.UserId
-                where r.Token == refreshToken
-                select new {
-                    RefreshToken = r,
-                    User = u
-                }
-                ).FirstOrDefaultAsync(cancellationToken);
+                                     join u in _dbContext.Users on r.UserId equals u.UserId
+                                     join role in _dbContext.Roles on u.RoleId equals role.RoleId
+                                     where r.Token == refreshToken
+                                     select new
+                                     {
+                                         RefreshToken = r,
+                                         User = u,
+                                         Role = role
+                                     }).FirstOrDefaultAsync(cancellationToken);
 
-            if (tokenEntity == null || tokenEntity.RefreshToken.IsRevoked || tokenEntity.RefreshToken.ExpiresAt < DateTime.UtcNow)
+            if (tokenEntity == null ||
+                tokenEntity.RefreshToken.IsRevoked ||
+                tokenEntity.RefreshToken.ExpiresAt < DateTime.UtcNow)
                 return null;
 
             var user = tokenEntity.User;
 
-            // 🔥 OPCIONAL (RECOMENDADO): invalidar el anterior
             tokenEntity.RefreshToken.IsRevoked = true;
 
             var newRefreshTokenValue = Guid.NewGuid().ToString();
 
-            var newRefreshToken = new RefreshToken
+            _dbContext.RefreshTokens.Add(new RefreshToken
             {
                 UserId = user.UserId,
                 Token = newRefreshTokenValue,
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
-            };
+            });
 
-            _dbContext.RefreshTokens.Add(newRefreshToken);
+            var jwt = GenerateJwtToken(
+                user,
+                tokenEntity.Role.Level,
+                user.HotelId
+            );
 
-            // 🔥 NUEVO JWT
-            var claims = new[]
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return new Login
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
+                Token = jwt,
+                RefreshToken = newRefreshTokenValue,
+                Email = user.Email,
+                UserId = user.UserId,
+                UserToken = user.UserToken
+            };
+        }
+
+        public async Task<Login?> ImpersonateAsync(Guid actorUserToken, Guid targetUserToken, CancellationToken cancellationToken)
+        {
+            if (actorUserToken == targetUserToken)
+                return null;
+
+            var actorData = await (from u in _dbContext.Users
+                                   join r in _dbContext.Roles on u.RoleId equals r.RoleId
+                                   where u.UserToken == actorUserToken
+                                   select new { User = u, Role = r })
+                                   .FirstOrDefaultAsync(cancellationToken);
+
+            var targetData = await (from u in _dbContext.Users
+                                    join r in _dbContext.Roles on u.RoleId equals r.RoleId
+                                    where u.UserToken == targetUserToken
+                                    select new { User = u, Role = r })
+                                    .FirstOrDefaultAsync(cancellationToken);
+
+            if (actorData == null || targetData == null)
+                return null;
+
+            var actor = actorData.User;
+            var actorRole = actorData.Role;
+
+            var target = targetData.User;
+            var targetRole = targetData.Role;
+
+            if (actorRole.Level <= targetRole.Level)
+                return null;
+
+            if (!IsSuperAdmin(actorRole))
+            {
+                var canAccess = await IsSameOrChildHotel(actor.HotelId, target.HotelId, cancellationToken);
+
+                if (!canAccess)
+                    return null;
+            }
+
+            var jwt = GenerateJwtToken(
+                actor,
+                actorRole.Level,
+                target.HotelId,
+                impersonatedUserToken: target.UserToken
+            );
+
+            var refreshTokenValue = Guid.NewGuid().ToString();
+
+            _dbContext.RefreshTokens.Add(new RefreshToken
+            {
+                UserId = actor.UserId,
+                Token = refreshTokenValue,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return new Login
+            {
+                Token = jwt,
+                RefreshToken = refreshTokenValue,
+                Email = actor.Email,
+                UserId = actor.UserId,
+                UserToken = actor.UserToken
+            };
+        }
+
+
+        private string GenerateJwtToken(User user, int roleLevel, int? hotelId, Guid? impersonatedUserToken = null)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.UserToken.ToString()),
+
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
+
+                new Claim("roleLevel", roleLevel.ToString()),
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            if (hotelId.HasValue)
+                claims.Add(new Claim("hotelId", hotelId.Value.ToString()));
+
+            if (impersonatedUserToken.HasValue)
+                claims.Add(new Claim("impersonatedUserToken", impersonatedUserToken.Value.ToString()));
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
@@ -115,16 +203,35 @@ namespace InnNou.Infrastructure.Services
                 signingCredentials: creds
             );
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
 
-            return new Login
+        private bool IsSuperAdmin(Role role)
+        {
+            return role.Level >= 100;
+        }
+
+        private async Task<bool> IsSameOrChildHotel(int? actorHotelId, int? targetHotelId, CancellationToken ct)
+        {
+            if (actorHotelId == null)
+                return true;
+
+            if (actorHotelId == targetHotelId)
+                return true;
+
+            var current = await _dbContext.Hotels
+                .FirstOrDefaultAsync(h => h.HotelId == targetHotelId, ct);
+
+            while (current?.ParentHotelId != null)
             {
-                Token = new JwtSecurityTokenHandler().WriteToken(token),
-                RefreshToken = newRefreshTokenValue,
-                Email = user.Email,
-                UserId = user.UserId,
-                UserToken = user.UserToken
-            };
+                if (current.ParentHotelId == actorHotelId)
+                    return true;
+
+                current = await _dbContext.Hotels
+                    .FirstOrDefaultAsync(h => h.HotelId == current.ParentHotelId, ct);
+            }
+
+            return false;
         }
     }
 }

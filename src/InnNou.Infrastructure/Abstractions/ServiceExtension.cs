@@ -1,4 +1,7 @@
-﻿using InnNou.Domain.Persistence;
+﻿using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
+using InnNou.Application.Persistence;
+using InnNou.Domain.Persistence;
 using InnNou.Infrastructure.Mappers;
 using InnNou.Infrastructure.Repositories.DbContexts;
 using InnNou.Infrastructure.Services;
@@ -22,9 +25,11 @@ namespace InnNou.Infrastructure.Abstractions
                 opt.UseSqlServer(configuration.GetConnectionString("InnNouConnection"));
             });
 
-            services.AddScoped<ITenantService, TenantService>();
+            services.AddScoped<IRequestContext, RequestContext>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IHotelService, HotelService>();
+            services.AddScoped<IRoleService, RoleService>();
             return services;
         }
     }

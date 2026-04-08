@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace InnNou.Domain.Dtos.Common
+﻿namespace InnNou.Domain.Dtos.Common
 {
     public class PagedResult<T>
     {

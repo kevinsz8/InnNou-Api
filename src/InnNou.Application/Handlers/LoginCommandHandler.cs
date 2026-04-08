@@ -20,7 +20,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<LoginResponse>.FailureResponse("INVALID_CREDENTIALS", "Invalid email or password.");
             var response = new LoginResponse
             {
-                UserId = login.UserId.ToString(),
+                UserId = login.UserId,
                 Email = login.Email,
                 Token = login.Token,
                 RefreshToken = login.RefreshToken

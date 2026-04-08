@@ -11,35 +11,38 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string FirstName { get; set; } = default!;
+        public string FirstName { get; set; }
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string LastName { get; set; } = default!;
+        public string LastName { get; set; }
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string Email { get; set; } = default!;
+        public string Email { get; set; }
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string UserName { get; set; } = default!;
+        public string UserName { get; set; }
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(500)]
         public string PasswordHash { get; set; } = default!;
+
+        public int RoleId { get; set; }
+        public int? HotelId { get; set; }
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string? CreatedBy { get; set; } = default!;
-        public DateTime? LastUpdatedUtc { get; set;} = DateTime.UtcNow;
+        public string? CreatedBy { get; set; }
+        public DateTime? LastUpdatedUtc { get; set; }
 
         [Column(TypeName = "VARCHAR")]
         [MaxLength(150)]
-        public string? LastUpdatedBy { get; set; } = default!;
+        public string? LastUpdatedBy { get; set; }
 
     }
 }

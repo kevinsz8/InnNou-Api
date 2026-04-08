@@ -1,7 +1,8 @@
 using AutoMapper;
+using InnNou.Application.Common;
+using InnNou.Application.Persistence;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
-using InnNou.Domain.Persistence;
 using InnNou.Infrastructure.Repositories.DbContexts;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using Microsoft.EntityFrameworkCore;
@@ -31,23 +32,38 @@ namespace InnNou.Infrastructure.Services
             return _mapper.Map<UserDto>(user);
         }
 
-        public async Task<PagedResult<UserDto>> GetUsersAsync(int pageNumber, int pageSize, string? searchField, string? searchText, CancellationToken cancellationToken)
+        public async Task<PagedResult<UserDto>> GetUsersAsync(
+        int pageNumber,
+        int pageSize,
+        string? searchField,
+        string? searchText,
+        IRequestContext context,
+        CancellationToken cancellationToken)
         {
             var query = _dbContext.Users
                 .AsNoTracking()
-                .AsQueryable()
-                .Where(x=>x.IsActive);
+                .Where(x => x.IsActive)
+                .AsQueryable();
 
+            // MULTI-TENANT FILTER
+            if (context.HotelId.HasValue)
+            {
+                var allowedHotelIds = await GetAllowedHotelIds(context.HotelId.Value, cancellationToken);
+
+                query = query.Where(u => u.HotelId.HasValue && allowedHotelIds.Contains(u.HotelId.Value));
+            }
+
+            // SEARCH
             if (!string.IsNullOrWhiteSpace(searchField) && !string.IsNullOrWhiteSpace(searchText))
             {
-                searchText = searchText.Trim();
+                searchText = searchText.Trim().ToLower();
 
                 query = searchField.ToLower() switch
                 {
-                    "email" => query.Where(u => u.Email.ToLower().Contains(searchText.ToLower())),
-                    "firstname" => query.Where(u => u.FirstName.ToLower().Contains(searchText.ToLower())),
-                    "lastname" => query.Where(u => u.LastName.ToLower().Contains(searchText.ToLower())),
-                    "username" => query.Where(u => u.UserName.ToLower().Contains(searchText.ToLower())),
+                    "email" => query.Where(u => u.Email.ToLower().Contains(searchText)),
+                    "firstname" => query.Where(u => u.FirstName.ToLower().Contains(searchText)),
+                    "lastname" => query.Where(u => u.LastName.ToLower().Contains(searchText)),
+                    "username" => query.Where(u => u.UserName.ToLower().Contains(searchText)),
                     _ => query
                 };
             }
@@ -72,7 +88,6 @@ namespace InnNou.Infrastructure.Services
                 PageSize = safePageSize
             };
         }
-
         public async Task<UserDto?> EditUserAsync(UserDto request, CancellationToken cancellationToken)
         {
             var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.UserId == request.UserId, cancellationToken);
@@ -106,6 +121,23 @@ namespace InnNou.Infrastructure.Services
                 return true;
 
             return false;
+        }
+
+        private async Task<List<int>> GetAllowedHotelIds(int rootHotelId, CancellationToken ct)
+        {
+            var result = new List<int> { rootHotelId };
+
+            var children = await _dbContext.Hotels
+                .Where(h => h.ParentHotelId == rootHotelId)
+                .Select(h => h.HotelId)
+                .ToListAsync(ct);
+
+            foreach (var child in children)
+            {
+                result.AddRange(await GetAllowedHotelIds(child, ct));
+            }
+
+            return result;
         }
     }
 }

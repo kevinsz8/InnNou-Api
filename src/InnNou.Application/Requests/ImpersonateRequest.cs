@@ -4,9 +4,8 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public class RefreshTokenRequest : IRequest<ApiResponse<LoginResponse>>
+    public class ImpersonateRequest : IRequest<ApiResponse<ImpersonateResponse>>
     {
-        public string RefreshToken { get; set; } = null!;
+        public Guid TargetUserToken { get; set; }
     }
 }
-
