@@ -26,6 +26,8 @@ namespace InnNou.Infrastructure.Services
                 .Where(x => x.IsActive)
                 .AsQueryable();
 
+            query = query.Where(r => r.Level <= context.RoleLevel);
+
             var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
             var safePageSize = pageSize < 1 ? 10 : pageSize;
             var offset = (safePageNumber - 1) * safePageSize;
@@ -33,7 +35,7 @@ namespace InnNou.Infrastructure.Services
             var totalCount = await query.CountAsync(cancellationToken);
 
             var Roles = await query
-                .OrderBy(u => u.RoleId)
+                .OrderByDescending(r => r.Level)
                 .Skip(offset)
                 .Take(safePageSize)
                 .ToListAsync(cancellationToken);

@@ -11,10 +11,12 @@ namespace InnNou.Application.Handlers
     {
         private readonly IUserService _userService;
         private readonly AutoMapper.IMapper _mapper;
-        public CreateUserCommandHandler(IUserService userService, AutoMapper.IMapper mapper)
+        private readonly IRequestContext _context;
+        public CreateUserCommandHandler(IUserService userService, AutoMapper.IMapper mapper, IRequestContext requestContext)
         {
             _userService = userService;
             _mapper = mapper;
+            _context = requestContext;
         }
         public async Task<ApiResponse<CreateUserCommandResponse>> Handle(CreateUserCommandRequest request, CancellationToken cancellationToken)
         {
@@ -29,7 +31,7 @@ namespace InnNou.Application.Handlers
             }
 
 
-            var createdUser = await _userService.CreateUserAsync(userDto, cancellationToken);
+            var createdUser = await _userService.CreateUserAsync(userDto, _context, cancellationToken);
             if (createdUser == null)
                 return ApiResponse<CreateUserCommandResponse>.FailureResponse("USER_CREATION_FAILED", "User could not be created.");
             var response = _mapper.Map<CreateUserCommandResponse>(createdUser);

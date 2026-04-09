@@ -8,6 +8,8 @@ namespace InnNou.Application.Responses.Common
         public string FirstName { get; set; } = default!;
         public string LastName { get; set; } = default!;
         public string UserName { get; set; } = default!;
+        public int? HotelId { get; set; }
+        public int RoleId { get; set; }
         public bool IsActive { get; set; }
     }
 }

@@ -6,6 +6,6 @@ namespace InnNou.Application.Requests
 {
     public class DeleteUserCommandRequest : IRequest<ApiResponse<DeleteUserCommandResponse>>
     {
-        public int UserId { get; set; }
+        public Guid UserToken { get; set; }
     }
 }

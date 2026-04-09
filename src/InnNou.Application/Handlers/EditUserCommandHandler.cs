@@ -11,15 +11,17 @@ namespace InnNou.Application.Handlers
     {
         private readonly IUserService _userService;
         private readonly AutoMapper.IMapper _mapper;
-        public EditUserCommandHandler(IUserService userService, AutoMapper.IMapper mapper)
+        private readonly IRequestContext _context;
+        public EditUserCommandHandler(IUserService userService, AutoMapper.IMapper mapper, IRequestContext requestContext)
         {
             _userService = userService;
             _mapper = mapper;
+            _context = requestContext;
         }
         public async Task<ApiResponse<EditUserCommandResponse>> Handle(EditUserCommandRequest request, CancellationToken cancellationToken)
         {
             var userDto = _mapper.Map<UserDto>(request);
-            var updatedUser = await _userService.EditUserAsync(userDto, cancellationToken);
+            var updatedUser = await _userService.EditUserAsync(userDto, _context, cancellationToken);
             if (updatedUser == null)
                 return ApiResponse<EditUserCommandResponse>.FailureResponse("USER_EDIT_FAILED", "User could not be updated.");
             var response = _mapper.Map<EditUserCommandResponse>(updatedUser);
