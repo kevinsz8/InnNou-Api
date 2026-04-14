@@ -20,6 +20,9 @@ namespace InnNou.API.Endpoints
             app.MapPost("/auth/impersonate", Impersonate)
                 .RequireAuthorization()
                 .Produces<ApiResponse<ImpersonateResponse>>(200);
+
+            app.MapPost("/auth/stop-impersonate", StopImpersonate)
+                .RequireAuthorization();
         }
 
         private static async Task<ApiResponse<LoginResponse>> HandleLogin(
@@ -55,6 +58,15 @@ namespace InnNou.API.Endpoints
                 return ApiResponse<ImpersonateResponse>.FailureResponse(result.Errors);
 
             return result;
+        }
+
+        private static async Task<IResult> StopImpersonate(
+            IMediator mediator,
+            CancellationToken cancellationToken)
+        {
+            var response = await mediator.Send(new StopImpersonateCommandRequest(), cancellationToken);
+
+            return Results.Ok(response);
         }
     }
 }

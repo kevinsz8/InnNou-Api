@@ -14,6 +14,8 @@ namespace InnNou.Infrastructure.Services
         public bool IsImpersonating => ActorUserToken != EffectiveUserToken;
 
         public int RoleLevel { get; private set; }
+        public int ActorRoleLevel { get; private set; }
+        public int? ActorHotelId { get; private set; }
 
         public RequestContext(IHttpContextAccessor httpContextAccessor)
         {
@@ -69,6 +71,31 @@ namespace InnNou.Infrastructure.Services
             {
 
                 RoleLevel = 0;
+            }
+
+            var actorRoleLevelClaim = user.FindFirst("actorRoleLevel")?.Value;
+
+            if (!string.IsNullOrWhiteSpace(actorRoleLevelClaim) &&
+                int.TryParse(actorRoleLevelClaim, out var actorRoleLevel))
+            {
+                ActorRoleLevel = actorRoleLevel;
+            }
+            else
+            {
+                
+                ActorRoleLevel = RoleLevel;
+            }
+
+            var actorHotelClaim = user.FindFirst("actorHotelId")?.Value;
+
+            if (!string.IsNullOrWhiteSpace(actorHotelClaim) &&
+                int.TryParse(actorHotelClaim, out var actorHotelId))
+            {
+                ActorHotelId = actorHotelId;
+            }
+            else
+            {
+                ActorHotelId = HotelId;
             }
         }
     }

@@ -148,9 +148,53 @@ namespace InnNou.Infrastructure.Services
 
             var jwt = GenerateJwtToken(
                 actor,
-                actorRole.Level,
+                targetRole.Level,
                 target.HotelId,
-                impersonatedUserToken: target.UserToken
+                impersonatedUserToken: target.UserToken,
+                impersonatedEmail: target.Email,
+                actorRoleLevel: actorRole.Level,
+                actorHotelId: actor.HotelId
+            );
+
+            var refreshTokenValue = Guid.NewGuid().ToString();
+
+            _dbContext.RefreshTokens.Add(new RefreshToken
+            {
+                UserId = actor.UserId,
+                Token = refreshTokenValue,
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return new Login
+            {
+                Token = jwt,
+                RefreshToken = refreshTokenValue,
+                Email = actor.Email,
+                UserId = actor.UserId,
+                UserToken = actor.UserToken
+            };
+        }
+
+        public async Task<Login?> StopImpersonationAsync(Guid actorUserToken,  CancellationToken cancellationToken)
+        {
+            var actorData = await (from u in _dbContext.Users
+                                   join r in _dbContext.Roles on u.RoleId equals r.RoleId
+                                   where u.UserToken == actorUserToken
+                                   select new { User = u, Role = r })
+                                   .FirstOrDefaultAsync(cancellationToken);
+
+            if (actorData == null)
+                return null;
+
+            var actor = actorData.User;
+            var role = actorData.Role;
+
+            var jwt = GenerateJwtToken(
+                actor,
+                role.Level,
+                actor.HotelId
             );
 
             var refreshTokenValue = Guid.NewGuid().ToString();
@@ -175,11 +219,13 @@ namespace InnNou.Infrastructure.Services
         }
 
 
-        private string GenerateJwtToken(User user, int roleLevel, int? hotelId, Guid? impersonatedUserToken = null)
+        private string GenerateJwtToken(User user, int roleLevel, int? hotelId, Guid? impersonatedUserToken = null, string? impersonatedEmail = null, int? actorRoleLevel = null, int? actorHotelId = null)
         {
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserToken.ToString()),
+
+                new Claim(ClaimTypes.NameIdentifier, user.UserToken.ToString()),
 
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
 
@@ -190,7 +236,18 @@ namespace InnNou.Infrastructure.Services
                 claims.Add(new Claim("hotelId", hotelId.Value.ToString()));
 
             if (impersonatedUserToken.HasValue)
+            {
                 claims.Add(new Claim("impersonatedUserToken", impersonatedUserToken.Value.ToString()));
+
+                if (!string.IsNullOrEmpty(impersonatedEmail))
+                    claims.Add(new Claim("impersonatedEmail", impersonatedEmail));
+
+                if (actorRoleLevel.HasValue)
+                    claims.Add(new Claim("actorRoleLevel", actorRoleLevel.Value.ToString()));
+
+                if (actorHotelId.HasValue)
+                    claims.Add(new Claim("actorHotelId", actorHotelId.Value.ToString()));
+            }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

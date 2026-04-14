@@ -6,6 +6,8 @@
         Guid EffectiveUserToken { get; }
         int? HotelId { get; }
         int RoleLevel { get; }
+        int ActorRoleLevel { get; }
+        int? ActorHotelId { get; }
         bool IsAuthenticated { get; }
         bool IsImpersonating { get; }
     }
