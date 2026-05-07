@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -18,8 +19,14 @@ namespace InnNou.Infrastructure.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     HotelToken = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    LegalName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Code = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     ParentHotelId = table.Column<int>(type: "int", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "VARCHAR(150)", maxLength: 150, nullable: true),
+                    LastUpdatedUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastUpdatedBy = table.Column<string>(type: "VARCHAR(150)", maxLength: 150, nullable: true)
                 },
                 constraints: table =>
                 {
