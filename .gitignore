@@ -101,3 +101,8 @@ Migrations/*.Designer.cs
 
 *.tmp
 *.temp
+
+#Claude
+.claude
+.claude/*
+CLAUDE.md
