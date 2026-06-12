@@ -12,6 +12,8 @@ namespace InnNou.Infrastructure.Services;
 
 public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper) : IRoleService
 {
+    private sealed class RolePageRow : Role { public int TotalCount { get; set; } }
+
     public async Task<PagedResult<RoleDto>> GetRolesAsync(
         int pageNumber,
         int pageSize,
@@ -29,15 +31,14 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
         p.Add("@MaxLevel", context.RoleLevel);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
-        p.Add("@TotalCount", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        var roles = (await connection.QueryAsync<Role>(
+        var rows = (await connection.QueryAsync<RolePageRow>(
             "sp_Role_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
 
         return new PagedResult<RoleDto>
         {
-            Items = mapper.Map<List<RoleDto>>(roles),
-            TotalCount = p.Get<int>("@TotalCount"),
+            Items = mapper.Map<List<RoleDto>>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize
         };

@@ -1,4 +1,4 @@
-﻿using InnNou.Application.Common;
+using InnNou.Application.Common;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
@@ -9,6 +9,7 @@ namespace InnNou.Infrastructure.Services
         public Guid ActorUserToken { get; private set; }
         public Guid EffectiveUserToken { get; private set; }
         public int? HotelId { get; private set; }
+        public int? SupplierId { get; private set; }
 
         public bool IsAuthenticated { get; private set; }
         public bool IsImpersonating => ActorUserToken != EffectiveUserToken;
@@ -30,7 +31,6 @@ namespace InnNou.Infrastructure.Services
             var user = httpContext.User;
             IsAuthenticated = true;
 
-
             var actorClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
                              ?? user.FindFirst("sub")?.Value;
 
@@ -38,7 +38,6 @@ namespace InnNou.Infrastructure.Services
                 throw new UnauthorizedAccessException("Invalid or missing user token");
 
             ActorUserToken = actorToken;
-
 
             var impersonatedClaim = user.FindFirst("impersonatedUserToken")?.Value;
 
@@ -53,50 +52,30 @@ namespace InnNou.Infrastructure.Services
             }
 
             var hotelClaim = user.FindFirst("hotelId")?.Value;
-
-            if (!string.IsNullOrWhiteSpace(hotelClaim) &&
-                int.TryParse(hotelClaim, out var hotelId))
-            {
+            if (!string.IsNullOrWhiteSpace(hotelClaim) && int.TryParse(hotelClaim, out var hotelId))
                 HotelId = hotelId;
-            }
+
+            var supplierClaim = user.FindFirst("supplierId")?.Value;
+            if (!string.IsNullOrWhiteSpace(supplierClaim) && int.TryParse(supplierClaim, out var supplierId))
+                SupplierId = supplierId;
 
             var roleLevelClaim = user.FindFirst("roleLevel")?.Value;
-
-            if (!string.IsNullOrWhiteSpace(roleLevelClaim) &&
-                int.TryParse(roleLevelClaim, out var roleLevel))
-            {
+            if (!string.IsNullOrWhiteSpace(roleLevelClaim) && int.TryParse(roleLevelClaim, out var roleLevel))
                 RoleLevel = roleLevel;
-            }
             else
-            {
-
                 RoleLevel = 0;
-            }
 
             var actorRoleLevelClaim = user.FindFirst("actorRoleLevel")?.Value;
-
-            if (!string.IsNullOrWhiteSpace(actorRoleLevelClaim) &&
-                int.TryParse(actorRoleLevelClaim, out var actorRoleLevel))
-            {
+            if (!string.IsNullOrWhiteSpace(actorRoleLevelClaim) && int.TryParse(actorRoleLevelClaim, out var actorRoleLevel))
                 ActorRoleLevel = actorRoleLevel;
-            }
             else
-            {
-                
                 ActorRoleLevel = RoleLevel;
-            }
 
             var actorHotelClaim = user.FindFirst("actorHotelId")?.Value;
-
-            if (!string.IsNullOrWhiteSpace(actorHotelClaim) &&
-                int.TryParse(actorHotelClaim, out var actorHotelId))
-            {
+            if (!string.IsNullOrWhiteSpace(actorHotelClaim) && int.TryParse(actorHotelClaim, out var actorHotelId))
                 ActorHotelId = actorHotelId;
-            }
             else
-            {
                 ActorHotelId = HotelId;
-            }
         }
     }
 }

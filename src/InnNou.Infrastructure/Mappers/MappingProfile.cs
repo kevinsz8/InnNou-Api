@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using InnNou.Domain.Dtos;
 using InnNou.Infrastructure.Repositories.DbEntities;
 
@@ -8,7 +8,6 @@ namespace InnNou.Infrastructure.Mappers
     {
         public MappingProfile()
         {
-            //CreateMap<Tenant, TenantDto>().ReverseMap();
             CreateMap<User, UserDto>().ReverseMap();
             CreateMap<Hotel, HotelDto>().ReverseMap();
             CreateMap<Role, RoleDto>().ReverseMap();

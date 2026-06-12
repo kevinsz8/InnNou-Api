@@ -13,8 +13,13 @@ namespace InnNou.Infrastructure.Services;
 
 public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper) : IUserService
 {
+    private sealed class UserPageRow : User { public int TotalCount { get; set; } }
+
     public async Task<UserDto?> CreateUserAsync(UserDto userDto, IRequestContext context, CancellationToken cancellationToken)
     {
+        if (userDto.HotelId.HasValue && userDto.SupplierId.HasValue)
+            throw new InvalidOperationException("A user cannot belong to both a hotel and a supplier");
+
         await using var connection = connectionFactory.CreateConnection();
 
         var role = await connection.QueryFirstOrDefaultAsync<Role>(
@@ -25,11 +30,14 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
         if (role is null)
             throw new Exception("Invalid role");
 
-        if (role.Level > context.RoleLevel)
+        if (role.RoleLevel > context.RoleLevel)
             throw new UnauthorizedAccessException("Cannot assign higher role");
 
         if (context.RoleLevel < 100)
         {
+            if (userDto.SupplierId.HasValue)
+                throw new UnauthorizedAccessException("Only superadmin can create supplier users");
+
             if (!context.HotelId.HasValue)
                 throw new UnauthorizedAccessException("Invalid hotel context");
 
@@ -52,12 +60,16 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 UserToken = Guid.NewGuid(),
                 userDto.FirstName,
                 userDto.LastName,
-                userDto.Email,
-                userDto.UserName,
+                Email = userDto.Email,
+                NormalizedEmail = userDto.Email.ToUpperInvariant(),
+                UserName = userDto.UserName,
+                NormalizedUserName = userDto.UserName.ToUpperInvariant(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password),
                 userDto.RoleId,
                 userDto.HotelId,
+                userDto.SupplierId,
                 IsActive = true,
+                IsDeleted = false,
                 CreatedUtc = DateTime.UtcNow,
                 CreatedBy = context.ActorUserToken.ToString()
             },
@@ -82,20 +94,19 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
         var p = new DynamicParameters();
         p.Add("@ContextRoleLevel", context.RoleLevel);
         p.Add("@RootHotelId", context.RoleLevel >= 100 ? (int?)null : context.HotelId);
-        p.Add("@EffectiveUserToken", context.RoleLevel <= 10 ? context.EffectiveUserToken : (Guid?)null);
+        p.Add("@SupplierId", context.RoleLevel < 100 && context.SupplierId.HasValue ? context.SupplierId : (int?)null);
         p.Add("@SearchField", string.IsNullOrWhiteSpace(searchField) ? null : searchField.Trim().ToLower());
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
-        p.Add("@TotalCount", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        var users = (await connection.QueryAsync<User>(
+        var rows = (await connection.QueryAsync<UserPageRow>(
             "sp_User_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
 
         return new PagedResult<UserDto>
         {
-            Items = mapper.Map<List<UserDto>>(users),
-            TotalCount = p.Get<int>("@TotalCount"),
+            Items = mapper.Map<List<UserDto>>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize
         };
@@ -141,21 +152,26 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
             if (newRole is null)
                 throw new Exception("Invalid role");
 
-            if (newRole.Level > context.RoleLevel)
+            if (newRole.RoleLevel > context.RoleLevel)
                 throw new UnauthorizedAccessException("Cannot assign higher role");
 
             newRoleId = newRole.RoleId;
         }
+
+        var newEmail = !string.IsNullOrWhiteSpace(request.Email) ? request.Email : existing.Email;
+        var newUserName = !string.IsNullOrWhiteSpace(request.UserName) ? request.UserName : existing.UserName;
 
         var updatedUser = await connection.QueryFirstOrDefaultAsync<User>(
             "sp_User_Update",
             new
             {
                 UserToken = request.UserToken,
-                Email = !string.IsNullOrWhiteSpace(request.Email) ? request.Email : existing.Email,
+                Email = newEmail,
+                NormalizedEmail = newEmail.ToUpperInvariant(),
                 FirstName = !string.IsNullOrWhiteSpace(request.FirstName) ? request.FirstName : existing.FirstName,
                 LastName = !string.IsNullOrWhiteSpace(request.LastName) ? request.LastName : existing.LastName,
-                UserName = !string.IsNullOrWhiteSpace(request.UserName) ? request.UserName : existing.UserName,
+                UserName = newUserName,
+                NormalizedUserName = newUserName.ToUpperInvariant(),
                 PasswordHash = !string.IsNullOrWhiteSpace(request.Password)
                     ? BCrypt.Net.BCrypt.HashPassword(request.Password)
                     : existing.PasswordHash,
@@ -198,9 +214,20 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 throw new UnauthorizedAccessException("Cannot delete user from another hotel");
         }
 
+        var now = DateTime.UtcNow;
+        var actor = context.ActorUserToken.ToString();
+
         await connection.ExecuteAsync(
             "sp_User_SoftDelete",
-            new { UserToken = userToken, LastUpdatedUtc = DateTime.UtcNow, LastUpdatedBy = context.ActorUserToken.ToString() },
+            new
+            {
+                UserToken = userToken,
+                IsDeleted = true,
+                DeletedUtc = now,
+                DeletedBy = actor,
+                LastUpdatedUtc = now,
+                LastUpdatedBy = actor
+            },
             commandType: CommandType.StoredProcedure);
 
         return true;
@@ -212,7 +239,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
 
         var result = await connection.ExecuteScalarAsync<int>(
             "sp_User_ExistsByEmail",
-            new { Email = email },
+            new { NormalizedEmail = email.ToUpperInvariant() },
             commandType: CommandType.StoredProcedure);
 
         return result == 1;

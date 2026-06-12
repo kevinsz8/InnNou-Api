@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using InnNou.Application.Responses.Common;
 
 namespace InnNou.Application

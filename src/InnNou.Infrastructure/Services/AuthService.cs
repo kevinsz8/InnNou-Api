@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace InnNou.Infrastructure.Services;
@@ -20,25 +21,43 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         var user = await connection.QueryFirstOrDefaultAsync<UserWithRoleResult>(
             "sp_Auth_GetUserByEmail",
-            new { Email = email },
+            new { Email = email.ToUpperInvariant() },
             commandType: CommandType.StoredProcedure);
 
-        if (user is null || !user.IsActive || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        if (user is null || user.IsDeleted || !user.IsActive)
             return null;
 
-        var jwt = GenerateJwtToken(user, user.RoleLevel, user.HotelId);
-        var refreshTokenValue = Guid.NewGuid().ToString();
+        if (user.LockedUntilUtc.HasValue && user.LockedUntilUtc.Value > DateTime.UtcNow)
+            return null;
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            await connection.ExecuteAsync(
+                "sp_Auth_OnLoginFailure",
+                new { UserId = user.UserId },
+                commandType: CommandType.StoredProcedure);
+            return null;
+        }
+
+        await connection.ExecuteAsync(
+            "sp_Auth_OnLoginSuccess",
+            new { UserId = user.UserId, LastLoginUtc = DateTime.UtcNow },
+            commandType: CommandType.StoredProcedure);
+
+        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.HotelId, user.SupplierId, user.RoleLevel);
+
+        var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
 
         await connection.ExecuteAsync(
             "sp_Auth_InsertRefreshToken",
-            new { UserId = user.UserId, Token = refreshTokenValue, ExpiresAt = now.AddDays(7), CreatedAt = now },
+            new { RefreshTokenToken = tokenId, UserId = user.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
             commandType: CommandType.StoredProcedure);
 
         return new Login
         {
             Token = jwt,
-            RefreshToken = refreshTokenValue,
+            RefreshToken = plainToken,
             Email = user.Email,
             UserId = user.UserId,
             UserToken = user.UserToken
@@ -49,15 +68,17 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
     {
         await using var connection = connectionFactory.CreateConnection();
 
+        var tokenHash = HashToken(refreshToken);
+
         var tokenData = await connection.QueryFirstOrDefaultAsync<RefreshTokenWithUserRoleResult>(
             "sp_Auth_GetRefreshTokenData",
-            new { Token = refreshToken },
+            new { TokenHash = tokenHash },
             commandType: CommandType.StoredProcedure);
 
-        if (tokenData is null || tokenData.IsRevoked || tokenData.ExpiresAt < DateTime.UtcNow)
+        if (tokenData is null || tokenData.IsRevoked || tokenData.ExpiresUtc < DateTime.UtcNow)
             return null;
 
-        var newRefreshTokenValue = Guid.NewGuid().ToString();
+        var (newPlainToken, newTokenHash, newTokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
 
         await connection.OpenAsync(cancellationToken);
@@ -66,13 +87,13 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         {
             await connection.ExecuteAsync(
                 "sp_Auth_RevokeRefreshToken",
-                new { Token = refreshToken, RevokedAt = now, ReplacedByToken = newRefreshTokenValue },
+                new { TokenHash = tokenHash, RevokedUtc = now, ReplacedByToken = newTokenId },
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
             await connection.ExecuteAsync(
                 "sp_Auth_InsertRefreshToken",
-                new { UserId = tokenData.UserId, Token = newRefreshTokenValue, ExpiresAt = now.AddDays(7), CreatedAt = now },
+                new { RefreshTokenToken = newTokenId, UserId = tokenData.UserId, TokenHash = newTokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
@@ -84,12 +105,12 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             throw;
         }
 
-        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.HotelId, tokenData.RoleLevel);
+        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.HotelId, tokenData.SupplierId, tokenData.RoleLevel);
 
         return new Login
         {
             Token = jwt,
-            RefreshToken = newRefreshTokenValue,
+            RefreshToken = newPlainToken,
             Email = tokenData.Email,
             UserId = tokenData.UserId,
             UserToken = tokenData.UserToken
@@ -116,7 +137,14 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         if (actor is null || target is null)
             return null;
 
+        if (!actor.CanImpersonate)
+            return null;
+
         if (actor.RoleLevel <= target.RoleLevel)
+            return null;
+
+        // Supplier users can only be impersonated by superadmin
+        if (target.SupplierId.HasValue && !target.HotelId.HasValue && actor.RoleLevel < 100)
             return null;
 
         if (actor.RoleLevel < 100 && actor.HotelId.HasValue)
@@ -130,25 +158,30 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
                 return null;
         }
 
+        await connection.ExecuteAsync(
+            "sp_Auth_InsertImpersonationSession",
+            new { ActorUserId = actor.UserId, TargetUserId = target.UserId, StartedUtc = DateTime.UtcNow },
+            commandType: CommandType.StoredProcedure);
+
         var jwt = GenerateJwtToken(
-            actor.UserToken, actor.Email, target.HotelId, target.RoleLevel,
+            actor.UserToken, actor.Email, target.HotelId, target.SupplierId, target.RoleLevel,
             impersonatedUserToken: target.UserToken,
             impersonatedEmail: target.Email,
             actorRoleLevel: actor.RoleLevel,
             actorHotelId: actor.HotelId);
 
-        var refreshTokenValue = Guid.NewGuid().ToString();
+        var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
 
         await connection.ExecuteAsync(
             "sp_Auth_InsertRefreshToken",
-            new { UserId = actor.UserId, Token = refreshTokenValue, ExpiresAt = now.AddDays(7), CreatedAt = now },
+            new { RefreshTokenToken = tokenId, UserId = actor.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
             commandType: CommandType.StoredProcedure);
 
         return new Login
         {
             Token = jwt,
-            RefreshToken = refreshTokenValue,
+            RefreshToken = plainToken,
             Email = actor.Email,
             UserId = actor.UserId,
             UserToken = actor.UserToken
@@ -167,19 +200,25 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         if (actor is null)
             return null;
 
-        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.HotelId, actor.RoleLevel);
-        var refreshTokenValue = Guid.NewGuid().ToString();
+        await connection.ExecuteAsync(
+            "sp_Auth_EndImpersonationSession",
+            new { ActorUserId = actor.UserId, EndedUtc = DateTime.UtcNow },
+            commandType: CommandType.StoredProcedure);
+
+        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.HotelId, actor.SupplierId, actor.RoleLevel);
+
+        var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
 
         await connection.ExecuteAsync(
             "sp_Auth_InsertRefreshToken",
-            new { UserId = actor.UserId, Token = refreshTokenValue, ExpiresAt = now.AddDays(7), CreatedAt = now },
+            new { RefreshTokenToken = tokenId, UserId = actor.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
             commandType: CommandType.StoredProcedure);
 
         return new Login
         {
             Token = jwt,
-            RefreshToken = refreshTokenValue,
+            RefreshToken = plainToken,
             Email = actor.Email,
             UserId = actor.UserId,
             UserToken = actor.UserToken
@@ -190,6 +229,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         Guid userToken,
         string email,
         int? hotelId,
+        int? supplierId,
         int roleLevel,
         Guid? impersonatedUserToken = null,
         string? impersonatedEmail = null,
@@ -206,6 +246,9 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         if (hotelId.HasValue)
             claims.Add(new Claim("hotelId", hotelId.Value.ToString()));
+
+        if (supplierId.HasValue)
+            claims.Add(new Claim("supplierId", supplierId.Value.ToString()));
 
         if (impersonatedUserToken.HasValue)
         {
@@ -234,7 +277,17 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    // Overload for RefreshToken path where we only have the flat scalar fields (no UserWithRoleResult).
-    private string GenerateJwtToken(UserWithRoleResult user, int roleLevel, int? hotelId)
-        => GenerateJwtToken(user.UserToken, user.Email, hotelId, roleLevel);
+    private static (string plainToken, string tokenHash, Guid tokenId) GenerateRefreshToken()
+    {
+        var tokenId = Guid.NewGuid();
+        var plainToken = tokenId.ToString("N");
+        var tokenHash = HashToken(plainToken);
+        return (plainToken, tokenHash, tokenId);
+    }
+
+    private static string HashToken(string token)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
 }

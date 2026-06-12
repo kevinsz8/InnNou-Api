@@ -12,6 +12,8 @@ namespace InnNou.Infrastructure.Services;
 
 public class HotelService(IDbConnectionFactory connectionFactory, IMapper mapper) : IHotelService
 {
+    private sealed class HotelPageRow : Hotel { public int TotalCount { get; set; } }
+
     public async Task<PagedResult<HotelDto>> GetHotelsAsync(
         int pageNumber,
         int pageSize,
@@ -30,15 +32,14 @@ public class HotelService(IDbConnectionFactory connectionFactory, IMapper mapper
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
-        p.Add("@TotalCount", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        var hotels = (await connection.QueryAsync<Hotel>(
+        var rows = (await connection.QueryAsync<HotelPageRow>(
             "sp_Hotel_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
 
         return new PagedResult<HotelDto>
         {
-            Items = mapper.Map<List<HotelDto>>(hotels),
-            TotalCount = p.Get<int>("@TotalCount"),
+            Items = mapper.Map<List<HotelDto>>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize
         };
