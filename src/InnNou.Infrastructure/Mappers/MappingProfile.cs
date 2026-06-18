@@ -11,6 +11,7 @@ namespace InnNou.Infrastructure.Mappers
             CreateMap<User, UserDto>().ReverseMap();
             CreateMap<Hotel, HotelDto>().ReverseMap();
             CreateMap<Role, RoleDto>().ReverseMap();
+            CreateMap<Supplier, SupplierDto>().ReverseMap();
         }
     }
 }

@@ -29,6 +29,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IHotelService, HotelService>();
             services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<ISupplierService, SupplierService>();
 
             return services;
         }
