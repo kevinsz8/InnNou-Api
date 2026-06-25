@@ -14,6 +14,10 @@ namespace InnNou.Application
             CreateMap<InnNou.Domain.Dtos.UserDto, InnNou.Application.Requests.EditUserCommandRequest>().ReverseMap();
 
             CreateMap<InnNou.Domain.Dtos.HotelDto, Hotel>().ReverseMap();
+            CreateMap<InnNou.Domain.Dtos.HotelDto, InnNou.Application.Requests.CreateHotelCommandRequest>().ReverseMap();
+            CreateMap<InnNou.Domain.Dtos.HotelDto, InnNou.Application.Responses.CreateHotelCommandResponse>().ReverseMap();
+            CreateMap<InnNou.Domain.Dtos.HotelDto, InnNou.Application.Requests.EditHotelCommandRequest>().ReverseMap();
+            CreateMap<InnNou.Domain.Dtos.HotelDto, InnNou.Application.Responses.EditHotelCommandResponse>().ReverseMap();
 
             CreateMap<InnNou.Domain.Dtos.RoleDto, Role>().ReverseMap();
 

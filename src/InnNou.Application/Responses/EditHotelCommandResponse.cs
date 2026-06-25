@@ -1,11 +1,10 @@
-﻿namespace InnNou.Domain.Dtos
+namespace InnNou.Application.Responses
 {
-    public class HotelDto
+    public class EditHotelCommandResponse
     {
         public int HotelId { get; set; }
         public Guid HotelToken { get; set; }
         public string Name { get; set; } = default!;
-        public string NormalizedName { get; set; } = default!;
         public string? LegalName { get; set; }
         public string? Code { get; set; }
         public int? ParentHotelId { get; set; }
@@ -13,6 +12,5 @@
         public string? CurrencyCode { get; set; }
         public string? LanguageCode { get; set; }
         public bool IsActive { get; set; }
-        public bool IsDeleted { get; set; }
     }
 }
