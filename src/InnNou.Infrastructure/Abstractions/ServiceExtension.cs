@@ -1,8 +1,9 @@
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
+using InnNou.Application.Mapping;
 using InnNou.Application.Persistence;
 using InnNou.Domain.Persistence;
-using InnNou.Infrastructure.Mappers;
+using InnNou.Infrastructure.Mapping;
 using InnNou.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +18,13 @@ namespace InnNou.Infrastructure.Abstractions
         {
             ArgumentNullException.ThrowIfNull(configuration);
 
-            services.AddAutoMapper(options => options.AddProfile(typeof(MappingProfile)));
+            services.AddSingleton<InnNou.Shared.Mapping.IMapper>(_ =>
+            {
+                var mapper = new InnNou.Shared.Mapping.Mapper();
+                ApplicationMappings.Register(mapper);
+                InfrastructureMappings.Register(mapper);
+                return mapper;
+            });
 
             var connectionString = configuration.GetConnectionString("InnNouConnection")
                 ?? throw new InvalidOperationException("Connection string 'InnNouConnection' is missing.");

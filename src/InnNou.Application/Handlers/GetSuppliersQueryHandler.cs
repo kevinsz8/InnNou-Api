@@ -3,6 +3,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Application.Responses.Common;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -10,10 +11,10 @@ namespace InnNou.Application.Handlers
     public class GetSuppliersQueryHandler : IRequestHandler<GetSuppliersQueryRequest, ApiResponse<GetSuppliersQueryResponse>>
     {
         private readonly ISupplierService _supplierService;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
         private readonly IRequestContext _context;
 
-        public GetSuppliersQueryHandler(ISupplierService supplierService, AutoMapper.IMapper mapper, IRequestContext context)
+        public GetSuppliersQueryHandler(ISupplierService supplierService, IMapper mapper, IRequestContext context)
         {
             _supplierService = supplierService;
             _mapper = mapper;
@@ -30,7 +31,7 @@ namespace InnNou.Application.Handlers
             var totalPages = paged.TotalPages;
             var response = new GetSuppliersQueryResponse
             {
-                Suppliers = _mapper.Map<List<Supplier>>(paged.Items),
+                Suppliers = _mapper.MapList<Supplier>(paged.Items),
                 TotalCount = paged.TotalCount,
                 PageNumber = paged.PageNumber,
                 PageSize = paged.PageSize,

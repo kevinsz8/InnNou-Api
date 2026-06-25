@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" />
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
@@ -20,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\InnNou.Application\InnNou.Application.csproj" />
     <ProjectReference Include="..\InnNou.Domain\InnNou.Domain.csproj" />
+    <ProjectReference Include="..\InnNou.Shared\InnNou.Shared.csproj" />
   </ItemGroup>
 
 </Project>

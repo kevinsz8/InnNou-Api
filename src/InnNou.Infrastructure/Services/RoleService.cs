@@ -1,4 +1,3 @@
-using AutoMapper;
 using Dapper;
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
@@ -6,6 +5,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Mapping;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -49,7 +49,7 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
 
         return new PagedResult<RoleDto>
         {
-            Items = mapper.Map<List<RoleDto>>(rows),
+            Items = mapper.MapList<RoleDto>(rows),
             TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize

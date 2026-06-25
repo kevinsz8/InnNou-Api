@@ -3,6 +3,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -10,10 +11,10 @@ namespace InnNou.Application.Handlers
     public class CreateSupplierCommandHandler : IRequestHandler<CreateSupplierCommandRequest, ApiResponse<CreateSupplierCommandResponse>>
     {
         private readonly ISupplierService _supplierService;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
         private readonly IRequestContext _context;
 
-        public CreateSupplierCommandHandler(ISupplierService supplierService, AutoMapper.IMapper mapper, IRequestContext context)
+        public CreateSupplierCommandHandler(ISupplierService supplierService, IMapper mapper, IRequestContext context)
         {
             _supplierService = supplierService;
             _mapper = mapper;

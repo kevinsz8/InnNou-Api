@@ -3,6 +3,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -10,10 +11,10 @@ namespace InnNou.Application.Handlers
     public class CreateHotelCommandHandler : IRequestHandler<CreateHotelCommandRequest, ApiResponse<CreateHotelCommandResponse>>
     {
         private readonly IHotelService _hotelService;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
         private readonly IRequestContext _context;
 
-        public CreateHotelCommandHandler(IHotelService hotelService, AutoMapper.IMapper mapper, IRequestContext context)
+        public CreateHotelCommandHandler(IHotelService hotelService, IMapper mapper, IRequestContext context)
         {
             _hotelService = hotelService;
             _mapper = mapper;

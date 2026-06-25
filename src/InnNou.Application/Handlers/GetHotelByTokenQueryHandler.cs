@@ -3,6 +3,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Application.Responses.Common;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -11,9 +12,9 @@ namespace InnNou.Application.Handlers
     {
         private readonly IHotelService _hotelService;
         private readonly IRequestContext _context;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
 
-        public GetHotelByTokenQueryHandler(IHotelService hotelService, IRequestContext context, AutoMapper.IMapper mapper)
+        public GetHotelByTokenQueryHandler(IHotelService hotelService, IRequestContext context, IMapper mapper)
         {
             _hotelService = hotelService;
             _context = context;

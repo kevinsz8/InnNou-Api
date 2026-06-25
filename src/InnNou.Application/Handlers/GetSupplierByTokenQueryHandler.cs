@@ -3,6 +3,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Application.Responses.Common;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -11,9 +12,9 @@ namespace InnNou.Application.Handlers
     {
         private readonly ISupplierService _supplierService;
         private readonly IRequestContext _context;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
 
-        public GetSupplierByTokenQueryHandler(ISupplierService supplierService, IRequestContext context, AutoMapper.IMapper mapper)
+        public GetSupplierByTokenQueryHandler(ISupplierService supplierService, IRequestContext context, IMapper mapper)
         {
             _supplierService = supplierService;
             _context = context;

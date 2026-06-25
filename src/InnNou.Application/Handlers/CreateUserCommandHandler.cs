@@ -3,6 +3,7 @@ using InnNou.Application.Persistence;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -10,9 +11,9 @@ namespace InnNou.Application.Handlers
     public class CreateUserCommandHandler : IRequestHandler<CreateUserCommandRequest, ApiResponse<CreateUserCommandResponse>>
     {
         private readonly IUserService _userService;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
         private readonly IRequestContext _context;
-        public CreateUserCommandHandler(IUserService userService, AutoMapper.IMapper mapper, IRequestContext requestContext)
+        public CreateUserCommandHandler(IUserService userService, IMapper mapper, IRequestContext requestContext)
         {
             _userService = userService;
             _mapper = mapper;
@@ -22,14 +23,12 @@ namespace InnNou.Application.Handlers
         {
             var userDto = _mapper.Map<UserDto>(request);
 
-            //validate if user email exists
             var userExists = await _userService.IsUserExists(request.Email, cancellationToken);
 
             if (userExists)
             {
                 return ApiResponse<CreateUserCommandResponse>.FailureResponse("USER_ALREADY_EXISTS", "User already exists.");
             }
-
 
             var createdUser = await _userService.CreateUserAsync(userDto, _context, cancellationToken);
             if (createdUser == null)

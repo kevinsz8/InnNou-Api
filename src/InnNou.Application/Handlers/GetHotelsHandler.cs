@@ -1,8 +1,9 @@
-﻿using InnNou.Application.Common;
+using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Application.Responses.Common;
+using InnNou.Shared.Mapping;
 using MediatR;
 
 namespace InnNou.Application.Handlers
@@ -11,9 +12,9 @@ namespace InnNou.Application.Handlers
     {
         private readonly IHotelService _hotelService;
         private readonly IRequestContext _context;
-        private readonly AutoMapper.IMapper _mapper;
+        private readonly IMapper _mapper;
 
-        public GetHotelsHandler(IHotelService hotelService, IRequestContext context, AutoMapper.IMapper mapper)
+        public GetHotelsHandler(IHotelService hotelService, IRequestContext context, IMapper mapper)
         {
             _hotelService = hotelService;
             _context = context;
@@ -23,7 +24,7 @@ namespace InnNou.Application.Handlers
         public async Task<ApiResponse<GetHotelsQueryResponse>> Handle(GetHotelsQueryRequest request, CancellationToken cancellationToken)
         {
             var resultHotels = await _hotelService.GetHotelsAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, _context, cancellationToken);
-            var hotels = _mapper.Map<List<Hotel>>(resultHotels.Items);
+            var hotels = _mapper.MapList<Hotel>(resultHotels.Items);
             var totalPages = resultHotels.TotalPages;
             var response = new GetHotelsQueryResponse
             {
@@ -37,10 +38,7 @@ namespace InnNou.Application.Handlers
                 NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
                 PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
             };
-            return ApiResponse<GetHotelsQueryResponse>.SuccessResponse(new GetHotelsQueryResponse
-            {
-                Hotels = hotels
-            });
+            return ApiResponse<GetHotelsQueryResponse>.SuccessResponse(response);
         }
     }
 }
