@@ -68,6 +68,24 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         return result == 1;
     }
 
+    public async Task<SupplierDto?> GetSupplierByTokenAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<Supplier>(
+            "sp_Supplier_GetByToken",
+            new { SupplierToken = supplierToken },
+            commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        if (context.RoleLevel < 100 && context.SupplierId != existing.SupplierId)
+            return null;
+
+        return mapper.Map<SupplierDto>(existing);
+    }
+
     public async Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < 100)

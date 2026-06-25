@@ -233,6 +233,43 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
         return true;
     }
 
+    public async Task<UserDto?> GetUserByTokenAsync(Guid userToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<UserWithRoleResult>(
+            "sp_User_GetByToken",
+            new { UserToken = userToken },
+            commandType: CommandType.StoredProcedure);
+
+        if (existing is null || existing.IsDeleted)
+            return null;
+
+        if (context.RoleLevel < 100)
+        {
+            if (context.SupplierId.HasValue)
+            {
+                if (existing.SupplierId != context.SupplierId)
+                    return null;
+            }
+            else if (context.HotelId.HasValue)
+            {
+                if (!existing.HotelId.HasValue)
+                    return null;
+
+                var canAccess = await connection.ExecuteScalarAsync<int>(
+                    "sp_Hotel_IsInHierarchy",
+                    new { RootHotelId = context.HotelId.Value, TargetHotelId = existing.HotelId.Value },
+                    commandType: CommandType.StoredProcedure);
+
+                if (canAccess != 1)
+                    return null;
+            }
+        }
+
+        return mapper.Map<UserDto>(existing);
+    }
+
     public async Task<bool> IsUserExists(string email, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();

@@ -17,6 +17,9 @@ namespace InnNou.API.Endpoints
             group.MapPost("/getSuppliers", HandleGetSuppliers)
                 .Produces<ApiResponse<GetSuppliersQueryResponse>>(200);
 
+            group.MapPost("/getSupplierByToken", HandleGetSupplierByToken)
+                .Produces<ApiResponse<GetSupplierByTokenQueryResponse>>(200);
+
             group.MapPost("/createSupplier", HandleCreateSupplier)
                 .Produces<ApiResponse<CreateSupplierCommandResponse>>(201);
 
@@ -25,6 +28,17 @@ namespace InnNou.API.Endpoints
 
             group.MapPost("/deleteSupplier", HandleDeleteSupplier)
                 .Produces<ApiResponse<DeleteSupplierCommandResponse>>(200);
+        }
+
+        private static async Task<ApiResponse<GetSupplierByTokenQueryResponse>> HandleGetSupplierByToken(
+            [FromBody] GetSupplierByTokenQueryRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            if (!result.Success)
+                return ApiResponse<GetSupplierByTokenQueryResponse>.FailureResponse(result.Errors);
+            return result;
         }
 
         private static async Task<ApiResponse<GetSuppliersQueryResponse>> HandleGetSuppliers(

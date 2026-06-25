@@ -17,6 +17,20 @@ namespace InnNou.API.Endpoints
 
             group.MapPost("/getRoles", HandleGetRoles)
                 .Produces<ApiResponse<GetRolesQueryResponse>>(200);
+
+            group.MapPost("/getRoleByToken", HandleGetRoleByToken)
+                .Produces<ApiResponse<GetRoleByTokenQueryResponse>>(200);
+        }
+
+        private static async Task<ApiResponse<GetRoleByTokenQueryResponse>> HandleGetRoleByToken(
+            [FromBody] GetRoleByTokenQueryRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            if (!result.Success)
+                return ApiResponse<GetRoleByTokenQueryResponse>.FailureResponse(result.Errors);
+            return result;
         }
 
         private static async Task<ApiResponse<GetRolesQueryResponse>> HandleGetRoles(

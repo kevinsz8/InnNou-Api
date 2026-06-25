@@ -20,6 +20,9 @@ namespace InnNou.API.Endpoints
             group.MapPost("/getUsers", HandleGetUsers)
                 .Produces<ApiResponse<GetUsersQueryResponse>>(200);
 
+            group.MapPost("/getUserByToken", HandleGetUserByToken)
+                .Produces<ApiResponse<GetUserByTokenQueryResponse>>(200);
+
             group.MapPost("/editUser", HandleEditUser)
                 .Produces<ApiResponse<EditUserCommandResponse>>(200);
 
@@ -35,6 +38,17 @@ namespace InnNou.API.Endpoints
             var result = await mediator.Send(request, ct);
             if (!result.Success)
                 return ApiResponse<CreateUserCommandResponse>.FailureResponse(result.Errors);
+            return result;
+        }
+
+        private static async Task<ApiResponse<GetUserByTokenQueryResponse>> HandleGetUserByToken(
+            [FromBody] GetUserByTokenQueryRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            if (!result.Success)
+                return ApiResponse<GetUserByTokenQueryResponse>.FailureResponse(result.Errors);
             return result;
         }
 
