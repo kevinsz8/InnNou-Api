@@ -11,7 +11,7 @@ public class UnitConversionRateEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/catalog/unit-conversion-rates").RequireAuthorization();
+        var group = app.MapGroup("/unit-conversion-rates").RequireAuthorization();
 
         group.MapPost("/getAll", HandleGetAll).Produces<ApiResponse<GetUnitConversionRatesQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetUnitConversionRateByTokenQueryResponse>>(200);
@@ -35,7 +35,7 @@ public class UnitConversionRateEndpoints : ICarterModule
     private static async Task<IResult> HandleCreate([FromBody] CreateUnitConversionRateCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/catalog/unit-conversion-rates", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/unit-conversion-rates", result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditUnitConversionRateCommandRequest request, ISender sender, CancellationToken cancellationToken)

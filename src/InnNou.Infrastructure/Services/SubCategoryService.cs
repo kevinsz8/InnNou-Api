@@ -44,6 +44,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
     {
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@SubCategoryToken", Guid.NewGuid());
         p.Add("@CategoryId", dto.CategoryId);
         p.Add("@Code", dto.Code);
         p.Add("@CreatedBy", "API");

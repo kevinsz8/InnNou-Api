@@ -11,7 +11,7 @@ public class SubFamilyEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/catalog/sub-families").RequireAuthorization();
+        var group = app.MapGroup("/sub-families").RequireAuthorization();
 
         group.MapPost("/getAll", HandleGetAll).Produces<ApiResponse<GetSubFamiliesQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetSubFamilyByTokenQueryResponse>>(200);
@@ -35,7 +35,7 @@ public class SubFamilyEndpoints : ICarterModule
     private static async Task<IResult> HandleCreate([FromBody] CreateSubFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/catalog/sub-families", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/sub-families", result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditSubFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)

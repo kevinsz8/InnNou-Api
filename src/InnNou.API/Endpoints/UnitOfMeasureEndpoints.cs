@@ -11,7 +11,7 @@ public class UnitOfMeasureEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/catalog/units-of-measure").RequireAuthorization();
+        var group = app.MapGroup("/units-of-measure").RequireAuthorization();
 
         group.MapPost("/getAll", HandleGetAll).Produces<ApiResponse<GetUnitsOfMeasureQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetUnitOfMeasureByTokenQueryResponse>>(200);
@@ -35,7 +35,7 @@ public class UnitOfMeasureEndpoints : ICarterModule
     private static async Task<IResult> HandleCreate([FromBody] CreateUnitOfMeasureCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/catalog/units-of-measure", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/units-of-measure", result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditUnitOfMeasureCommandRequest request, ISender sender, CancellationToken cancellationToken)

@@ -11,7 +11,7 @@ public class CategoryEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/catalog/categories").RequireAuthorization();
+        var group = app.MapGroup("/categories").RequireAuthorization();
 
         group.MapPost("/getAll", HandleGetAll).Produces<ApiResponse<GetCategoriesQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetCategoryByTokenQueryResponse>>(200);
@@ -35,7 +35,7 @@ public class CategoryEndpoints : ICarterModule
     private static async Task<IResult> HandleCreate([FromBody] CreateCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/catalog/categories", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/categories", result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)

@@ -16,7 +16,8 @@ BEGIN
         LastUpdatedUtc,
         LastUpdatedBy
     FROM SubCategories
-    WHERE IsActive = 1
-      AND (@CategoryId IS NULL OR CategoryId = @CategoryId)
+    WHERE 
+    --IsActive = 1 AND 
+    (@CategoryId IS NULL OR CategoryId = @CategoryId)
     ORDER BY CategoryId, Code;
 END;
