@@ -4,5 +4,10 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetSubFamiliesQueryRequest(Guid? FamilyToken = null) : IRequest<ApiResponse<GetSubFamiliesQueryResponse>>;
+    public class GetSubFamiliesQueryRequest : IRequest<ApiResponse<GetSubFamiliesQueryResponse>>
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public Guid? FamilyToken { get; set; }
+    }
 }

@@ -1,10 +1,11 @@
 using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
 
 namespace InnNou.Application.Common.Interfaces
 {
     public interface ISubFamilyService
     {
-        Task<List<SubFamilyDto>> GetAllAsync(int? familyId = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, CancellationToken cancellationToken = default);
         Task<SubFamilyDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
         Task<bool> ExistsByCodeAsync(string code, int familyId, CancellationToken cancellationToken = default);
         Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, CancellationToken cancellationToken = default);

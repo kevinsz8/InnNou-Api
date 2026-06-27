@@ -1,6 +1,7 @@
 using Dapper;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
@@ -10,14 +11,27 @@ namespace InnNou.Infrastructure.Services;
 
 public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper mapper) : ISubCategoryService
 {
-    public async Task<List<SubCategoryDto>> GetAllAsync(int? categoryId = null, CancellationToken cancellationToken = default)
+    private sealed class SubCategoryPageRow : SubCategory { public int TotalCount { get; set; } }
+
+    public async Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, CancellationToken cancellationToken = default)
     {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : pageSize;
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
         p.Add("@CategoryId", categoryId);
-        var rows = (await connection.QueryAsync<SubCategory>(
-            "sp_SubCategory_GetAll", p, commandType: CommandType.StoredProcedure)).ToList();
-        return mapper.MapList<SubCategoryDto>(rows);
+        var rows = (await connection.QueryAsync<SubCategoryPageRow>(
+            "sp_SubCategory_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
+        return new PagedResult<SubCategoryDto>
+        {
+            Items = mapper.MapList<SubCategoryDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<SubCategoryDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default)

@@ -1,6 +1,7 @@
 using Dapper;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
@@ -10,14 +11,27 @@ namespace InnNou.Infrastructure.Services;
 
 public class UnitConversionRateService(IDbConnectionFactory connectionFactory, IMapper mapper) : IUnitConversionRateService
 {
-    public async Task<List<UnitConversionRateDto>> GetAllAsync(int? unitTypeId = null, CancellationToken cancellationToken = default)
+    private sealed class UnitConversionRatePageRow : UnitConversionRate { public int TotalCount { get; set; } }
+
+    public async Task<PagedResult<UnitConversionRateDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, CancellationToken cancellationToken = default)
     {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : pageSize;
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
         p.Add("@UnitTypeId", unitTypeId);
-        var rows = (await connection.QueryAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_GetAll", p, commandType: CommandType.StoredProcedure)).ToList();
-        return mapper.MapList<UnitConversionRateDto>(rows);
+        var rows = (await connection.QueryAsync<UnitConversionRatePageRow>(
+            "sp_UnitConversionRate_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
+        return new PagedResult<UnitConversionRateDto>
+        {
+            Items = mapper.MapList<UnitConversionRateDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<UnitConversionRateDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default)

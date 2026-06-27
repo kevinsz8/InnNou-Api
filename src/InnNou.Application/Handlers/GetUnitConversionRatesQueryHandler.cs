@@ -21,10 +21,19 @@ namespace InnNou.Application.Handlers
                 unitTypeId = unitType.UnitTypeId;
             }
 
-            var items = await unitConversionRateService.GetAllAsync(unitTypeId, cancellationToken);
+            var result = await unitConversionRateService.GetPagedAsync(request.PageNumber, request.PageSize, unitTypeId, cancellationToken);
+            var totalPages = result.TotalPages;
             var response = new GetUnitConversionRatesQueryResponse
             {
-                UnitConversionRates = mapper.MapList<Responses.Common.UnitConversionRate>(items)
+                UnitConversionRates = mapper.MapList<Responses.Common.UnitConversionRate>(result.Items),
+                TotalCount = result.TotalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalPages = totalPages,
+                HasNextPage = request.PageNumber < totalPages,
+                HasPreviousPage = request.PageNumber > 1,
+                NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
+                PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
             };
             return ApiResponse<GetUnitConversionRatesQueryResponse>.SuccessResponse(response, 200);
         }

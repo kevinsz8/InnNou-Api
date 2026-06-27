@@ -1,6 +1,7 @@
 using Dapper;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
@@ -10,14 +11,27 @@ namespace InnNou.Infrastructure.Services;
 
 public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper mapper) : ISubFamilyService
 {
-    public async Task<List<SubFamilyDto>> GetAllAsync(int? familyId = null, CancellationToken cancellationToken = default)
+    private sealed class SubFamilyPageRow : SubFamily { public int TotalCount { get; set; } }
+
+    public async Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, CancellationToken cancellationToken = default)
     {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : pageSize;
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
         p.Add("@FamilyId", familyId);
-        var rows = (await connection.QueryAsync<SubFamily>(
-            "sp_SubFamily_GetAll", p, commandType: CommandType.StoredProcedure)).ToList();
-        return mapper.MapList<SubFamilyDto>(rows);
+        var rows = (await connection.QueryAsync<SubFamilyPageRow>(
+            "sp_SubFamily_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
+        return new PagedResult<SubFamilyDto>
+        {
+            Items = mapper.MapList<SubFamilyDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<SubFamilyDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default)

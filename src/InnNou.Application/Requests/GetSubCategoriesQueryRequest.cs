@@ -4,5 +4,10 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetSubCategoriesQueryRequest(Guid? CategoryToken = null) : IRequest<ApiResponse<GetSubCategoriesQueryResponse>>;
+    public class GetSubCategoriesQueryRequest : IRequest<ApiResponse<GetSubCategoriesQueryResponse>>
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public Guid? CategoryToken { get; set; }
+    }
 }

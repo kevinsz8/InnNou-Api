@@ -21,10 +21,19 @@ namespace InnNou.Application.Handlers
                 familyId = family.FamilyId;
             }
 
-            var items = await subFamilyService.GetAllAsync(familyId, cancellationToken);
+            var result = await subFamilyService.GetPagedAsync(request.PageNumber, request.PageSize, familyId, cancellationToken);
+            var totalPages = result.TotalPages;
             var response = new GetSubFamiliesQueryResponse
             {
-                SubFamilies = mapper.MapList<Responses.Common.SubFamily>(items)
+                SubFamilies = mapper.MapList<Responses.Common.SubFamily>(result.Items),
+                TotalCount = result.TotalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalPages = totalPages,
+                HasNextPage = request.PageNumber < totalPages,
+                HasPreviousPage = request.PageNumber > 1,
+                NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
+                PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
             };
             return ApiResponse<GetSubFamiliesQueryResponse>.SuccessResponse(response, 200);
         }

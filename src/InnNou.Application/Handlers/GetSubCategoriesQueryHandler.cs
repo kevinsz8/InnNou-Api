@@ -21,10 +21,19 @@ namespace InnNou.Application.Handlers
                 categoryId = category.CategoryId;
             }
 
-            var items = await subCategoryService.GetAllAsync(categoryId, cancellationToken);
+            var result = await subCategoryService.GetPagedAsync(request.PageNumber, request.PageSize, categoryId, cancellationToken);
+            var totalPages = result.TotalPages;
             var response = new GetSubCategoriesQueryResponse
             {
-                SubCategories = mapper.MapList<Responses.Common.SubCategory>(items)
+                SubCategories = mapper.MapList<Responses.Common.SubCategory>(result.Items),
+                TotalCount = result.TotalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalPages = totalPages,
+                HasNextPage = request.PageNumber < totalPages,
+                HasPreviousPage = request.PageNumber > 1,
+                NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
+                PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
             };
             return ApiResponse<GetSubCategoriesQueryResponse>.SuccessResponse(response, 200);
         }

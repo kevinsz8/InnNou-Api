@@ -4,5 +4,9 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetFamiliesQueryRequest : IRequest<ApiResponse<GetFamiliesQueryResponse>>;
+    public class GetFamiliesQueryRequest : IRequest<ApiResponse<GetFamiliesQueryResponse>>
+    {
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+    }
 }

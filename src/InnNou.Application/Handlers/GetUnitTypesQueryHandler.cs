@@ -12,10 +12,19 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetUnitTypesQueryResponse>> Handle(GetUnitTypesQueryRequest request, CancellationToken cancellationToken)
         {
-            var items = await unitTypeService.GetAllAsync(cancellationToken);
+            var result = await unitTypeService.GetPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+            var totalPages = result.TotalPages;
             var response = new GetUnitTypesQueryResponse
             {
-                UnitTypes = mapper.MapList<Responses.Common.UnitType>(items)
+                UnitTypes = mapper.MapList<Responses.Common.UnitType>(result.Items),
+                TotalCount = result.TotalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalPages = totalPages,
+                HasNextPage = request.PageNumber < totalPages,
+                HasPreviousPage = request.PageNumber > 1,
+                NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
+                PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
             };
             return ApiResponse<GetUnitTypesQueryResponse>.SuccessResponse(response, 200);
         }
