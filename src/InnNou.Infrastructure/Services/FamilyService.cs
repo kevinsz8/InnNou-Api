@@ -13,7 +13,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
 {
     private sealed class FamilyPageRow : Family { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<FamilyDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<FamilyDto>> GetPagedAsync(int pageNumber, int pageSize, string? searchText = null, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -22,6 +22,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         var p = new DynamicParameters();
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         var rows = (await connection.QueryAsync<FamilyPageRow>(
             "sp_Family_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<FamilyDto>

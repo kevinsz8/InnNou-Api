@@ -12,7 +12,7 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetFamiliesQueryResponse>> Handle(GetFamiliesQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await familyService.GetPagedAsync(request.PageNumber, request.PageSize, cancellationToken);
+            var result = await familyService.GetPagedAsync(request.PageNumber, request.PageSize, request.SearchText, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetFamiliesQueryResponse
             {

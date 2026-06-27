@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface ISubFamilyService
     {
-        Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, string? searchText = null, CancellationToken cancellationToken = default);
         Task<SubFamilyDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
         Task<bool> ExistsByCodeAsync(string code, int familyId, CancellationToken cancellationToken = default);
         Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, CancellationToken cancellationToken = default);

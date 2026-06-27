@@ -2,7 +2,8 @@ CREATE OR ALTER PROCEDURE sp_SubFamily_GetPaged
 (
     @PageNumber INT,
     @PageSize   INT,
-    @FamilyId   INT = NULL
+    @FamilyId   INT = NULL,
+    @SearchText VARCHAR(200) = NULL
 )
 AS
 BEGIN
@@ -23,6 +24,7 @@ BEGIN
     FROM SubFamilies
     WHERE IsActive = 1
       AND (@FamilyId IS NULL OR FamilyId = @FamilyId)
+      AND (@SearchText IS NULL OR LOWER(Code) LIKE '%' + LOWER(@SearchText) + '%')
     ORDER BY FamilyId, Code
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

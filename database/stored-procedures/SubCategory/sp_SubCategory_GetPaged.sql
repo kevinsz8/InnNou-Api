@@ -2,7 +2,8 @@ CREATE OR ALTER PROCEDURE sp_SubCategory_GetPaged
 (
     @PageNumber INT,
     @PageSize   INT,
-    @CategoryId INT = NULL
+    @CategoryId INT = NULL,
+    @SearchText VARCHAR(200) = NULL
 )
 AS
 BEGIN
@@ -23,6 +24,7 @@ BEGIN
     FROM SubCategories
     WHERE IsActive = 1
       AND (@CategoryId IS NULL OR CategoryId = @CategoryId)
+      AND (@SearchText IS NULL OR LOWER(Code) LIKE '%' + LOWER(@SearchText) + '%')
     ORDER BY CategoryId, Code
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;
