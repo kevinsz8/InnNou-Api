@@ -6,6 +6,13 @@ using CommonUser = InnNou.Application.Responses.Common.User;
 using CommonHotel = InnNou.Application.Responses.Common.Hotel;
 using CommonRole = InnNou.Application.Responses.Common.Role;
 using CommonSupplier = InnNou.Application.Responses.Common.Supplier;
+using CommonUnitType = InnNou.Application.Responses.Common.UnitType;
+using CommonUnitOfMeasure = InnNou.Application.Responses.Common.UnitOfMeasure;
+using CommonUnitConversionRate = InnNou.Application.Responses.Common.UnitConversionRate;
+using CommonFamily = InnNou.Application.Responses.Common.Family;
+using CommonSubFamily = InnNou.Application.Responses.Common.SubFamily;
+using CommonCategory = InnNou.Application.Responses.Common.Category;
+using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 
 namespace InnNou.Application.Mapping
 {
@@ -219,6 +226,63 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                IsActive = d.IsActive
+            });
+
+            // Catalog — DTO → Common response shape
+            mapper.Register<UnitTypeDto, CommonUnitType>(d => new CommonUnitType
+            {
+                UnitTypeToken = d.UnitTypeToken,
+                Code = d.Code,
+                IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+            mapper.Register<UnitOfMeasureDto, CommonUnitOfMeasure>(d => new CommonUnitOfMeasure
+            {
+                UnitOfMeasureToken = d.UnitOfMeasureToken,
+                UnitTypeId = d.UnitTypeId,
+                Code = d.Code,
+                Symbol = d.Symbol,
+                Decimals = d.Decimals,
+                IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+            mapper.Register<UnitConversionRateDto, CommonUnitConversionRate>(d => new CommonUnitConversionRate
+            {
+                UnitConversionRateToken = d.UnitConversionRateToken,
+                FromUnitOfMeasureId = d.FromUnitOfMeasureId,
+                ToUnitOfMeasureId = d.ToUnitOfMeasureId,
+                Factor = d.Factor,
+                IsActive = d.IsActive
+            });
+            mapper.Register<FamilyDto, CommonFamily>(d => new CommonFamily
+            {
+                FamilyToken = d.FamilyToken,
+                Code = d.Code,
+                IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+            mapper.Register<SubFamilyDto, CommonSubFamily>(d => new CommonSubFamily
+            {
+                SubFamilyToken = d.SubFamilyToken,
+                FamilyId = d.FamilyId,
+                Code = d.Code,
+                IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+            mapper.Register<CategoryDto, CommonCategory>(d => new CommonCategory
+            {
+                CategoryToken = d.CategoryToken,
+                Code = d.Code,
+                IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+            mapper.Register<SubCategoryDto, CommonSubCategory>(d => new CommonSubCategory
+            {
+                SubCategoryToken = d.SubCategoryToken,
+                CategoryId = d.CategoryId,
+                Code = d.Code,
+                IsSystem = d.IsSystem,
                 IsActive = d.IsActive
             });
         }

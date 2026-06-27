@@ -38,6 +38,15 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<ISupplierService, SupplierService>();
 
+            // Catalog services
+            services.AddScoped<IUnitTypeService, UnitTypeService>();
+            services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
+            services.AddScoped<IUnitConversionRateService, UnitConversionRateService>();
+            services.AddScoped<IFamilyService, FamilyService>();
+            services.AddScoped<ISubFamilyService, SubFamilyService>();
+            services.AddScoped<ICategoryService, CategoryService>();
+            services.AddScoped<ISubCategoryService, SubCategoryService>();
+
             return services;
         }
     }

@@ -1,0 +1,9 @@
+CREATE OR ALTER PROCEDURE sp_Family_ExistsByCode
+    @Code NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT CAST(CASE WHEN EXISTS (
+        SELECT 1 FROM Families WHERE Code = @Code
+    ) THEN 1 ELSE 0 END AS BIT);
+END
