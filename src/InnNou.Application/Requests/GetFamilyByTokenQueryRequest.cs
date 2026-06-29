@@ -4,5 +4,8 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetFamilyByTokenQueryRequest(Guid FamilyToken) : IRequest<ApiResponse<GetFamilyByTokenQueryResponse>>;
+    public class GetFamilyByTokenQueryRequest : IRequest<ApiResponse<GetFamilyByTokenQueryResponse>>
+    {
+        public Guid FamilyToken { get; set; }
+    }
 }

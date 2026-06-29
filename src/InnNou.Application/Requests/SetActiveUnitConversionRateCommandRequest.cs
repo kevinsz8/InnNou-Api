@@ -4,5 +4,9 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record SetActiveUnitConversionRateCommandRequest(Guid UnitConversionRateToken, bool IsActive) : IRequest<ApiResponse<SetActiveUnitConversionRateCommandResponse>>;
+    public class SetActiveUnitConversionRateCommandRequest : IRequest<ApiResponse<SetActiveUnitConversionRateCommandResponse>>
+    {
+        public Guid UnitConversionRateToken { get; set; }
+        public bool IsActive { get; set; }
+    }
 }

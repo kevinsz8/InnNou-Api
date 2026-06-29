@@ -4,5 +4,9 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record EditUnitTypeCommandRequest(Guid UnitTypeToken, string Code) : IRequest<ApiResponse<EditUnitTypeCommandResponse>>;
+    public class EditUnitTypeCommandRequest : IRequest<ApiResponse<EditUnitTypeCommandResponse>>
+    {
+        public Guid UnitTypeToken { get; set; }
+        public string Code { get; set; } = string.Empty;
+    }
 }

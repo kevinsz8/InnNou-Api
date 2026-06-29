@@ -4,5 +4,8 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetSubCategoryByTokenQueryRequest(Guid SubCategoryToken) : IRequest<ApiResponse<GetSubCategoryByTokenQueryResponse>>;
+    public class GetSubCategoryByTokenQueryRequest : IRequest<ApiResponse<GetSubCategoryByTokenQueryResponse>>
+    {
+        public Guid SubCategoryToken { get; set; }
+    }
 }

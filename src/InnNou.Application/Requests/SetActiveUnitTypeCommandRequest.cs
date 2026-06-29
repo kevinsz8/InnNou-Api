@@ -4,5 +4,9 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record SetActiveUnitTypeCommandRequest(Guid UnitTypeToken, bool IsActive) : IRequest<ApiResponse<SetActiveUnitTypeCommandResponse>>;
+    public class SetActiveUnitTypeCommandRequest : IRequest<ApiResponse<SetActiveUnitTypeCommandResponse>>
+    {
+        public Guid UnitTypeToken { get; set; }
+        public bool IsActive { get; set; }
+    }
 }

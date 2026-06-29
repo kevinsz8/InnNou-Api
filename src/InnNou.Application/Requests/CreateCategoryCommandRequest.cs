@@ -4,5 +4,8 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record CreateCategoryCommandRequest(string Code) : IRequest<ApiResponse<CreateCategoryCommandResponse>>;
+    public class CreateCategoryCommandRequest : IRequest<ApiResponse<CreateCategoryCommandResponse>>
+    {
+        public string Code { get; set; } = string.Empty;
+    }
 }

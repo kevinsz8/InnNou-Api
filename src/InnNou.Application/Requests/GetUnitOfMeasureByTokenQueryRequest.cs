@@ -4,5 +4,8 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record GetUnitOfMeasureByTokenQueryRequest(Guid UnitOfMeasureToken) : IRequest<ApiResponse<GetUnitOfMeasureByTokenQueryResponse>>;
+    public class GetUnitOfMeasureByTokenQueryRequest : IRequest<ApiResponse<GetUnitOfMeasureByTokenQueryResponse>>
+    {
+        public Guid UnitOfMeasureToken { get; set; }
+    }
 }

@@ -4,5 +4,9 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public record EditUnitConversionRateCommandRequest(Guid UnitConversionRateToken, decimal Factor) : IRequest<ApiResponse<EditUnitConversionRateCommandResponse>>;
+    public class EditUnitConversionRateCommandRequest : IRequest<ApiResponse<EditUnitConversionRateCommandResponse>>
+    {
+        public Guid UnitConversionRateToken { get; set; }
+        public decimal Factor { get; set; }
+    }
 }
