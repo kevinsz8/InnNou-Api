@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
                 categoryId = category.CategoryId;
             }
 
-            var result = await subCategoryService.GetPagedAsync(request.PageNumber, request.PageSize, categoryId, request.SearchText, cancellationToken);
+            var result = await subCategoryService.GetPagedAsync(request.PageNumber, request.PageSize, categoryId, request.SearchText, request.IncludeInactive, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetSubCategoriesQueryResponse
             {

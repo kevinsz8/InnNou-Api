@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
                 unitTypeId = unitType.UnitTypeId;
             }
 
-            var result = await unitOfMeasureService.GetPagedAsync(request.PageNumber, request.PageSize, unitTypeId, cancellationToken);
+            var result = await unitOfMeasureService.GetPagedAsync(request.PageNumber, request.PageSize, unitTypeId, request.IncludeInactive, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetUnitsOfMeasureQueryResponse
             {

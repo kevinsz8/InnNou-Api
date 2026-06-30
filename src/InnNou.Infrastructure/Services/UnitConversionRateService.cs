@@ -13,7 +13,7 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
 {
     private sealed class UnitConversionRatePageRow : UnitConversionRate { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<UnitConversionRateDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<UnitConversionRateDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -23,6 +23,7 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
         p.Add("@UnitTypeId", unitTypeId);
+        p.Add("@IncludeInactive", includeInactive);
         var rows = (await connection.QueryAsync<UnitConversionRatePageRow>(
             "sp_UnitConversionRate_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<UnitConversionRateDto>

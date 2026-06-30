@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface ISubCategoryService
     {
-        Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, string? searchText = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default);
         Task<SubCategoryDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
         Task<bool> ExistsByCodeAsync(string code, int categoryId, CancellationToken cancellationToken = default);
         Task<SubCategoryDto?> CreateAsync(SubCategoryDto dto, CancellationToken cancellationToken = default);

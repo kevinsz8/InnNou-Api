@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
                 familyId = family.FamilyId;
             }
 
-            var result = await subFamilyService.GetPagedAsync(request.PageNumber, request.PageSize, familyId, request.SearchText, cancellationToken);
+            var result = await subFamilyService.GetPagedAsync(request.PageNumber, request.PageSize, familyId, request.SearchText, request.IncludeInactive, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetSubFamiliesQueryResponse
             {

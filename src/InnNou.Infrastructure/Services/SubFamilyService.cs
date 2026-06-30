@@ -13,7 +13,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
 {
     private sealed class SubFamilyPageRow : SubFamily { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, string? searchText = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -24,6 +24,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@PageSize", safePageSize);
         p.Add("@FamilyId", familyId);
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
+        p.Add("@IncludeInactive", includeInactive);
         var rows = (await connection.QueryAsync<SubFamilyPageRow>(
             "sp_SubFamily_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<SubFamilyDto>

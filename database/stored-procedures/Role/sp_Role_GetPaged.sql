@@ -6,9 +6,10 @@
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Role_GetPaged
 (
-    @MaxLevel   INT,
-    @PageNumber INT,
-    @PageSize   INT
+    @MaxLevel        INT,
+    @PageNumber      INT,
+    @PageSize        INT,
+    @IncludeInactive BIT = 0
 )
 AS
 BEGIN
@@ -26,7 +27,7 @@ BEGIN
         COUNT(*) OVER() AS TotalCount
     FROM dbo.Roles r
     WHERE
-        r.IsActive   = 1
+        (@IncludeInactive = 1 OR r.IsActive = 1)
         AND r.RoleLevel <= @MaxLevel
     ORDER BY r.RoleLevel DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS

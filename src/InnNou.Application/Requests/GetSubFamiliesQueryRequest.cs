@@ -10,5 +10,6 @@ namespace InnNou.Application.Requests
         public int PageSize { get; set; } = 10;
         public Guid? FamilyToken { get; set; }
         public string? SearchText { get; set; }
+        public bool IncludeInactive { get; set; } = false;
     }
 }

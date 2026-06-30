@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             var paged = await _supplierService.GetSuppliersAsync(
                 request.PageNumber, request.PageSize,
                 request.SearchField, request.SearchText,
-                _context, cancellationToken);
+                request.IncludeInactive, _context, cancellationToken);
 
             var totalPages = paged.TotalPages;
             var response = new GetSuppliersQueryResponse

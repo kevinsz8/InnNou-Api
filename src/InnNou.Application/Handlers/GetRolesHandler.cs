@@ -23,7 +23,7 @@ namespace InnNou.Application.Handlers
 
         public async Task<ApiResponse<GetRolesQueryResponse>> Handle(GetRolesQueryRequest request, CancellationToken cancellationToken)
         {
-            var resultRoles = await _Roleservice.GetRolesAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, _context, cancellationToken);
+            var resultRoles = await _Roleservice.GetRolesAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, request.IncludeInactive, _context, cancellationToken);
             var roles = _mapper.MapList<Role>(resultRoles.Items);
             var totalPages = resultRoles.TotalPages;
             var response = new GetRolesQueryResponse

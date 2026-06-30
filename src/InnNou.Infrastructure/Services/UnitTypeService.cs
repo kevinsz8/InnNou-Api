@@ -13,7 +13,7 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
 {
     private sealed class UnitTypePageRow : UnitType { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<UnitTypeDto>> GetPagedAsync(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<UnitTypeDto>> GetPagedAsync(int pageNumber, int pageSize, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -22,6 +22,7 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
         var p = new DynamicParameters();
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@IncludeInactive", includeInactive);
         var rows = (await connection.QueryAsync<UnitTypePageRow>(
             "sp_UnitType_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<UnitTypeDto>

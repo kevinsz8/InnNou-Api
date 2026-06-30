@@ -12,7 +12,7 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetCategoriesQueryResponse>> Handle(GetCategoriesQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await categoryService.GetPagedAsync(request.PageNumber, request.PageSize, request.SearchText, cancellationToken);
+            var result = await categoryService.GetPagedAsync(request.PageNumber, request.PageSize, request.SearchText, request.IncludeInactive, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetCategoriesQueryResponse
             {

@@ -10,7 +10,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_GetPaged
     @SearchField       VARCHAR(50)  = NULL,
     @SearchText        VARCHAR(200) = NULL,
     @PageNumber        INT,
-    @PageSize          INT
+    @PageSize          INT,
+    @IncludeInactive   BIT          = 0
 )
 AS
 BEGIN
@@ -44,6 +45,7 @@ BEGIN
     FROM dbo.Suppliers s
     WHERE
         s.IsDeleted = 0
+        AND (@IncludeInactive = 1 OR s.IsActive = 1)
         AND
         (
             -- SUPER ADMIN: see everything

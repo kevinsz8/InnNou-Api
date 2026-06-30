@@ -6,10 +6,11 @@
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Hotel_GetPaged
 (
-    @RootHotelId INT          = NULL,
-    @SearchText  VARCHAR(200) = NULL,
-    @PageNumber  INT,
-    @PageSize    INT
+    @RootHotelId     INT          = NULL,
+    @SearchText      VARCHAR(200) = NULL,
+    @PageNumber      INT,
+    @PageSize        INT,
+    @IncludeInactive BIT          = 0
 )
 AS
 BEGIN
@@ -48,6 +49,7 @@ BEGIN
     FROM dbo.Hotels h
     WHERE
         h.IsDeleted = 0
+        AND (@IncludeInactive = 1 OR h.IsActive = 1)
         AND
         (
             @RootHotelId IS NULL

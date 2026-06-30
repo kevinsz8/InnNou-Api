@@ -1,7 +1,8 @@
 CREATE OR ALTER PROCEDURE sp_UnitType_GetPaged
 (
-    @PageNumber INT,
-    @PageSize   INT
+    @PageNumber      INT,
+    @PageSize        INT,
+    @IncludeInactive BIT = 0
 )
 AS
 BEGIN
@@ -19,7 +20,7 @@ BEGIN
         LastUpdatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM UnitTypes
-    WHERE IsActive = 1
+    WHERE (@IncludeInactive = 1 OR IsActive = 1)
     ORDER BY Code
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

@@ -1,8 +1,9 @@
 CREATE OR ALTER PROCEDURE sp_UnitConversionRate_GetPaged
 (
-    @PageNumber INT,
-    @PageSize   INT,
-    @UnitTypeId INT = NULL
+    @PageNumber      INT,
+    @PageSize        INT,
+    @UnitTypeId      INT = NULL,
+    @IncludeInactive BIT = 0
 )
 AS
 BEGIN
@@ -22,7 +23,7 @@ BEGIN
         COUNT(*) OVER() AS TotalCount
     FROM UnitConversionRates r
     JOIN UnitsOfMeasure f ON f.UnitOfMeasureId = r.FromUnitOfMeasureId
-    WHERE r.IsActive = 1
+    WHERE (@IncludeInactive = 1 OR r.IsActive = 1)
       AND (@UnitTypeId IS NULL OR f.UnitTypeId = @UnitTypeId)
     ORDER BY r.FromUnitOfMeasureId, r.ToUnitOfMeasureId
     OFFSET (@PageNumber - 1) * @PageSize ROWS

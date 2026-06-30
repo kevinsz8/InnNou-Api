@@ -23,7 +23,7 @@ namespace InnNou.Application.Handlers
 
         public async Task<ApiResponse<GetHotelsQueryResponse>> Handle(GetHotelsQueryRequest request, CancellationToken cancellationToken)
         {
-            var resultHotels = await _hotelService.GetHotelsAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, _context, cancellationToken);
+            var resultHotels = await _hotelService.GetHotelsAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, request.IncludeInactive, _context, cancellationToken);
             var hotels = _mapper.MapList<Hotel>(resultHotels.Items);
             var totalPages = resultHotels.TotalPages;
             var response = new GetHotelsQueryResponse

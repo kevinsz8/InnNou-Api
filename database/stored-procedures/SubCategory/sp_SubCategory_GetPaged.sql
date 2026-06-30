@@ -1,9 +1,10 @@
 CREATE OR ALTER PROCEDURE sp_SubCategory_GetPaged
 (
-    @PageNumber INT,
-    @PageSize   INT,
-    @CategoryId INT = NULL,
-    @SearchText VARCHAR(200) = NULL
+    @PageNumber      INT,
+    @PageSize        INT,
+    @CategoryId      INT          = NULL,
+    @SearchText      VARCHAR(200) = NULL,
+    @IncludeInactive BIT          = 0
 )
 AS
 BEGIN
@@ -22,7 +23,7 @@ BEGIN
         LastUpdatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM SubCategories
-    WHERE IsActive = 1
+    WHERE (@IncludeInactive = 1 OR IsActive = 1)
       AND (@CategoryId IS NULL OR CategoryId = @CategoryId)
       AND (@SearchText IS NULL OR LOWER(Code) LIKE '%' + LOWER(@SearchText) + '%')
     ORDER BY CategoryId, Code

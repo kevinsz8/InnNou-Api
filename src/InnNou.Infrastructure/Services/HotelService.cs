@@ -19,6 +19,7 @@ public class HotelService(IDbConnectionFactory connectionFactory, IMapper mapper
         int pageSize,
         string? searchField,
         string? searchText,
+        bool includeInactive,
         IRequestContext context,
         CancellationToken cancellationToken)
     {
@@ -32,6 +33,7 @@ public class HotelService(IDbConnectionFactory connectionFactory, IMapper mapper
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@IncludeInactive", includeInactive);
 
         var rows = (await connection.QueryAsync<HotelPageRow>(
             "sp_Hotel_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();

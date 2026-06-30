@@ -12,7 +12,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_User_GetPaged
     @SearchField      VARCHAR(50)  = NULL,
     @SearchText       VARCHAR(200) = NULL,
     @PageNumber       INT,
-    @PageSize         INT
+    @PageSize         INT,
+    @IncludeInactive  BIT          = 0
 )
 AS
 BEGIN
@@ -49,6 +50,7 @@ BEGIN
     FROM dbo.Users u
     WHERE
         u.IsDeleted = 0
+        AND (@IncludeInactive = 1 OR u.IsActive = 1)
         AND
         (
             -- SUPER ADMIN: see everything

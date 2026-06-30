@@ -1,8 +1,9 @@
 CREATE OR ALTER PROCEDURE sp_Family_GetPaged
 (
-    @PageNumber INT,
-    @PageSize   INT,
-    @SearchText VARCHAR(200) = NULL
+    @PageNumber      INT,
+    @PageSize        INT,
+    @SearchText      VARCHAR(200) = NULL,
+    @IncludeInactive BIT          = 0
 )
 AS
 BEGIN
@@ -20,7 +21,7 @@ BEGIN
         LastUpdatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM Families
-    WHERE IsActive = 1
+    WHERE (@IncludeInactive = 1 OR IsActive = 1)
       AND (@SearchText IS NULL OR LOWER(Code) LIKE '%' + LOWER(@SearchText) + '%')
     ORDER BY Code
     OFFSET (@PageNumber - 1) * @PageSize ROWS

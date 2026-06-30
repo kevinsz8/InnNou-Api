@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface IUnitOfMeasureService
     {
-        Task<PagedResult<UnitOfMeasureDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, CancellationToken cancellationToken = default);
+        Task<PagedResult<UnitOfMeasureDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default);
         Task<UnitOfMeasureDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
         Task<bool> ExistsByCodeAsync(string code, int unitTypeId, CancellationToken cancellationToken = default);
         Task<UnitOfMeasureDto?> CreateAsync(UnitOfMeasureDto dto, CancellationToken cancellationToken = default);

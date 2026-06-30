@@ -19,6 +19,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         int pageSize,
         string? searchField,
         string? searchText,
+        bool includeInactive,
         IRequestContext context,
         CancellationToken cancellationToken)
     {
@@ -43,6 +44,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@IncludeInactive", includeInactive);
 
         var rows = (await connection.QueryAsync<SupplierPageRow>(
             "sp_Supplier_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();

@@ -13,7 +13,7 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
 {
     private sealed class UnitOfMeasurePageRow : UnitOfMeasure { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<UnitOfMeasureDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<UnitOfMeasureDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -23,6 +23,7 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
         p.Add("@UnitTypeId", unitTypeId);
+        p.Add("@IncludeInactive", includeInactive);
         var rows = (await connection.QueryAsync<UnitOfMeasurePageRow>(
             "sp_UnitOfMeasure_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<UnitOfMeasureDto>

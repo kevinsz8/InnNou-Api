@@ -31,6 +31,7 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
         int pageSize,
         string? searchField,
         string? searchText,
+        bool includeInactive,
         IRequestContext context,
         CancellationToken cancellationToken)
     {
@@ -43,6 +44,7 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
         p.Add("@MaxLevel", context.RoleLevel);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@IncludeInactive", includeInactive);
 
         var rows = (await connection.QueryAsync<RolePageRow>(
             "sp_Role_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();

@@ -1,9 +1,10 @@
 CREATE OR ALTER PROCEDURE sp_SubFamily_GetPaged
 (
-    @PageNumber INT,
-    @PageSize   INT,
-    @FamilyId   INT = NULL,
-    @SearchText VARCHAR(200) = NULL
+    @PageNumber      INT,
+    @PageSize        INT,
+    @FamilyId        INT          = NULL,
+    @SearchText      VARCHAR(200) = NULL,
+    @IncludeInactive BIT          = 0
 )
 AS
 BEGIN
@@ -22,7 +23,7 @@ BEGIN
         LastUpdatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM SubFamilies
-    WHERE IsActive = 1
+    WHERE (@IncludeInactive = 1 OR IsActive = 1)
       AND (@FamilyId IS NULL OR FamilyId = @FamilyId)
       AND (@SearchText IS NULL OR LOWER(Code) LIKE '%' + LOWER(@SearchText) + '%')
     ORDER BY FamilyId, Code

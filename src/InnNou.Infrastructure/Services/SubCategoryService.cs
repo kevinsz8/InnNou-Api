@@ -13,7 +13,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
 {
     private sealed class SubCategoryPageRow : SubCategory { public int TotalCount { get; set; } }
 
-    public async Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, string? searchText = null, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -24,6 +24,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         p.Add("@PageSize", safePageSize);
         p.Add("@CategoryId", categoryId);
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
+        p.Add("@IncludeInactive", includeInactive);
         var rows = (await connection.QueryAsync<SubCategoryPageRow>(
             "sp_SubCategory_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<SubCategoryDto>
