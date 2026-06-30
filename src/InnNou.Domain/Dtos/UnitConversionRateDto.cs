@@ -5,7 +5,11 @@ namespace InnNou.Domain.Dtos
         public int UnitConversionRateId { get; set; }
         public Guid UnitConversionRateToken { get; set; }
         public int FromUnitOfMeasureId { get; set; }
+        public string? FromUOMCode { get; set; }
+        public string? FromUOMSymbol { get; set; }
         public int ToUnitOfMeasureId { get; set; }
+        public string? ToUOMCode { get; set; }
+        public string? ToUOMSymbol { get; set; }
         public decimal Factor { get; set; }
         public bool IsActive { get; set; }
     }

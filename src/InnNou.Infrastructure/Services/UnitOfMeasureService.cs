@@ -59,6 +59,7 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
     {
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@UnitOfMeasureToken", Guid.NewGuid());
         p.Add("@UnitTypeId", dto.UnitTypeId);
         p.Add("@Code", dto.Code);
         p.Add("@Symbol", dto.Symbol);

@@ -126,7 +126,11 @@ namespace InnNou.Infrastructure.Mapping
                 UnitConversionRateId = e.UnitConversionRateId,
                 UnitConversionRateToken = e.UnitConversionRateToken,
                 FromUnitOfMeasureId = e.FromUnitOfMeasureId,
+                FromUOMCode = e.FromUOMCode,
+                FromUOMSymbol = e.FromUOMSymbol,
                 ToUnitOfMeasureId = e.ToUnitOfMeasureId,
+                ToUOMCode = e.ToUOMCode,
+                ToUOMSymbol = e.ToUOMSymbol,
                 Factor = e.Factor,
                 IsActive = e.IsActive
             });

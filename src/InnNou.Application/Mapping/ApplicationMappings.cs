@@ -252,7 +252,11 @@ namespace InnNou.Application.Mapping
             {
                 UnitConversionRateToken = d.UnitConversionRateToken,
                 FromUnitOfMeasureId = d.FromUnitOfMeasureId,
+                FromUOMCode = d.FromUOMCode,
+                FromUOMSymbol = d.FromUOMSymbol,
                 ToUnitOfMeasureId = d.ToUnitOfMeasureId,
+                ToUOMCode = d.ToUOMCode,
+                ToUOMSymbol = d.ToUOMSymbol,
                 Factor = d.Factor,
                 IsActive = d.IsActive
             });

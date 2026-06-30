@@ -14,6 +14,10 @@ BEGIN
         r.UnitConversionRateToken,
         r.FromUnitOfMeasureId,
         r.ToUnitOfMeasureId,
+        f.Code   AS FromUOMCode,
+        f.Symbol AS FromUOMSymbol,
+        t.Code   AS ToUOMCode,
+        t.Symbol AS ToUOMSymbol,
         r.Factor,
         r.IsActive,
         r.CreatedUtc,
@@ -23,6 +27,7 @@ BEGIN
         COUNT(*) OVER() AS TotalCount
     FROM UnitConversionRates r
     JOIN UnitsOfMeasure f ON f.UnitOfMeasureId = r.FromUnitOfMeasureId
+    JOIN UnitsOfMeasure t ON t.UnitOfMeasureId = r.ToUnitOfMeasureId
     WHERE (@IncludeInactive = 1 OR r.IsActive = 1)
       AND (@UnitTypeId IS NULL OR f.UnitTypeId = @UnitTypeId)
     ORDER BY r.FromUnitOfMeasureId, r.ToUnitOfMeasureId

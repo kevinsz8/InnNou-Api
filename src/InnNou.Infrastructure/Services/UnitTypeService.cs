@@ -57,6 +57,7 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
     {
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("@UnitTypeToken", Guid.NewGuid());
         p.Add("@Code", dto.Code);
         p.Add("@CreatedBy", "API");
         var row = await connection.QueryFirstOrDefaultAsync<UnitType>(

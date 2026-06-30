@@ -18,6 +18,7 @@ public class UnitConversionRateEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateUnitConversionRateCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditUnitConversionRateCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveUnitConversionRateCommandResponse>>(200);
+        group.MapPost("/delete", HandleDelete).Produces<ApiResponse<DeleteUnitConversionRateCommandResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetUnitConversionRatesQueryRequest request, ISender sender, CancellationToken cancellationToken)
@@ -45,6 +46,12 @@ public class UnitConversionRateEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveUnitConversionRateCommandRequest request, ISender sender, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> HandleDelete([FromBody] DeleteUnitConversionRateCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.BadRequest(result);

@@ -10,5 +10,6 @@ namespace InnNou.Application.Common.Interfaces
         Task<UnitConversionRateDto?> CreateAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default);
         Task<UnitConversionRateDto?> EditAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default);
         Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
+        Task<bool> DeleteAsync(Guid token, CancellationToken cancellationToken = default);
     }
 }
