@@ -13,6 +13,7 @@ using FamilyEntity = InnNou.Infrastructure.Repositories.DbEntities.Family;
 using SubFamilyEntity = InnNou.Infrastructure.Repositories.DbEntities.SubFamily;
 using CategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.Category;
 using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCategory;
+using HotelContactEntity = InnNou.Infrastructure.Repositories.DbEntities.HotelContact;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -162,6 +163,24 @@ namespace InnNou.Infrastructure.Mapping
                 Code = e.Code,
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive
+            });
+
+            mapper.Register<HotelContactEntity, HotelContactDto>(e => new HotelContactDto
+            {
+                HotelContactId = e.HotelContactId,
+                HotelContactToken = e.HotelContactToken,
+                HotelId = e.HotelId,
+                ContactName = e.ContactName,
+                ContactType = e.ContactType,
+                Department = e.Department,
+                Phone = e.Phone,
+                Mobile = e.Mobile,
+                Fax = e.Fax,
+                Email = e.Email,
+                Notes = e.Notes,
+                IsPrimary = e.IsPrimary,
+                IsActive = e.IsActive,
+                IsDeleted = e.IsDeleted
             });
         }
     }

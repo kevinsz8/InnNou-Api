@@ -13,6 +13,7 @@ using CommonFamily = InnNou.Application.Responses.Common.Family;
 using CommonSubFamily = InnNou.Application.Responses.Common.SubFamily;
 using CommonCategory = InnNou.Application.Responses.Common.Category;
 using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
+using CommonHotelContact = InnNou.Application.Responses.Common.HotelContact;
 
 namespace InnNou.Application.Mapping
 {
@@ -283,6 +284,82 @@ namespace InnNou.Application.Mapping
                 CategoryId = d.CategoryId,
                 Code = d.Code,
                 IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+
+            // HotelContact
+            mapper.Register<CreateHotelContactCommandRequest, HotelContactDto>(r => new HotelContactDto
+            {
+                HotelToken = r.HotelToken,
+                ContactName = r.ContactName,
+                ContactType = r.ContactType,
+                Department = r.Department,
+                Phone = r.Phone,
+                Mobile = r.Mobile,
+                Fax = r.Fax,
+                Email = r.Email,
+                Notes = r.Notes,
+                IsPrimary = r.IsPrimary
+            });
+            mapper.Register<EditHotelContactCommandRequest, HotelContactDto>(r => new HotelContactDto
+            {
+                HotelContactToken = r.HotelContactToken,
+                ContactName = r.ContactName,
+                ContactType = r.ContactType,
+                Department = r.Department,
+                Phone = r.Phone,
+                Mobile = r.Mobile,
+                Fax = r.Fax,
+                Email = r.Email,
+                Notes = r.Notes,
+                IsPrimary = r.IsPrimary
+            });
+            mapper.Register<HotelContactDto, CreateHotelContactCommandResponse>(d => new CreateHotelContactCommandResponse
+            {
+                HotelContactId = d.HotelContactId,
+                HotelContactToken = d.HotelContactToken,
+                HotelId = d.HotelId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
+                IsActive = d.IsActive
+            });
+            mapper.Register<HotelContactDto, EditHotelContactCommandResponse>(d => new EditHotelContactCommandResponse
+            {
+                HotelContactId = d.HotelContactId,
+                HotelContactToken = d.HotelContactToken,
+                HotelId = d.HotelId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
+                IsActive = d.IsActive
+            });
+            mapper.Register<HotelContactDto, CommonHotelContact>(d => new CommonHotelContact
+            {
+                HotelContactId = d.HotelContactId,
+                HotelContactToken = d.HotelContactToken,
+                HotelId = d.HotelId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
                 IsActive = d.IsActive
             });
         }

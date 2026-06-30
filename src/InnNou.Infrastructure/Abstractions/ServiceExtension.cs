@@ -46,6 +46,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<ISubFamilyService, SubFamilyService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<ISubCategoryService, SubCategoryService>();
+            services.AddScoped<IHotelContactService, HotelContactService>();
 
             return services;
         }
