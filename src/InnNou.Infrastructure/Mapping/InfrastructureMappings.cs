@@ -98,6 +98,7 @@ namespace InnNou.Infrastructure.Mapping
                 PostalCode = s.PostalCode,
                 Country = s.Country,
                 IsGlobal = s.IsGlobal,
+                HasAccessToSystem = s.HasAccessToSystem,
                 IsActive = s.IsActive,
                 IsDeleted = s.IsDeleted
             });

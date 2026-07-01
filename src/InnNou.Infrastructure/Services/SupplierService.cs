@@ -12,6 +12,9 @@ namespace InnNou.Infrastructure.Services;
 
 public class SupplierService(IDbConnectionFactory connectionFactory, IMapper mapper) : ISupplierService
 {
+    private const string SupplierRoleNormalizedName = "SUPPLIER";
+    private const string NoAccessEmailDomain = "@no-access.innou.internal";
+
     private sealed class SupplierPageRow : Supplier { public int TotalCount { get; set; } }
 
     public async Task<PagedResult<SupplierDto>> GetSuppliersAsync(
@@ -93,34 +96,107 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (context.RoleLevel < 100)
             throw new UnauthorizedAccessException("Only super admins can create suppliers.");
 
+        var hasAccess = dto.HasAccessToSystem ?? false;
+
+        if (hasAccess && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
+            throw new InvalidOperationException("LoginEmail and Password are required when HasAccessToSystem is true.");
+
         await using var connection = connectionFactory.CreateConnection();
 
-        var created = await connection.QueryFirstOrDefaultAsync<Supplier>(
-            "sp_Supplier_Create",
-            new
-            {
-                SupplierToken = Guid.NewGuid(),
-                Name = dto.Name,
-                NormalizedName = dto.Name.ToUpperInvariant(),
-                LegalName = dto.LegalName,
-                TaxId = dto.TaxId,
-                Email = dto.Email,
-                Phone = dto.Phone,
-                AddressLine1 = dto.AddressLine1,
-                AddressLine2 = dto.AddressLine2,
-                City = dto.City,
-                State = dto.State,
-                PostalCode = dto.PostalCode,
-                Country = dto.Country,
-                IsGlobal = dto.IsGlobal ?? false,
-                IsActive = true,
-                IsDeleted = false,
-                CreatedUtc = DateTime.UtcNow,
-                CreatedBy = context.ActorUserToken.ToString()
-            },
+        if (hasAccess)
+        {
+            var emailExists = await connection.ExecuteScalarAsync<int>(
+                "sp_User_ExistsByEmail",
+                new { NormalizedEmail = dto.LoginEmail!.ToUpperInvariant() },
+                commandType: CommandType.StoredProcedure);
+
+            if (emailExists == 1)
+                throw new InvalidOperationException("A user with this login email already exists.");
+        }
+
+        var supplierRole = await connection.QueryFirstOrDefaultAsync<Role>(
+            "sp_Role_GetByNormalizedName",
+            new { NormalizedName = SupplierRoleNormalizedName },
             commandType: CommandType.StoredProcedure);
 
-        return created is null ? null : mapper.Map<SupplierDto>(created);
+        if (supplierRole is null)
+            throw new InvalidOperationException("Supplier role is not configured.");
+
+        var supplierToken = Guid.NewGuid();
+
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var created = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                "sp_Supplier_Create",
+                new
+                {
+                    SupplierToken = supplierToken,
+                    Name = dto.Name,
+                    NormalizedName = dto.Name.ToUpperInvariant(),
+                    LegalName = dto.LegalName,
+                    TaxId = dto.TaxId,
+                    Email = dto.Email,
+                    Phone = dto.Phone,
+                    AddressLine1 = dto.AddressLine1,
+                    AddressLine2 = dto.AddressLine2,
+                    City = dto.City,
+                    State = dto.State,
+                    PostalCode = dto.PostalCode,
+                    Country = dto.Country,
+                    IsGlobal = dto.IsGlobal ?? false,
+                    HasAccessToSystem = hasAccess,
+                    IsActive = true,
+                    IsDeleted = false,
+                    CreatedUtc = DateTime.UtcNow,
+                    CreatedBy = context.ActorUserToken.ToString()
+                },
+                transaction,
+                commandType: CommandType.StoredProcedure);
+
+            if (created is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var loginEmail = hasAccess ? dto.LoginEmail! : $"supplier-{supplierToken:N}{NoAccessEmailDomain}";
+            var userName = hasAccess ? dto.LoginEmail! : $"supplier-{supplierToken:N}";
+            var password = hasAccess ? dto.Password! : Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+
+            await connection.ExecuteAsync(
+                "sp_User_Create",
+                new
+                {
+                    UserToken = Guid.NewGuid(),
+                    FirstName = dto.Name.Length > 150 ? dto.Name[..150] : dto.Name,
+                    LastName = "(Supplier Account)",
+                    Email = loginEmail,
+                    NormalizedEmail = loginEmail.ToUpperInvariant(),
+                    UserName = userName,
+                    NormalizedUserName = userName.ToUpperInvariant(),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+                    RoleId = supplierRole.RoleId,
+                    HotelId = (int?)null,
+                    SupplierId = created.SupplierId,
+                    IsActive = hasAccess,
+                    IsDeleted = false,
+                    CreatedUtc = DateTime.UtcNow,
+                    CreatedBy = context.ActorUserToken.ToString()
+                },
+                transaction,
+                commandType: CommandType.StoredProcedure);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return mapper.Map<SupplierDto>(created);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<SupplierDto?> EditSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
@@ -138,30 +214,110 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (context.RoleLevel < 100 && context.SupplierId != existing.SupplierId)
             throw new UnauthorizedAccessException("Cannot edit another supplier.");
 
-        var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
+        var touchesAccess = dto.HasAccessToSystem.HasValue
+            || !string.IsNullOrWhiteSpace(dto.LoginEmail)
+            || !string.IsNullOrWhiteSpace(dto.Password);
 
-        var updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
-            "sp_Supplier_Update",
-            new
+        if (touchesAccess && context.RoleLevel < 100)
+            throw new UnauthorizedAccessException("Only super admins can change supplier system access.");
+
+        var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
+        var newHasAccess = dto.HasAccessToSystem ?? existing.HasAccessToSystem;
+
+        var supplierUpdateParams = new
+        {
+            SupplierToken = dto.SupplierToken,
+            Name = newName,
+            NormalizedName = newName.ToUpperInvariant(),
+            LegalName = dto.LegalName ?? existing.LegalName,
+            TaxId = dto.TaxId ?? existing.TaxId,
+            Email = dto.Email ?? existing.Email,
+            Phone = dto.Phone ?? existing.Phone,
+            AddressLine1 = dto.AddressLine1 ?? existing.AddressLine1,
+            AddressLine2 = dto.AddressLine2 ?? existing.AddressLine2,
+            City = dto.City ?? existing.City,
+            State = dto.State ?? existing.State,
+            PostalCode = dto.PostalCode ?? existing.PostalCode,
+            Country = dto.Country ?? existing.Country,
+            IsGlobal = dto.IsGlobal ?? existing.IsGlobal,
+            HasAccessToSystem = newHasAccess,
+            LastUpdatedUtc = DateTime.UtcNow,
+            LastUpdatedBy = context.ActorUserToken.ToString()
+        };
+
+        Supplier? updated;
+
+        if (touchesAccess)
+        {
+            var shadowUser = await connection.QueryFirstOrDefaultAsync<User>(
+                "sp_User_GetBySupplierId",
+                new { SupplierId = existing.SupplierId },
+                commandType: CommandType.StoredProcedure);
+
+            if (shadowUser is null)
+                throw new InvalidOperationException("Supplier has no linked shadow user.");
+
+            var isFirstActivation = newHasAccess && !existing.HasAccessToSystem
+                && shadowUser.Email.EndsWith(NoAccessEmailDomain, StringComparison.OrdinalIgnoreCase);
+
+            if (isFirstActivation && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
+                throw new InvalidOperationException("LoginEmail and Password are required to grant system access for the first time.");
+
+            var newLoginEmail = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.Email;
+            var newUserName = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.UserName;
+            var newPasswordHash = !string.IsNullOrWhiteSpace(dto.Password)
+                ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
+                : shadowUser.PasswordHash;
+
+            if (!string.IsNullOrWhiteSpace(dto.LoginEmail)
+                && !string.Equals(dto.LoginEmail, shadowUser.Email, StringComparison.OrdinalIgnoreCase))
             {
-                SupplierToken = dto.SupplierToken,
-                Name = newName,
-                NormalizedName = newName.ToUpperInvariant(),
-                LegalName = dto.LegalName ?? existing.LegalName,
-                TaxId = dto.TaxId ?? existing.TaxId,
-                Email = dto.Email ?? existing.Email,
-                Phone = dto.Phone ?? existing.Phone,
-                AddressLine1 = dto.AddressLine1 ?? existing.AddressLine1,
-                AddressLine2 = dto.AddressLine2 ?? existing.AddressLine2,
-                City = dto.City ?? existing.City,
-                State = dto.State ?? existing.State,
-                PostalCode = dto.PostalCode ?? existing.PostalCode,
-                Country = dto.Country ?? existing.Country,
-                IsGlobal = dto.IsGlobal ?? existing.IsGlobal,
-                LastUpdatedUtc = DateTime.UtcNow,
-                LastUpdatedBy = context.ActorUserToken.ToString()
-            },
-            commandType: CommandType.StoredProcedure);
+                var emailExists = await connection.ExecuteScalarAsync<int>(
+                    "sp_User_ExistsByEmail",
+                    new { NormalizedEmail = dto.LoginEmail!.ToUpperInvariant() },
+                    commandType: CommandType.StoredProcedure);
+
+                if (emailExists == 1)
+                    throw new InvalidOperationException("A user with this login email already exists.");
+            }
+
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                    "sp_Supplier_Update", supplierUpdateParams, transaction, commandType: CommandType.StoredProcedure);
+
+                await connection.ExecuteAsync(
+                    "sp_User_SetSupplierAccess",
+                    new
+                    {
+                        SupplierId = existing.SupplierId,
+                        Email = newLoginEmail,
+                        NormalizedEmail = newLoginEmail.ToUpperInvariant(),
+                        UserName = newUserName,
+                        NormalizedUserName = newUserName.ToUpperInvariant(),
+                        PasswordHash = newPasswordHash,
+                        IsActive = newHasAccess,
+                        LastUpdatedUtc = DateTime.UtcNow,
+                        LastUpdatedBy = context.ActorUserToken.ToString()
+                    },
+                    transaction,
+                    commandType: CommandType.StoredProcedure);
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        }
+        else
+        {
+            updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                "sp_Supplier_Update", supplierUpdateParams, commandType: CommandType.StoredProcedure);
+        }
 
         return updated is null ? null : mapper.Map<SupplierDto>(updated);
     }

@@ -158,7 +158,10 @@ namespace InnNou.Application.Mapping
                 State = r.State,
                 PostalCode = r.PostalCode,
                 Country = r.Country,
-                IsGlobal = r.IsGlobal
+                IsGlobal = r.IsGlobal,
+                HasAccessToSystem = r.HasAccessToSystem,
+                LoginEmail = r.LoginEmail,
+                Password = r.Password
             });
             mapper.Register<SupplierDto, CreateSupplierCommandResponse>(d => new CreateSupplierCommandResponse
             {
@@ -176,6 +179,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
             mapper.Register<EditSupplierCommandRequest, SupplierDto>(r => new SupplierDto
@@ -192,7 +196,10 @@ namespace InnNou.Application.Mapping
                 State = r.State,
                 PostalCode = r.PostalCode,
                 Country = r.Country,
-                IsGlobal = r.IsGlobal
+                IsGlobal = r.IsGlobal,
+                HasAccessToSystem = r.HasAccessToSystem,
+                LoginEmail = r.LoginEmail,
+                Password = r.Password
             });
             mapper.Register<SupplierDto, EditSupplierCommandResponse>(d => new EditSupplierCommandResponse
             {
@@ -210,6 +217,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
             mapper.Register<SupplierDto, CommonSupplier>(d => new CommonSupplier
@@ -228,6 +236,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
 

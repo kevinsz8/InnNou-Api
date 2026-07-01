@@ -18,9 +18,10 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Update
     @State          VARCHAR(150) = NULL,
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
-    @IsGlobal       BIT,
-    @LastUpdatedUtc DATETIME2(7),
-    @LastUpdatedBy  VARCHAR(150) = NULL
+    @IsGlobal           BIT,
+    @HasAccessToSystem  BIT,
+    @LastUpdatedUtc     DATETIME2(7),
+    @LastUpdatedBy      VARCHAR(150) = NULL
 )
 AS
 BEGIN
@@ -28,28 +29,29 @@ BEGIN
 
     UPDATE dbo.Suppliers
     SET
-        Name           = @Name,
-        NormalizedName = @NormalizedName,
-        LegalName      = @LegalName,
-        TaxId          = @TaxId,
-        Email          = @Email,
-        Phone          = @Phone,
-        AddressLine1   = @AddressLine1,
-        AddressLine2   = @AddressLine2,
-        City           = @City,
-        State          = @State,
-        PostalCode     = @PostalCode,
-        Country        = @Country,
-        IsGlobal       = @IsGlobal,
-        LastUpdatedUtc = @LastUpdatedUtc,
-        LastUpdatedBy  = @LastUpdatedBy
+        Name               = @Name,
+        NormalizedName     = @NormalizedName,
+        LegalName          = @LegalName,
+        TaxId              = @TaxId,
+        Email              = @Email,
+        Phone              = @Phone,
+        AddressLine1       = @AddressLine1,
+        AddressLine2       = @AddressLine2,
+        City               = @City,
+        State              = @State,
+        PostalCode         = @PostalCode,
+        Country            = @Country,
+        IsGlobal           = @IsGlobal,
+        HasAccessToSystem  = @HasAccessToSystem,
+        LastUpdatedUtc     = @LastUpdatedUtc,
+        LastUpdatedBy      = @LastUpdatedBy
     WHERE SupplierToken = @SupplierToken
       AND IsDeleted = 0;
 
     SELECT
         SupplierId, SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, IsActive, IsDeleted,
+        PostalCode, Country, IsGlobal, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
     FROM dbo.Suppliers
     WHERE SupplierToken = @SupplierToken;

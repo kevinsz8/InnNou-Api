@@ -7,6 +7,7 @@ namespace InnNou.Domain.Persistence
         Task<Login?> LoginAsync(string email, string password, CancellationToken cancellationToken);
         Task<Login?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken);
         Task<Login?> ImpersonateAsync(Guid actorUserToken, Guid targetUserToken, CancellationToken cancellationToken);
+        Task<Login?> ImpersonateSupplierAsync(Guid actorUserToken, Guid supplierToken, CancellationToken cancellationToken);
         Task<Login?> StopImpersonationAsync(Guid actorUserToken, CancellationToken cancellationToken);
     }
 }

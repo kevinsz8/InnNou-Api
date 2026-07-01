@@ -17,11 +17,12 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Create
     @State          VARCHAR(150) = NULL,
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
-    @IsGlobal       BIT,
-    @IsActive       BIT,
-    @IsDeleted      BIT,
-    @CreatedUtc     DATETIME2(7),
-    @CreatedBy      VARCHAR(150) = NULL
+    @IsGlobal           BIT,
+    @HasAccessToSystem  BIT,
+    @IsActive           BIT,
+    @IsDeleted          BIT,
+    @CreatedUtc         DATETIME2(7),
+    @CreatedBy          VARCHAR(150) = NULL
 )
 AS
 BEGIN
@@ -31,21 +32,21 @@ BEGIN
     (
         SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, IsActive, IsDeleted,
+        PostalCode, Country, IsGlobal, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy
     )
     VALUES
     (
         @SupplierToken, @Name, @NormalizedName, @LegalName, @TaxId,
         @Email, @Phone, @AddressLine1, @AddressLine2, @City, @State,
-        @PostalCode, @Country, @IsGlobal, @IsActive, @IsDeleted,
+        @PostalCode, @Country, @IsGlobal, @HasAccessToSystem, @IsActive, @IsDeleted,
         @CreatedUtc, @CreatedBy
     );
 
     SELECT
         SupplierId, SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, IsActive, IsDeleted,
+        PostalCode, Country, IsGlobal, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
     FROM dbo.Suppliers
     WHERE SupplierToken = @SupplierToken;

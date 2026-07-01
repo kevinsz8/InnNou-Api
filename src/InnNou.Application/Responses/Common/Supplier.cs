@@ -16,6 +16,7 @@ namespace InnNou.Application.Responses.Common
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
         public bool IsGlobal { get; set; }
+        public bool HasAccessToSystem { get; set; }
         public bool IsActive { get; set; }
     }
 }

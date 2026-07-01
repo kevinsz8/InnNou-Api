@@ -16,6 +16,9 @@ namespace InnNou.Domain.Dtos
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
         public bool? IsGlobal { get; set; }
+        public bool? HasAccessToSystem { get; set; }
+        public string? LoginEmail { get; set; }
+        public string? Password { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
     }

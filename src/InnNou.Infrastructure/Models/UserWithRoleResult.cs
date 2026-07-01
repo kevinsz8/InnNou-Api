@@ -24,4 +24,7 @@ internal sealed class UserWithRoleResult
     public string RoleName { get; set; } = default!;
     public int RoleLevel { get; set; }
     public bool CanImpersonate { get; set; }
+
+    // Only populated by sp_Auth_GetUserBySupplierToken (joins Suppliers.Name); null otherwise.
+    public string? SupplierName { get; set; }
 }

@@ -33,6 +33,7 @@ BEGIN
         s.PostalCode,
         s.Country,
         s.IsGlobal,
+        s.HasAccessToSystem,
         s.IsActive,
         s.IsDeleted,
         s.CreatedUtc,

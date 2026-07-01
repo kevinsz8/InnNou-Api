@@ -26,6 +26,7 @@ BEGIN
         PostalCode,
         Country,
         IsGlobal,
+        HasAccessToSystem,
         IsActive,
         IsDeleted,
         CreatedUtc,
