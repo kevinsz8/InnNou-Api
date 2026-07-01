@@ -185,7 +185,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     NormalizedUserName = userName.ToUpperInvariant(),
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                     RoleId = supplierRole.RoleId,
-                    HotelId = (int?)null,
+                    OrganizationId = (int?)null,
                     SupplierId = created.SupplierId,
                     IsActive = hasAccess,
                     IsDeleted = false,

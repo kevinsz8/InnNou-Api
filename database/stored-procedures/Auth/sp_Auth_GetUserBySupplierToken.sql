@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    AUTH - GET USER BY SUPPLIER TOKEN
    Returns full user + role data for the shadow/login User linked
@@ -22,7 +26,7 @@ BEGIN
         u.UserToken,
         u.Email,
         u.PasswordHash,
-        u.HotelId,
+        u.OrganizationId,
         u.SupplierId,
         u.IsActive,
         u.IsDeleted,

@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    AUTH - GET USER BY EMAIL
    Returns full user + role data for login validation.
@@ -15,7 +19,7 @@ BEGIN
         u.UserToken,
         u.Email,
         u.PasswordHash,
-        u.HotelId,
+        u.OrganizationId,
         u.SupplierId,
         u.IsActive,
         u.IsDeleted,

@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    USER - UPDATE
    Updates an existing user's fields and returns the full
@@ -14,7 +18,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_User_Update
     @NormalizedUserName VARCHAR(150),
     @PasswordHash       VARCHAR(500),
     @RoleId             INT,
-    @HotelId            INT          = NULL,
+    @OrganizationId     INT          = NULL,
     @LastUpdatedUtc     DATETIME2(7),
     @LastUpdatedBy      VARCHAR(150)
 )
@@ -32,7 +36,7 @@ BEGIN
         NormalizedUserName = @NormalizedUserName,
         PasswordHash       = @PasswordHash,
         RoleId             = @RoleId,
-        HotelId            = @HotelId,
+        OrganizationId     = @OrganizationId,
         LastUpdatedUtc     = @LastUpdatedUtc,
         LastUpdatedBy      = @LastUpdatedBy
     WHERE UserToken = @UserToken;

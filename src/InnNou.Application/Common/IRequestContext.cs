@@ -4,11 +4,11 @@ namespace InnNou.Application.Common
     {
         Guid ActorUserToken { get; }
         Guid EffectiveUserToken { get; }
-        int? HotelId { get; }
+        int? OrganizationId { get; }
         int? SupplierId { get; }
         int RoleLevel { get; }
         int ActorRoleLevel { get; }
-        int? ActorHotelId { get; }
+        int? ActorOrganizationId { get; }
         bool IsAuthenticated { get; }
         bool IsImpersonating { get; }
     }

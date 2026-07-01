@@ -12,7 +12,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string NormalizedUserName { get; set; } = default!;
         public string PasswordHash { get; set; } = default!;
         public int RoleId { get; set; }
-        public int? HotelId { get; set; }
+        public int? OrganizationId { get; set; }
         public int? SupplierId { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }

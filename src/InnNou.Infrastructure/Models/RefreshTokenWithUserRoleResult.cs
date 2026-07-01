@@ -1,7 +1,7 @@
 namespace InnNou.Infrastructure.Models;
 
 // Flat projection returned by sp_Auth_GetRefreshTokenData.
-// SP must alias: u.UserToken, u.Email, u.HotelId, u.SupplierId, r.RoleLevel AS RoleLevel.
+// SP must alias: u.UserToken, u.Email, u.OrganizationId, u.SupplierId, r.RoleLevel AS RoleLevel.
 internal sealed class RefreshTokenWithUserRoleResult
 {
     public int RefreshTokenId { get; set; }
@@ -13,7 +13,7 @@ internal sealed class RefreshTokenWithUserRoleResult
     public Guid? ReplacedByToken { get; set; }
     public Guid UserToken { get; set; }
     public string Email { get; set; } = default!;
-    public int? HotelId { get; set; }
+    public int? OrganizationId { get; set; }
     public int? SupplierId { get; set; }
     public int RoleLevel { get; set; }
 }

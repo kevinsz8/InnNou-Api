@@ -34,7 +34,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IRequestContext, RequestContext>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IUserService, UserService>();
-            services.AddScoped<IHotelService, HotelService>();
+            services.AddScoped<IOrganizationService, OrganizationService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<ISupplierService, SupplierService>();
 
@@ -46,7 +46,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<ISubFamilyService, SubFamilyService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<ISubCategoryService, SubCategoryService>();
-            services.AddScoped<IHotelContactService, HotelContactService>();
+            services.AddScoped<IOrganizationContactService, OrganizationContactService>();
             services.AddScoped<IArticleService, ArticleService>();
 
             return services;

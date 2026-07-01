@@ -3,7 +3,7 @@ using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using UserEntity = InnNou.Infrastructure.Repositories.DbEntities.User;
-using HotelEntity = InnNou.Infrastructure.Repositories.DbEntities.Hotel;
+using OrganizationEntity = InnNou.Infrastructure.Repositories.DbEntities.Organization;
 using RoleEntity = InnNou.Infrastructure.Repositories.DbEntities.Role;
 using SupplierEntity = InnNou.Infrastructure.Repositories.DbEntities.Supplier;
 using UnitTypeEntity = InnNou.Infrastructure.Repositories.DbEntities.UnitType;
@@ -13,7 +13,7 @@ using FamilyEntity = InnNou.Infrastructure.Repositories.DbEntities.Family;
 using SubFamilyEntity = InnNou.Infrastructure.Repositories.DbEntities.SubFamily;
 using CategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.Category;
 using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCategory;
-using HotelContactEntity = InnNou.Infrastructure.Repositories.DbEntities.HotelContact;
+using OrganizationContactEntity = InnNou.Infrastructure.Repositories.DbEntities.OrganizationContact;
 using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
 
 namespace InnNou.Infrastructure.Mapping
@@ -27,7 +27,7 @@ namespace InnNou.Infrastructure.Mapping
                 UserId = u.UserId,
                 UserToken = u.UserToken,
                 RoleId = u.RoleId,
-                HotelId = u.HotelId,
+                OrganizationId = u.OrganizationId,
                 SupplierId = u.SupplierId,
                 Email = u.Email,
                 NormalizedEmail = u.NormalizedEmail,
@@ -44,7 +44,7 @@ namespace InnNou.Infrastructure.Mapping
                 UserId = u.UserId,
                 UserToken = u.UserToken,
                 RoleId = u.RoleId,
-                HotelId = u.HotelId,
+                OrganizationId = u.OrganizationId,
                 SupplierId = u.SupplierId,
                 Email = u.Email,
                 FirstName = u.FirstName,
@@ -54,20 +54,22 @@ namespace InnNou.Infrastructure.Mapping
                 IsDeleted = u.IsDeleted
             });
 
-            mapper.Register<HotelEntity, HotelDto>(h => new HotelDto
+            mapper.Register<OrganizationEntity, OrganizationDto>(o => new OrganizationDto
             {
-                HotelId = h.HotelId,
-                HotelToken = h.HotelToken,
-                Name = h.Name,
-                NormalizedName = h.NormalizedName,
-                LegalName = h.LegalName,
-                Code = h.Code,
-                ParentHotelId = h.ParentHotelId,
-                TimeZone = h.TimeZone,
-                CurrencyCode = h.CurrencyCode,
-                LanguageCode = h.LanguageCode,
-                IsActive = h.IsActive,
-                IsDeleted = h.IsDeleted
+                OrganizationId = o.OrganizationId,
+                OrganizationToken = o.OrganizationToken,
+                Name = o.Name,
+                NormalizedName = o.NormalizedName,
+                LegalName = o.LegalName,
+                Code = o.Code,
+                ParentOrganizationId = o.ParentOrganizationId,
+                OrganizationTypeId = o.OrganizationTypeId,
+                OrganizationTypeCode = o.OrganizationTypeCode,
+                TimeZone = o.TimeZone,
+                CurrencyCode = o.CurrencyCode,
+                LanguageCode = o.LanguageCode,
+                IsActive = o.IsActive,
+                IsDeleted = o.IsDeleted
             });
 
             mapper.Register<RoleEntity, RoleDto>(r => new RoleDto
@@ -204,11 +206,11 @@ namespace InnNou.Infrastructure.Mapping
                 IsDeleted = e.IsDeleted
             });
 
-            mapper.Register<HotelContactEntity, HotelContactDto>(e => new HotelContactDto
+            mapper.Register<OrganizationContactEntity, OrganizationContactDto>(e => new OrganizationContactDto
             {
-                HotelContactId = e.HotelContactId,
-                HotelContactToken = e.HotelContactToken,
-                HotelId = e.HotelId,
+                OrganizationContactId = e.OrganizationContactId,
+                OrganizationContactToken = e.OrganizationContactToken,
+                OrganizationId = e.OrganizationId,
                 ContactName = e.ContactName,
                 ContactType = e.ContactType,
                 Department = e.Department,

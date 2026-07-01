@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    USER - CREATE
    Inserts a new user and returns the full created row.
@@ -13,7 +17,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_User_Create
     @NormalizedUserName VARCHAR(150),
     @PasswordHash       VARCHAR(500),
     @RoleId             INT,
-    @HotelId            INT          = NULL,
+    @OrganizationId     INT          = NULL,
     @SupplierId         INT          = NULL,
     @IsActive           BIT,
     @IsDeleted          BIT,
@@ -28,13 +32,13 @@ BEGIN
     (
         UserToken, FirstName, LastName, Email, NormalizedEmail,
         UserName, NormalizedUserName, PasswordHash, RoleId,
-        HotelId, SupplierId, IsActive, IsDeleted, CreatedUtc, CreatedBy
+        OrganizationId, SupplierId, IsActive, IsDeleted, CreatedUtc, CreatedBy
     )
     VALUES
     (
         @UserToken, @FirstName, @LastName, @Email, @NormalizedEmail,
         @UserName, @NormalizedUserName, @PasswordHash, @RoleId,
-        @HotelId, @SupplierId, @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
+        @OrganizationId, @SupplierId, @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
     );
 
     SELECT * FROM dbo.Users WHERE UserToken = @UserToken;

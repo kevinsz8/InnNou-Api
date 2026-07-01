@@ -5,7 +5,7 @@ namespace InnNou.Domain.Dtos
         public int UserId { get; set; }
         public Guid UserToken { get; set; }
         public int RoleId { get; set; }
-        public int? HotelId { get; set; }
+        public int? OrganizationId { get; set; }
         public int? SupplierId { get; set; }
         public string Email { get; set; } = default!;
         public string NormalizedEmail { get; set; } = default!;

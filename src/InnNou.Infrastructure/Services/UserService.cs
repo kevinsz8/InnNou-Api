@@ -17,8 +17,8 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
 
     public async Task<UserDto?> CreateUserAsync(UserDto userDto, IRequestContext context, CancellationToken cancellationToken)
     {
-        if (userDto.HotelId.HasValue && userDto.SupplierId.HasValue)
-            throw new InvalidOperationException("A user cannot belong to both a hotel and a supplier");
+        if (userDto.OrganizationId.HasValue && userDto.SupplierId.HasValue)
+            throw new InvalidOperationException("A user cannot belong to both an organization and a supplier");
 
         await using var connection = connectionFactory.CreateConnection();
 
@@ -38,19 +38,19 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
             if (userDto.SupplierId.HasValue)
                 throw new UnauthorizedAccessException("Only superadmin can create supplier users");
 
-            if (!context.HotelId.HasValue)
-                throw new UnauthorizedAccessException("Invalid hotel context");
+            if (!context.OrganizationId.HasValue)
+                throw new UnauthorizedAccessException("Invalid organization context");
 
-            if (!userDto.HotelId.HasValue)
-                throw new UnauthorizedAccessException("Invalid hotel assignment");
+            if (!userDto.OrganizationId.HasValue)
+                throw new UnauthorizedAccessException("Invalid organization assignment");
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Hotel_IsInHierarchy",
-                new { RootHotelId = context.HotelId.Value, TargetHotelId = userDto.HotelId.Value },
+                "sp_Organization_IsInHierarchy",
+                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = userDto.OrganizationId.Value },
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Invalid hotel assignment");
+                throw new UnauthorizedAccessException("Invalid organization assignment");
         }
 
         var createdUser = await connection.QueryFirstOrDefaultAsync<User>(
@@ -66,7 +66,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 NormalizedUserName = userDto.UserName.ToUpperInvariant(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password),
                 userDto.RoleId,
-                userDto.HotelId,
+                userDto.OrganizationId,
                 userDto.SupplierId,
                 IsActive = true,
                 IsDeleted = false,
@@ -94,7 +94,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
 
         var p = new DynamicParameters();
         p.Add("@ContextRoleLevel", context.RoleLevel);
-        p.Add("@RootHotelId", context.RoleLevel >= 100 ? (int?)null : context.HotelId);
+        p.Add("@RootOrganizationId", context.RoleLevel >= 100 ? (int?)null : context.OrganizationId);
         p.Add("@SupplierId", context.RoleLevel < 100 && context.SupplierId.HasValue ? context.SupplierId : (int?)null);
         p.Add("@SearchField", string.IsNullOrWhiteSpace(searchField) ? null : searchField.Trim().ToLower());
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
@@ -129,18 +129,18 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
         if (existing.RoleLevel > context.RoleLevel)
             throw new UnauthorizedAccessException("Cannot edit higher role");
 
-        if (context.RoleLevel < 100 && context.HotelId.HasValue)
+        if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
         {
-            if (!existing.HotelId.HasValue)
-                throw new UnauthorizedAccessException("Cannot edit user from another hotel");
+            if (!existing.OrganizationId.HasValue)
+                throw new UnauthorizedAccessException("Cannot edit user from another organization");
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Hotel_IsInHierarchy",
-                new { RootHotelId = context.HotelId.Value, TargetHotelId = existing.HotelId.Value },
+                "sp_Organization_IsInHierarchy",
+                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = existing.OrganizationId.Value },
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot edit user from another hotel");
+                throw new UnauthorizedAccessException("Cannot edit user from another organization");
         }
 
         var newRoleId = existing.RoleId;
@@ -178,7 +178,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                     ? BCrypt.Net.BCrypt.HashPassword(request.Password)
                     : existing.PasswordHash,
                 RoleId = newRoleId,
-                HotelId = existing.HotelId,
+                OrganizationId = existing.OrganizationId,
                 LastUpdatedUtc = DateTime.UtcNow,
                 LastUpdatedBy = context.ActorUserToken.ToString()
             },
@@ -202,18 +202,18 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
         if (existing.RoleLevel > context.RoleLevel)
             throw new UnauthorizedAccessException("Cannot delete higher role");
 
-        if (context.RoleLevel < 100 && context.HotelId.HasValue)
+        if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
         {
-            if (!existing.HotelId.HasValue)
-                throw new UnauthorizedAccessException("Cannot delete user from another hotel");
+            if (!existing.OrganizationId.HasValue)
+                throw new UnauthorizedAccessException("Cannot delete user from another organization");
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Hotel_IsInHierarchy",
-                new { RootHotelId = context.HotelId.Value, TargetHotelId = existing.HotelId.Value },
+                "sp_Organization_IsInHierarchy",
+                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = existing.OrganizationId.Value },
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot delete user from another hotel");
+                throw new UnauthorizedAccessException("Cannot delete user from another organization");
         }
 
         var now = DateTime.UtcNow;
@@ -254,14 +254,14 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 if (existing.SupplierId != context.SupplierId)
                     return null;
             }
-            else if (context.HotelId.HasValue)
+            else if (context.OrganizationId.HasValue)
             {
-                if (!existing.HotelId.HasValue)
+                if (!existing.OrganizationId.HasValue)
                     return null;
 
                 var canAccess = await connection.ExecuteScalarAsync<int>(
-                    "sp_Hotel_IsInHierarchy",
-                    new { RootHotelId = context.HotelId.Value, TargetHotelId = existing.HotelId.Value },
+                    "sp_Organization_IsInHierarchy",
+                    new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = existing.OrganizationId.Value },
                     commandType: CommandType.StoredProcedure);
 
                 if (canAccess != 1)

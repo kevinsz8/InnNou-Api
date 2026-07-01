@@ -8,7 +8,7 @@ namespace InnNou.Infrastructure.Services
     {
         public Guid ActorUserToken { get; private set; }
         public Guid EffectiveUserToken { get; private set; }
-        public int? HotelId { get; private set; }
+        public int? OrganizationId { get; private set; }
         public int? SupplierId { get; private set; }
 
         public bool IsAuthenticated { get; private set; }
@@ -16,7 +16,7 @@ namespace InnNou.Infrastructure.Services
 
         public int RoleLevel { get; private set; }
         public int ActorRoleLevel { get; private set; }
-        public int? ActorHotelId { get; private set; }
+        public int? ActorOrganizationId { get; private set; }
 
         public RequestContext(IHttpContextAccessor httpContextAccessor)
         {
@@ -51,9 +51,9 @@ namespace InnNou.Infrastructure.Services
                 EffectiveUserToken = ActorUserToken;
             }
 
-            var hotelClaim = user.FindFirst("hotelId")?.Value;
-            if (!string.IsNullOrWhiteSpace(hotelClaim) && int.TryParse(hotelClaim, out var hotelId))
-                HotelId = hotelId;
+            var organizationClaim = user.FindFirst("organizationId")?.Value;
+            if (!string.IsNullOrWhiteSpace(organizationClaim) && int.TryParse(organizationClaim, out var organizationId))
+                OrganizationId = organizationId;
 
             var supplierClaim = user.FindFirst("supplierId")?.Value;
             if (!string.IsNullOrWhiteSpace(supplierClaim) && int.TryParse(supplierClaim, out var supplierId))
@@ -71,11 +71,11 @@ namespace InnNou.Infrastructure.Services
             else
                 ActorRoleLevel = RoleLevel;
 
-            var actorHotelClaim = user.FindFirst("actorHotelId")?.Value;
-            if (!string.IsNullOrWhiteSpace(actorHotelClaim) && int.TryParse(actorHotelClaim, out var actorHotelId))
-                ActorHotelId = actorHotelId;
+            var actorOrganizationClaim = user.FindFirst("actorOrganizationId")?.Value;
+            if (!string.IsNullOrWhiteSpace(actorOrganizationClaim) && int.TryParse(actorOrganizationClaim, out var actorOrganizationId))
+                ActorOrganizationId = actorOrganizationId;
             else
-                ActorHotelId = HotelId;
+                ActorOrganizationId = OrganizationId;
         }
     }
 }

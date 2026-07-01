@@ -12,7 +12,7 @@ namespace InnNou.Application.Requests
         public required string LastName { get; set; } = default!;
         public string UserName { get; set; } = default!;
         public int RoleId { get; set; }
-        public int? HotelId { get; set; }
+        public int? OrganizationId { get; set; }
         public int? SupplierId { get; set; }
     }
 }

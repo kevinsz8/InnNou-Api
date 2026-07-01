@@ -1,39 +1,43 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    USER - GET PAGED
    Returns a paginated list of users. Super admins see all.
-   Hotel users see only users in their hotel subtree. Supplier
-   users see only users belonging to their supplier.
+   Organization users see only users in their organization subtree.
+   Supplier users see only users belonging to their supplier.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_User_GetPaged
 (
-    @ContextRoleLevel INT,
-    @RootHotelId      INT          = NULL,
-    @SupplierId       INT          = NULL,
-    @SearchField      VARCHAR(50)  = NULL,
-    @SearchText       VARCHAR(200) = NULL,
-    @PageNumber       INT,
-    @PageSize         INT,
-    @IncludeInactive  BIT          = 0
+    @ContextRoleLevel    INT,
+    @RootOrganizationId  INT          = NULL,
+    @SupplierId          INT          = NULL,
+    @SearchField         VARCHAR(50)  = NULL,
+    @SearchText          VARCHAR(200) = NULL,
+    @PageNumber          INT,
+    @PageSize            INT,
+    @IncludeInactive     BIT          = 0
 )
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    ;WITH HotelHierarchy AS
+    ;WITH OrganizationHierarchy AS
     (
-        SELECT HotelId
-        FROM dbo.Hotels
-        WHERE HotelId  = @RootHotelId
+        SELECT OrganizationId
+        FROM dbo.Organizations
+        WHERE OrganizationId = @RootOrganizationId
           AND IsDeleted = 0
           AND IsActive  = 1
 
         UNION ALL
 
-        SELECT h.HotelId
-        FROM dbo.Hotels h
-        INNER JOIN HotelHierarchy hh ON h.ParentHotelId = hh.HotelId
-        WHERE h.IsDeleted = 0
-          AND h.IsActive  = 1
+        SELECT o.OrganizationId
+        FROM dbo.Organizations o
+        INNER JOIN OrganizationHierarchy oh ON o.ParentOrganizationId = oh.OrganizationId
+        WHERE o.IsDeleted = 0
+          AND o.IsActive  = 1
     )
     SELECT
         u.UserId,
@@ -43,7 +47,7 @@ BEGIN
         u.Email,
         u.UserName,
         u.RoleId,
-        u.HotelId,
+        u.OrganizationId,
         u.SupplierId,
         u.IsActive,
         COUNT(*) OVER() AS TotalCount
@@ -66,12 +70,12 @@ BEGIN
 
             OR
 
-            -- HOTEL USER: see only users within the hotel subtree
+            -- ORGANIZATION USER: see only users within the organization subtree
             (
-                @RootHotelId IS NOT NULL
+                @RootOrganizationId IS NOT NULL
                 AND EXISTS
                 (
-                    SELECT 1 FROM HotelHierarchy hh WHERE hh.HotelId = u.HotelId
+                    SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = u.OrganizationId
                 )
             )
         )

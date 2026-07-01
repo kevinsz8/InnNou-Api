@@ -3,7 +3,7 @@ using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
 using InnNou.Shared.Mapping;
 using CommonUser = InnNou.Application.Responses.Common.User;
-using CommonHotel = InnNou.Application.Responses.Common.Hotel;
+using CommonOrganization = InnNou.Application.Responses.Common.Organization;
 using CommonRole = InnNou.Application.Responses.Common.Role;
 using CommonSupplier = InnNou.Application.Responses.Common.Supplier;
 using CommonUnitType = InnNou.Application.Responses.Common.UnitType;
@@ -13,7 +13,7 @@ using CommonFamily = InnNou.Application.Responses.Common.Family;
 using CommonSubFamily = InnNou.Application.Responses.Common.SubFamily;
 using CommonCategory = InnNou.Application.Responses.Common.Category;
 using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
-using CommonHotelContact = InnNou.Application.Responses.Common.HotelContact;
+using CommonOrganizationContact = InnNou.Application.Responses.Common.OrganizationContact;
 using CommonArticle = InnNou.Application.Responses.Common.Article;
 
 namespace InnNou.Application.Mapping
@@ -31,7 +31,7 @@ namespace InnNou.Application.Mapping
                 LastName = r.LastName,
                 UserName = r.UserName,
                 RoleId = r.RoleId,
-                HotelId = r.HotelId,
+                OrganizationId = r.OrganizationId,
                 SupplierId = r.SupplierId
             });
             mapper.Register<UserDto, CreateUserCommandResponse>(d => new CreateUserCommandResponse
@@ -67,66 +67,74 @@ namespace InnNou.Application.Mapping
                 FirstName = d.FirstName,
                 LastName = d.LastName,
                 UserName = d.UserName,
-                HotelId = d.HotelId,
+                OrganizationId = d.OrganizationId,
                 SupplierId = d.SupplierId,
                 RoleId = d.RoleId,
                 IsActive = d.IsActive
             });
 
-            // Hotel
-            mapper.Register<CreateHotelCommandRequest, HotelDto>(r => new HotelDto
+            // Organization
+            mapper.Register<CreateOrganizationCommandRequest, OrganizationDto>(r => new OrganizationDto
             {
                 Name = r.Name,
                 LegalName = r.LegalName,
                 Code = r.Code,
-                ParentHotelId = r.ParentHotelId,
+                ParentOrganizationId = r.ParentOrganizationId,
+                OrganizationTypeId = r.OrganizationTypeId ?? 0,
                 TimeZone = r.TimeZone,
                 CurrencyCode = r.CurrencyCode,
                 LanguageCode = r.LanguageCode
             });
-            mapper.Register<HotelDto, CreateHotelCommandResponse>(d => new CreateHotelCommandResponse
+            mapper.Register<OrganizationDto, CreateOrganizationCommandResponse>(d => new CreateOrganizationCommandResponse
             {
-                HotelId = d.HotelId,
-                HotelToken = d.HotelToken,
+                OrganizationId = d.OrganizationId,
+                OrganizationToken = d.OrganizationToken,
                 Name = d.Name,
                 LegalName = d.LegalName,
                 Code = d.Code,
-                ParentHotelId = d.ParentHotelId,
+                ParentOrganizationId = d.ParentOrganizationId,
+                OrganizationTypeId = d.OrganizationTypeId,
+                OrganizationTypeCode = d.OrganizationTypeCode,
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
                 IsActive = d.IsActive
             });
-            mapper.Register<EditHotelCommandRequest, HotelDto>(r => new HotelDto
+            mapper.Register<EditOrganizationCommandRequest, OrganizationDto>(r => new OrganizationDto
             {
-                HotelToken = r.HotelToken,
+                OrganizationToken = r.OrganizationToken,
                 Name = r.Name ?? string.Empty,
                 LegalName = r.LegalName,
                 Code = r.Code,
-                ParentHotelId = r.ParentHotelId,
+                ParentOrganizationId = r.ParentOrganizationId,
+                OrganizationTypeId = r.OrganizationTypeId ?? 0,
                 TimeZone = r.TimeZone,
                 CurrencyCode = r.CurrencyCode,
                 LanguageCode = r.LanguageCode
             });
-            mapper.Register<HotelDto, EditHotelCommandResponse>(d => new EditHotelCommandResponse
+            mapper.Register<OrganizationDto, EditOrganizationCommandResponse>(d => new EditOrganizationCommandResponse
             {
-                HotelId = d.HotelId,
-                HotelToken = d.HotelToken,
+                OrganizationId = d.OrganizationId,
+                OrganizationToken = d.OrganizationToken,
                 Name = d.Name,
                 LegalName = d.LegalName,
                 Code = d.Code,
-                ParentHotelId = d.ParentHotelId,
+                ParentOrganizationId = d.ParentOrganizationId,
+                OrganizationTypeId = d.OrganizationTypeId,
+                OrganizationTypeCode = d.OrganizationTypeCode,
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
                 IsActive = d.IsActive
             });
-            mapper.Register<HotelDto, CommonHotel>(d => new CommonHotel
+            mapper.Register<OrganizationDto, CommonOrganization>(d => new CommonOrganization
             {
-                HotelId = d.HotelId,
-                HotelToken = d.HotelToken,
+                OrganizationId = d.OrganizationId,
+                OrganizationToken = d.OrganizationToken,
                 Name = d.Name,
-                ParentHotelId = d.ParentHotelId,
+                ParentOrganizationId = d.ParentOrganizationId,
+                OrganizationTypeId = d.OrganizationTypeId,
+                OrganizationTypeCode = d.OrganizationTypeCode,
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
@@ -329,10 +337,10 @@ namespace InnNou.Application.Mapping
                 IsActive = d.IsActive
             });
 
-            // HotelContact
-            mapper.Register<CreateHotelContactCommandRequest, HotelContactDto>(r => new HotelContactDto
+            // OrganizationContact
+            mapper.Register<CreateOrganizationContactCommandRequest, OrganizationContactDto>(r => new OrganizationContactDto
             {
-                HotelToken = r.HotelToken,
+                OrganizationToken = r.OrganizationToken,
                 ContactName = r.ContactName,
                 ContactType = r.ContactType,
                 Department = r.Department,
@@ -343,9 +351,9 @@ namespace InnNou.Application.Mapping
                 Notes = r.Notes,
                 IsPrimary = r.IsPrimary
             });
-            mapper.Register<EditHotelContactCommandRequest, HotelContactDto>(r => new HotelContactDto
+            mapper.Register<EditOrganizationContactCommandRequest, OrganizationContactDto>(r => new OrganizationContactDto
             {
-                HotelContactToken = r.HotelContactToken,
+                OrganizationContactToken = r.OrganizationContactToken,
                 ContactName = r.ContactName,
                 ContactType = r.ContactType,
                 Department = r.Department,
@@ -356,11 +364,11 @@ namespace InnNou.Application.Mapping
                 Notes = r.Notes,
                 IsPrimary = r.IsPrimary
             });
-            mapper.Register<HotelContactDto, CreateHotelContactCommandResponse>(d => new CreateHotelContactCommandResponse
+            mapper.Register<OrganizationContactDto, CreateOrganizationContactCommandResponse>(d => new CreateOrganizationContactCommandResponse
             {
-                HotelContactId = d.HotelContactId,
-                HotelContactToken = d.HotelContactToken,
-                HotelId = d.HotelId,
+                OrganizationContactId = d.OrganizationContactId,
+                OrganizationContactToken = d.OrganizationContactToken,
+                OrganizationId = d.OrganizationId,
                 ContactName = d.ContactName,
                 ContactType = d.ContactType,
                 Department = d.Department,
@@ -372,11 +380,11 @@ namespace InnNou.Application.Mapping
                 IsPrimary = d.IsPrimary,
                 IsActive = d.IsActive
             });
-            mapper.Register<HotelContactDto, EditHotelContactCommandResponse>(d => new EditHotelContactCommandResponse
+            mapper.Register<OrganizationContactDto, EditOrganizationContactCommandResponse>(d => new EditOrganizationContactCommandResponse
             {
-                HotelContactId = d.HotelContactId,
-                HotelContactToken = d.HotelContactToken,
-                HotelId = d.HotelId,
+                OrganizationContactId = d.OrganizationContactId,
+                OrganizationContactToken = d.OrganizationContactToken,
+                OrganizationId = d.OrganizationId,
                 ContactName = d.ContactName,
                 ContactType = d.ContactType,
                 Department = d.Department,
@@ -388,11 +396,11 @@ namespace InnNou.Application.Mapping
                 IsPrimary = d.IsPrimary,
                 IsActive = d.IsActive
             });
-            mapper.Register<HotelContactDto, CommonHotelContact>(d => new CommonHotelContact
+            mapper.Register<OrganizationContactDto, CommonOrganizationContact>(d => new CommonOrganizationContact
             {
-                HotelContactId = d.HotelContactId,
-                HotelContactToken = d.HotelContactToken,
-                HotelId = d.HotelId,
+                OrganizationContactId = d.OrganizationContactId,
+                OrganizationContactToken = d.OrganizationContactToken,
+                OrganizationId = d.OrganizationId,
                 ContactName = d.ContactName,
                 ContactType = d.ContactType,
                 Department = d.Department,

@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    AUTH - GET REFRESH TOKEN DATA
    Returns refresh token + joined user/role data for token
@@ -23,7 +27,7 @@ BEGIN
 
         u.UserToken,
         u.Email,
-        u.HotelId,
+        u.OrganizationId,
         u.SupplierId,
         u.IsActive,
         u.IsDeleted,

@@ -44,7 +44,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { UserId = user.UserId, LastLoginUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.HotelId, user.SupplierId, user.RoleLevel);
+        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.OrganizationId, user.SupplierId, user.RoleLevel);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -105,7 +105,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             throw;
         }
 
-        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.HotelId, tokenData.SupplierId, tokenData.RoleLevel);
+        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel);
 
         return new Login
         {
@@ -144,14 +144,14 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             return null;
 
         // Supplier users can only be impersonated by superadmin
-        if (target.SupplierId.HasValue && !target.HotelId.HasValue && actor.RoleLevel < 100)
+        if (target.SupplierId.HasValue && !target.OrganizationId.HasValue && actor.RoleLevel < 100)
             return null;
 
-        if (actor.RoleLevel < 100 && actor.HotelId.HasValue)
+        if (actor.RoleLevel < 100 && actor.OrganizationId.HasValue)
         {
             var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Hotel_IsInHierarchy",
-                new { RootHotelId = actor.HotelId.Value, TargetHotelId = target.HotelId },
+                "sp_Organization_IsInHierarchy",
+                new { RootOrganizationId = actor.OrganizationId.Value, TargetOrganizationId = target.OrganizationId },
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
@@ -164,11 +164,11 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             commandType: CommandType.StoredProcedure);
 
         var jwt = GenerateJwtToken(
-            actor.UserToken, actor.Email, target.HotelId, target.SupplierId, target.RoleLevel,
+            actor.UserToken, actor.Email, target.OrganizationId, target.SupplierId, target.RoleLevel,
             impersonatedUserToken: target.UserToken,
             impersonatedEmail: target.Email,
             actorRoleLevel: actor.RoleLevel,
-            actorHotelId: actor.HotelId);
+            actorOrganizationId: actor.OrganizationId);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -225,7 +225,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { ActorUserId = actor.UserId, EndedUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.HotelId, actor.SupplierId, actor.RoleLevel);
+        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.OrganizationId, actor.SupplierId, actor.RoleLevel);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -248,13 +248,13 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
     private string GenerateJwtToken(
         Guid userToken,
         string email,
-        int? hotelId,
+        int? organizationId,
         int? supplierId,
         int roleLevel,
         Guid? impersonatedUserToken = null,
         string? impersonatedEmail = null,
         int? actorRoleLevel = null,
-        int? actorHotelId = null)
+        int? actorOrganizationId = null)
     {
         var claims = new List<Claim>
         {
@@ -264,8 +264,8 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new("roleLevel", roleLevel.ToString()),
         };
 
-        if (hotelId.HasValue)
-            claims.Add(new Claim("hotelId", hotelId.Value.ToString()));
+        if (organizationId.HasValue)
+            claims.Add(new Claim("organizationId", organizationId.Value.ToString()));
 
         if (supplierId.HasValue)
             claims.Add(new Claim("supplierId", supplierId.Value.ToString()));
@@ -280,8 +280,8 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             if (actorRoleLevel.HasValue)
                 claims.Add(new Claim("actorRoleLevel", actorRoleLevel.Value.ToString()));
 
-            if (actorHotelId.HasValue)
-                claims.Add(new Claim("actorHotelId", actorHotelId.Value.ToString()));
+            if (actorOrganizationId.HasValue)
+                claims.Add(new Claim("actorOrganizationId", actorOrganizationId.Value.ToString()));
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!));
