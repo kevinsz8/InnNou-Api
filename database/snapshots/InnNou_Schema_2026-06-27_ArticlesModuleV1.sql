@@ -520,6 +520,7 @@ CREATE TABLE Articles (
     ContentQuantity  decimal(18,6)    NOT NULL,    -- content per item (e.g. 500 ml)
     FamilyId         int                  NULL,    -- supplier default classification
     SubFamilyId      int                  NULL,
+    BaseUnitId       int                  NULL,    -- optional canonical physical unit for cross-unit reporting
     MinimumOrderQty  decimal(18,4)        NULL,    -- in purchase units
     LeadTimeDays     int                  NULL,
     IsActive         bit              NOT NULL DEFAULT (1),
@@ -536,7 +537,8 @@ CREATE TABLE Articles (
     CONSTRAINT FK_Articles_PurchaseUnit FOREIGN KEY (PurchaseUnitId) REFERENCES UnitsOfMeasure (UnitOfMeasureId),
     CONSTRAINT FK_Articles_ContentUnit  FOREIGN KEY (ContentUnitId)  REFERENCES UnitsOfMeasure (UnitOfMeasureId),
     CONSTRAINT FK_Articles_FamilyId     FOREIGN KEY (FamilyId)       REFERENCES Families       (FamilyId),
-    CONSTRAINT FK_Articles_SubFamilyId  FOREIGN KEY (SubFamilyId)    REFERENCES SubFamilies    (SubFamilyId)
+    CONSTRAINT FK_Articles_SubFamilyId  FOREIGN KEY (SubFamilyId)    REFERENCES SubFamilies    (SubFamilyId),
+    CONSTRAINT FK_Articles_BaseUnit     FOREIGN KEY (BaseUnitId)     REFERENCES UnitsOfMeasure (UnitOfMeasureId)
 );
 GO
 
