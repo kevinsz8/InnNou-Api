@@ -14,6 +14,7 @@ using CommonSubFamily = InnNou.Application.Responses.Common.SubFamily;
 using CommonCategory = InnNou.Application.Responses.Common.Category;
 using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 using CommonHotelContact = InnNou.Application.Responses.Common.HotelContact;
+using CommonArticle = InnNou.Application.Responses.Common.Article;
 
 namespace InnNou.Application.Mapping
 {
@@ -288,6 +289,34 @@ namespace InnNou.Application.Mapping
                 CategoryId = d.CategoryId,
                 Code = d.Code,
                 IsSystem = d.IsSystem,
+                IsActive = d.IsActive
+            });
+
+            // Article
+            mapper.Register<ArticleDto, CommonArticle>(d => new CommonArticle
+            {
+                ArticleToken = d.ArticleToken,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                Name = d.Name,
+                Description = d.Description,
+                SupplierSku = d.SupplierSku,
+                Barcode = d.Barcode,
+                Brand = d.Brand,
+                FamilyId = d.FamilyId,
+                FamilyCode = d.FamilyCode,
+                SubFamilyId = d.SubFamilyId,
+                SubFamilyCode = d.SubFamilyCode,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseUnitSymbol = d.PurchaseUnitSymbol,
+                PurchaseQuantity = d.PurchaseQuantity,
+                ContentUnitCode = d.ContentUnitCode,
+                ContentUnitSymbol = d.ContentUnitSymbol,
+                ContentQuantity = d.ContentQuantity,
+                BaseUnitCode = d.BaseUnitCode,
+                BaseUnitSymbol = d.BaseUnitSymbol,
+                MinimumOrderQty = d.MinimumOrderQty,
+                LeadTimeDays = d.LeadTimeDays,
                 IsActive = d.IsActive
             });
 

@@ -14,6 +14,7 @@ using SubFamilyEntity = InnNou.Infrastructure.Repositories.DbEntities.SubFamily;
 using CategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.Category;
 using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCategory;
 using HotelContactEntity = InnNou.Infrastructure.Repositories.DbEntities.HotelContact;
+using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -167,6 +168,39 @@ namespace InnNou.Infrastructure.Mapping
                 Code = e.Code,
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive
+            });
+
+            mapper.Register<ArticleEntity, ArticleDto>(e => new ArticleDto
+            {
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                Name = e.Name,
+                NormalizedName = e.NormalizedName,
+                Description = e.Description,
+                SupplierSku = e.SupplierSku,
+                Barcode = e.Barcode,
+                Brand = e.Brand,
+                FamilyId = e.FamilyId,
+                FamilyCode = e.FamilyCode,
+                SubFamilyId = e.SubFamilyId,
+                SubFamilyCode = e.SubFamilyCode,
+                PurchaseUnitId = e.PurchaseUnitId,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                PurchaseUnitSymbol = e.PurchaseUnitSymbol,
+                PurchaseQuantity = e.PurchaseQuantity,
+                ContentUnitId = e.ContentUnitId,
+                ContentUnitCode = e.ContentUnitCode,
+                ContentUnitSymbol = e.ContentUnitSymbol,
+                ContentQuantity = e.ContentQuantity,
+                BaseUnitId = e.BaseUnitId,
+                BaseUnitCode = e.BaseUnitCode,
+                BaseUnitSymbol = e.BaseUnitSymbol,
+                MinimumOrderQty = e.MinimumOrderQty,
+                LeadTimeDays = e.LeadTimeDays,
+                IsActive = e.IsActive,
+                IsDeleted = e.IsDeleted
             });
 
             mapper.Register<HotelContactEntity, HotelContactDto>(e => new HotelContactDto
