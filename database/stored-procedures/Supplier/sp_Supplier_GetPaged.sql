@@ -1,7 +1,8 @@
 /* =============================================================
    SUPPLIER - GET PAGED
-   Returns a paginated list of suppliers. Super admins see all.
-   Supplier-scoped users see only their own supplier.
+   Returns a paginated list of suppliers. Admins (RoleLevel >= 80)
+   and above see all. Supplier-scoped users see only their own
+   supplier. Everyone else sees nothing (@ContextSupplierId NULL).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Supplier_GetPaged
 (
@@ -49,8 +50,8 @@ BEGIN
         AND (@IncludeInactive = 1 OR s.IsActive = 1)
         AND
         (
-            -- SUPER ADMIN: see everything
-            @ContextRoleLevel >= 100
+            -- ADMIN AND ABOVE: see everything
+            @ContextRoleLevel >= 80
 
             OR
 

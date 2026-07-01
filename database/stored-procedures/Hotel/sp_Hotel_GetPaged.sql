@@ -1,12 +1,19 @@
 /* =============================================================
    HOTEL - GET PAGED
-   Returns a paginated list of hotels. Super admins receive all
-   hotels (@RootHotelId = NULL). Non-admins receive only hotels
-   within their hierarchy subtree.
+   Returns a paginated list of hotels, per caller scope (resolved
+   in HotelService.ResolveScope):
+     - @RootHotelId and @ExactHotelId both NULL: unrestricted (all
+       hotels) — SuperAdmin, or Admin with no hotel assigned.
+     - @RootHotelId set: that hotel's subtree (itself + all
+       descendants) — Admin/Manager with a hotel assigned.
+     - @ExactHotelId set: exactly that one hotel, no descendants —
+       anyone below Manager.
+   Callers pass at most one of @RootHotelId/@ExactHotelId.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Hotel_GetPaged
 (
     @RootHotelId     INT          = NULL,
+    @ExactHotelId    INT          = NULL,
     @SearchText      VARCHAR(200) = NULL,
     @PageNumber      INT,
     @PageSize        INT,
@@ -52,11 +59,9 @@ BEGIN
         AND (@IncludeInactive = 1 OR h.IsActive = 1)
         AND
         (
-            @RootHotelId IS NULL
-            OR EXISTS
-            (
-                SELECT 1 FROM HotelHierarchy hh WHERE hh.HotelId = h.HotelId
-            )
+            (@RootHotelId IS NULL AND @ExactHotelId IS NULL)
+            OR (@RootHotelId IS NOT NULL AND EXISTS (SELECT 1 FROM HotelHierarchy hh WHERE hh.HotelId = h.HotelId))
+            OR (@ExactHotelId IS NOT NULL AND h.HotelId = @ExactHotelId)
         )
         AND
         (

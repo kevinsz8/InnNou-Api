@@ -15,6 +15,13 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     private const string SupplierRoleNormalizedName = "SUPPLIER";
     private const string NoAccessEmailDomain = "@no-access.innou.internal";
 
+    // Harmonized with ArticleService.AdminRoleLevel: Admin+ can browse/edit ordinary supplier
+    // records. Creating/deleting a supplier and granting/revoking its system access remain
+    // superadmin-only (RoleLevel >= 100) — those are deliberately higher-trust operations,
+    // not just visibility/ordinary-field management.
+    private const int AdminRoleLevel = 80;
+    private const int SuperAdminRoleLevel = 100;
+
     private sealed class SupplierPageRow : Supplier { public int TotalCount { get; set; } }
 
     public async Task<PagedResult<SupplierDto>> GetSuppliersAsync(
@@ -26,7 +33,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         IRequestContext context,
         CancellationToken cancellationToken)
     {
-        if (context.RoleLevel < 100 && !context.SupplierId.HasValue)
+        if (context.RoleLevel < AdminRoleLevel && !context.SupplierId.HasValue)
             return new PagedResult<SupplierDto>
             {
                 Items = [],
@@ -42,7 +49,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
         var p = new DynamicParameters();
         p.Add("@ContextRoleLevel", context.RoleLevel);
-        p.Add("@ContextSupplierId", context.RoleLevel >= 100 ? (int?)null : context.SupplierId);
+        p.Add("@ContextSupplierId", context.RoleLevel >= AdminRoleLevel ? (int?)null : context.SupplierId);
         p.Add("@SearchField", string.IsNullOrWhiteSpace(searchField) ? null : searchField.Trim().ToLower());
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
@@ -85,7 +92,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             return null;
 
-        if (context.RoleLevel < 100 && context.SupplierId != existing.SupplierId)
+        if (context.RoleLevel < AdminRoleLevel && context.SupplierId != existing.SupplierId)
             return null;
 
         return mapper.Map<SupplierDto>(existing);
@@ -93,7 +100,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
     public async Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
-        if (context.RoleLevel < 100)
+        if (context.RoleLevel < SuperAdminRoleLevel)
             throw new UnauthorizedAccessException("Only super admins can create suppliers.");
 
         var hasAccess = dto.HasAccessToSystem ?? false;
@@ -211,14 +218,14 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             return null;
 
-        if (context.RoleLevel < 100 && context.SupplierId != existing.SupplierId)
+        if (context.RoleLevel < AdminRoleLevel && context.SupplierId != existing.SupplierId)
             throw new UnauthorizedAccessException("Cannot edit another supplier.");
 
         var touchesAccess = dto.HasAccessToSystem.HasValue
             || !string.IsNullOrWhiteSpace(dto.LoginEmail)
             || !string.IsNullOrWhiteSpace(dto.Password);
 
-        if (touchesAccess && context.RoleLevel < 100)
+        if (touchesAccess && context.RoleLevel < SuperAdminRoleLevel)
             throw new UnauthorizedAccessException("Only super admins can change supplier system access.");
 
         var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
@@ -324,7 +331,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
     public async Task<bool> DeleteSupplierAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
     {
-        if (context.RoleLevel < 100)
+        if (context.RoleLevel < SuperAdminRoleLevel)
             throw new UnauthorizedAccessException("Only super admins can delete suppliers.");
 
         await using var connection = connectionFactory.CreateConnection();

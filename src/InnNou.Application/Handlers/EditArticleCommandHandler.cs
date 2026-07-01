@@ -13,7 +13,7 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditArticleCommandResponse>> Handle(EditArticleCommandRequest request, CancellationToken cancellationToken)
         {
-            var existing = await articleService.GetByTokenAsync(request.ArticleToken, cancellationToken);
+            var existing = await articleService.GetByTokenAsync(request.ArticleToken, context, cancellationToken);
             if (existing is null)
                 return ApiResponse<EditArticleCommandResponse>.FailureResponse("ARTICLE_NOT_FOUND", "Article not found.", 404);
 
