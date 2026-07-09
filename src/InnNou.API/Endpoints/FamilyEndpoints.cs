@@ -23,30 +23,30 @@ public class FamilyEndpoints : ICarterModule
     private static async Task<IResult> HandleGetAll([FromBody] GetFamiliesQueryRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleGetByToken([FromBody] GetFamilyByTokenQueryRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleCreate([FromBody] CreateFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/families", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/families", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 }

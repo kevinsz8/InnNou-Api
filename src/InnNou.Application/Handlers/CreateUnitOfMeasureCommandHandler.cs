@@ -15,10 +15,10 @@ namespace InnNou.Application.Handlers
         {
             var unitType = await unitTypeService.GetByTokenAsync(request.UnitTypeToken, cancellationToken);
             if (unitType is null)
-                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse("UNIT_TYPE_NOT_FOUND", "Unit type not found.", 404);
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 
             if (await unitOfMeasureService.ExistsByCodeAsync(request.Code, unitType.UnitTypeId, cancellationToken))
-                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse("UNIT_OF_MEASURE_CODE_EXISTS", "A unit of measure with this code already exists in the unit type.", 409);
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureCodeExists, "A unit of measure with this code already exists in the unit type.", 409);
 
             var dto = new UnitOfMeasureDto
             {
@@ -29,7 +29,7 @@ namespace InnNou.Application.Handlers
             };
             var result = await unitOfMeasureService.CreateAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse("UNIT_OF_MEASURE_CREATE_FAILED", "Unit of measure could not be created.", 500);
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureCreateFailed, "Unit of measure could not be created.", 500);
 
             var response = new CreateUnitOfMeasureCommandResponse { UnitOfMeasure = mapper.Map<Responses.Common.UnitOfMeasure>(result) };
             return ApiResponse<CreateUnitOfMeasureCommandResponse>.SuccessResponse(response, 201);

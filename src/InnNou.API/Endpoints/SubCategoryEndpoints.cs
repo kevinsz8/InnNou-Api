@@ -23,30 +23,30 @@ public class SubCategoryEndpoints : ICarterModule
     private static async Task<IResult> HandleGetAll([FromBody] GetSubCategoriesQueryRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleGetByToken([FromBody] GetSubCategoryByTokenQueryRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleCreate([FromBody] CreateSubCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Created("/sub-categories", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/sub-categories", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditSubCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveSubCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 }

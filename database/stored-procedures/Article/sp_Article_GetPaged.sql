@@ -42,6 +42,8 @@ BEGIN
         a.LeadTimeDays,
         a.IsActive,
         a.IsDeleted,
+        a.ReplacedByArticleId,
+        r.ArticleToken  AS ReplacedByArticleToken,
         COUNT(*) OVER() AS TotalCount
     FROM   Articles        a
     JOIN   Suppliers       s  ON  s.SupplierId       = a.SupplierId
@@ -50,6 +52,7 @@ BEGIN
     LEFT JOIN UnitsOfMeasure bu ON bu.UnitOfMeasureId = a.BaseUnitId
     LEFT JOIN Families     f  ON  f.FamilyId         = a.FamilyId
     LEFT JOIN SubFamilies  sf ON  sf.SubFamilyId      = a.SubFamilyId
+    LEFT JOIN Articles     r  ON  r.ArticleId         = a.ReplacedByArticleId
     WHERE  a.IsDeleted = 0
       AND  (@IncludeInactive = 1 OR a.IsActive = 1)
       AND  (@SupplierId  IS NULL OR a.SupplierId  = @SupplierId)

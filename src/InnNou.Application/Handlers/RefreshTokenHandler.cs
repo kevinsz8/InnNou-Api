@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
         {
             var login = await _authService.RefreshTokenAsync(request.RefreshToken, CancellationToken.None);
             if (login == null)
-                return ApiResponse<LoginResponse>.FailureResponse("INVALID_CREDENTIALS", "Invalid token.");
+                return ApiResponse<LoginResponse>.FailureResponse(ErrorCodes.InvalidCredentials, "Invalid token.");
             var response = new LoginResponse
             {
                 UserId = login.UserId,

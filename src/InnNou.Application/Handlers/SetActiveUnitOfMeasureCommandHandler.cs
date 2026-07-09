@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await unitOfMeasureService.SetActiveAsync(request.UnitOfMeasureToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveUnitOfMeasureCommandResponse>.FailureResponse("UNIT_OF_MEASURE_NOT_FOUND", "Unit of measure not found.", 404);
+                return ApiResponse<SetActiveUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 
             var response = new SetActiveUnitOfMeasureCommandResponse { UnitOfMeasure = mapper.Map<Responses.Common.UnitOfMeasure>(result) };
             return ApiResponse<SetActiveUnitOfMeasureCommandResponse>.SuccessResponse(response, 200);

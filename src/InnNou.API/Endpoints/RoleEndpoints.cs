@@ -22,26 +22,22 @@ namespace InnNou.API.Endpoints
                 .Produces<ApiResponse<GetRoleByTokenQueryResponse>>(200);
         }
 
-        private static async Task<ApiResponse<GetRoleByTokenQueryResponse>> HandleGetRoleByToken(
+        private static async Task<IResult> HandleGetRoleByToken(
             [FromBody] GetRoleByTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetRoleByTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetRolesQueryResponse>> HandleGetRoles(
+        private static async Task<IResult> HandleGetRoles(
             [FromBody] GetRolesQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetRolesQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
     }
 }

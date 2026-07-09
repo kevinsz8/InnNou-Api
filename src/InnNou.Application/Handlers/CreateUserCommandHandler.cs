@@ -27,12 +27,12 @@ namespace InnNou.Application.Handlers
 
             if (userExists)
             {
-                return ApiResponse<CreateUserCommandResponse>.FailureResponse("USER_ALREADY_EXISTS", "User already exists.");
+                return ApiResponse<CreateUserCommandResponse>.FailureResponse(ErrorCodes.UserAlreadyExists, "User already exists.");
             }
 
             var createdUser = await _userService.CreateUserAsync(userDto, _context, cancellationToken);
             if (createdUser == null)
-                return ApiResponse<CreateUserCommandResponse>.FailureResponse("USER_CREATION_FAILED", "User could not be created.");
+                return ApiResponse<CreateUserCommandResponse>.FailureResponse(ErrorCodes.UserCreationFailed, "User could not be created.");
             var response = _mapper.Map<CreateUserCommandResponse>(createdUser);
             return ApiResponse<CreateUserCommandResponse>.SuccessResponse(response);
         }

@@ -17,36 +17,43 @@ public class ArticlesEndpoints : ICarterModule
         group.MapPost("/getByToken",   HandleGetByToken).Produces<ApiResponse<GetArticleByTokenQueryResponse>>(200);
         group.MapPost("/create",       HandleCreate).Produces<ApiResponse<CreateArticleCommandResponse>>(201);
         group.MapPost("/edit",         HandleEdit).Produces<ApiResponse<EditArticleCommandResponse>>(200);
+        group.MapPost("/supersede",    HandleSupersede).Produces<ApiResponse<SupersedeArticleCommandResponse>>(201);
         group.MapPost("/delete",       HandleDelete).Produces<ApiResponse<DeleteArticleCommandResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetArticlesQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleGetByToken([FromBody] GetArticleByTokenQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleCreate([FromBody] CreateArticleCommandRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
-        return result.Success ? Results.Created("/articles", result) : Results.BadRequest(result);
+        return result.Success ? Results.Created("/articles", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleEdit([FromBody] EditArticleCommandRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSupersede([FromBody] SupersedeArticleCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Created("/articles", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleDelete([FromBody] DeleteArticleCommandRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 }

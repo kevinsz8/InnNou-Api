@@ -30,59 +30,49 @@ namespace InnNou.API.Endpoints
                 .Produces<ApiResponse<DeleteOrganizationContactCommandResponse>>(200);
         }
 
-        private static async Task<ApiResponse<GetOrganizationContactsByOrganizationTokenQueryResponse>> HandleGetContactsByOrganizationToken(
+        private static async Task<IResult> HandleGetContactsByOrganizationToken(
             [FromBody] GetOrganizationContactsByOrganizationTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetOrganizationContactsByOrganizationTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetOrganizationContactByTokenQueryResponse>> HandleGetContactByToken(
+        private static async Task<IResult> HandleGetContactByToken(
             [FromBody] GetOrganizationContactByTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetOrganizationContactByTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<CreateOrganizationContactCommandResponse>> HandleCreateContact(
+        private static async Task<IResult> HandleCreateContact(
             [FromBody] CreateOrganizationContactCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<CreateOrganizationContactCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<EditOrganizationContactCommandResponse>> HandleEditContact(
+        private static async Task<IResult> HandleEditContact(
             [FromBody] EditOrganizationContactCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<EditOrganizationContactCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<DeleteOrganizationContactCommandResponse>> HandleDeleteContact(
+        private static async Task<IResult> HandleDeleteContact(
             [FromBody] DeleteOrganizationContactCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<DeleteOrganizationContactCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
     }
 }

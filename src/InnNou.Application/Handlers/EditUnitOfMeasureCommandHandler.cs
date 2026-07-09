@@ -22,7 +22,7 @@ namespace InnNou.Application.Handlers
             };
             var result = await unitOfMeasureService.EditAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<EditUnitOfMeasureCommandResponse>.FailureResponse("UNIT_OF_MEASURE_NOT_FOUND", "Unit of measure not found.", 404);
+                return ApiResponse<EditUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 
             var response = new EditUnitOfMeasureCommandResponse { UnitOfMeasure = mapper.Map<Responses.Common.UnitOfMeasure>(result) };
             return ApiResponse<EditUnitOfMeasureCommandResponse>.SuccessResponse(response, 200);

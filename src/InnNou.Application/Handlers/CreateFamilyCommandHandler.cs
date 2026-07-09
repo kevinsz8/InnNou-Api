@@ -14,12 +14,12 @@ namespace InnNou.Application.Handlers
         public async Task<ApiResponse<CreateFamilyCommandResponse>> Handle(CreateFamilyCommandRequest request, CancellationToken cancellationToken)
         {
             if (await familyService.ExistsByCodeAsync(request.Code, cancellationToken))
-                return ApiResponse<CreateFamilyCommandResponse>.FailureResponse("FAMILY_CODE_EXISTS", "A family with this code already exists.", 409);
+                return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyCodeExists, "A family with this code already exists.", 409);
 
             var dto = new FamilyDto { Code = request.Code };
             var result = await familyService.CreateAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateFamilyCommandResponse>.FailureResponse("FAMILY_CREATE_FAILED", "Family could not be created.", 500);
+                return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyCreateFailed, "Family could not be created.", 500);
 
             var response = new CreateFamilyCommandResponse { Family = mapper.Map<Responses.Common.Family>(result) };
             return ApiResponse<CreateFamilyCommandResponse>.SuccessResponse(response, 201);

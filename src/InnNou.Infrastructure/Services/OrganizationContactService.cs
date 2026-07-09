@@ -134,7 +134,7 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot edit contact from another organization.");
+                throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot edit contact from another organization.", 403);
         }
 
         var p = new DynamicParameters();
@@ -177,7 +177,7 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot delete contact from another organization.");
+                throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot delete contact from another organization.", 403);
         }
 
         var now = DateTime.UtcNow;

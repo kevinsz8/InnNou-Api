@@ -15,11 +15,11 @@ namespace InnNou.Application.Handlers
         {
             var fromUnit = await unitOfMeasureService.GetByTokenAsync(request.FromUnitOfMeasureToken, cancellationToken);
             if (fromUnit is null)
-                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse("UNIT_OF_MEASURE_NOT_FOUND", "Source unit of measure not found.", 404);
+                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Source unit of measure not found.", 404);
 
             var toUnit = await unitOfMeasureService.GetByTokenAsync(request.ToUnitOfMeasureToken, cancellationToken);
             if (toUnit is null)
-                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse("UNIT_OF_MEASURE_NOT_FOUND", "Target unit of measure not found.", 404);
+                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Target unit of measure not found.", 404);
 
             var dto = new UnitConversionRateDto
             {
@@ -29,7 +29,7 @@ namespace InnNou.Application.Handlers
             };
             var result = await unitConversionRateService.CreateAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse("UNIT_CONVERSION_RATE_CREATE_FAILED", "Unit conversion rate could not be created.", 500);
+                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateCreateFailed, "Unit conversion rate could not be created.", 500);
 
             var response = new CreateUnitConversionRateCommandResponse { UnitConversionRate = mapper.Map<Responses.Common.UnitConversionRate>(result) };
             return ApiResponse<CreateUnitConversionRateCommandResponse>.SuccessResponse(response, 201);

@@ -135,7 +135,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
     {
         var (scope, scopeOrganizationId) = ResolveScope(context);
         if (scope == OrganizationScope.None)
-            throw new UnauthorizedAccessException("Not allowed to create organizations.");
+            throw new ApiException(ErrorCodes.OrganizationCreateForbidden, "Not allowed to create organizations.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
 
@@ -146,7 +146,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
             : await CanManageAsync(connection, scope, scopeOrganizationId, dto.ParentOrganizationId.Value, cancellationToken);
 
         if (!allowed)
-            throw new UnauthorizedAccessException("Not allowed to create an organization under this parent.");
+            throw new ApiException(ErrorCodes.OrganizationParentOutsideScope, "Not allowed to create an organization under this parent.", 403);
 
         var created = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_Create",
@@ -187,13 +187,13 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         var (scope, scopeOrganizationId) = ResolveScope(context);
 
         if (!await CanManageAsync(connection, scope, scopeOrganizationId, existing.OrganizationId, cancellationToken))
-            throw new UnauthorizedAccessException("Cannot edit an organization outside your scope.");
+            throw new ApiException(ErrorCodes.OrganizationOutsideScope, "Cannot edit an organization outside your scope.", 403);
 
         var newParentOrganizationId = dto.ParentOrganizationId ?? existing.ParentOrganizationId;
 
         if (newParentOrganizationId.HasValue && newParentOrganizationId != existing.ParentOrganizationId
             && !await CanManageAsync(connection, scope, scopeOrganizationId, newParentOrganizationId.Value, cancellationToken))
-            throw new UnauthorizedAccessException("Cannot move an organization under a parent outside your scope.");
+            throw new ApiException(ErrorCodes.OrganizationParentOutsideScope, "Cannot move an organization under a parent outside your scope.", 403);
 
         var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
 
@@ -234,7 +234,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         var (scope, scopeOrganizationId) = ResolveScope(context);
 
         if (!await CanManageAsync(connection, scope, scopeOrganizationId, existing.OrganizationId, cancellationToken))
-            throw new UnauthorizedAccessException("Not allowed to delete this organization.");
+            throw new ApiException(ErrorCodes.OrganizationDeleteForbidden, "Not allowed to delete this organization.", 403);
 
         await connection.ExecuteAsync(
             "sp_Organization_SoftDelete",

@@ -101,12 +101,12 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     public async Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < SuperAdminRoleLevel)
-            throw new UnauthorizedAccessException("Only super admins can create suppliers.");
+            throw new ApiException(ErrorCodes.SupplierCreateSuperadminOnly, "Only super admins can create suppliers.", 403);
 
         var hasAccess = dto.HasAccessToSystem ?? false;
 
         if (hasAccess && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
-            throw new InvalidOperationException("LoginEmail and Password are required when HasAccessToSystem is true.");
+            throw new ApiException(ErrorCodes.SupplierLoginCredentialsRequired, "LoginEmail and Password are required when HasAccessToSystem is true.", 400);
 
         await using var connection = connectionFactory.CreateConnection();
 
@@ -118,7 +118,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 commandType: CommandType.StoredProcedure);
 
             if (emailExists == 1)
-                throw new InvalidOperationException("A user with this login email already exists.");
+                throw new ApiException(ErrorCodes.SupplierLoginEmailExists, "A user with this login email already exists.", 409);
         }
 
         var supplierRole = await connection.QueryFirstOrDefaultAsync<Role>(
@@ -219,14 +219,14 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             return null;
 
         if (context.RoleLevel < AdminRoleLevel && context.SupplierId != existing.SupplierId)
-            throw new UnauthorizedAccessException("Cannot edit another supplier.");
+            throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
 
         var touchesAccess = dto.HasAccessToSystem.HasValue
             || !string.IsNullOrWhiteSpace(dto.LoginEmail)
             || !string.IsNullOrWhiteSpace(dto.Password);
 
         if (touchesAccess && context.RoleLevel < SuperAdminRoleLevel)
-            throw new UnauthorizedAccessException("Only super admins can change supplier system access.");
+            throw new ApiException(ErrorCodes.SupplierAccessSuperadminOnly, "Only super admins can change supplier system access.", 403);
 
         var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
         var newHasAccess = dto.HasAccessToSystem ?? existing.HasAccessToSystem;
@@ -268,7 +268,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 && shadowUser.Email.EndsWith(NoAccessEmailDomain, StringComparison.OrdinalIgnoreCase);
 
             if (isFirstActivation && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
-                throw new InvalidOperationException("LoginEmail and Password are required to grant system access for the first time.");
+                throw new ApiException(ErrorCodes.SupplierLoginCredentialsRequired, "LoginEmail and Password are required to grant system access for the first time.", 400);
 
             var newLoginEmail = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.Email;
             var newUserName = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.UserName;
@@ -285,7 +285,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     commandType: CommandType.StoredProcedure);
 
                 if (emailExists == 1)
-                    throw new InvalidOperationException("A user with this login email already exists.");
+                    throw new ApiException(ErrorCodes.SupplierLoginEmailExists, "A user with this login email already exists.", 409);
             }
 
             await connection.OpenAsync(cancellationToken);
@@ -332,7 +332,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     public async Task<bool> DeleteSupplierAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < SuperAdminRoleLevel)
-            throw new UnauthorizedAccessException("Only super admins can delete suppliers.");
+            throw new ApiException(ErrorCodes.SupplierDeleteSuperadminOnly, "Only super admins can delete suppliers.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
 

@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = new FamilyDto { FamilyToken = request.FamilyToken, Code = request.Code };
             var result = await familyService.EditAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<EditFamilyCommandResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                return ApiResponse<EditFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
 
             var response = new EditFamilyCommandResponse { Family = mapper.Map<Responses.Common.Family>(result) };
             return ApiResponse<EditFamilyCommandResponse>.SuccessResponse(response, 200);

@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = mapper.Map<OrganizationContactDto>(request);
             var result = await organizationContactService.EditAsync(dto, context, cancellationToken);
             if (result is null)
-                return ApiResponse<EditOrganizationContactCommandResponse>.FailureResponse("NOT_FOUND", "Organization contact not found.", 404);
+                return ApiResponse<EditOrganizationContactCommandResponse>.FailureResponse(ErrorCodes.OrganizationContactNotFound, "Organization contact not found.", 404);
 
             return ApiResponse<EditOrganizationContactCommandResponse>.SuccessResponse(mapper.Map<EditOrganizationContactCommandResponse>(result));
         }

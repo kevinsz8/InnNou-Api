@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             var dto = await _roleService.GetRoleByTokenAsync(request.RoleToken, _context, cancellationToken);
 
             if (dto is null)
-                return ApiResponse<GetRoleByTokenQueryResponse>.FailureResponse("ROLE_NOT_FOUND", "Role not found or access denied.", 404);
+                return ApiResponse<GetRoleByTokenQueryResponse>.FailureResponse(ErrorCodes.RoleNotFound, "Role not found or access denied.", 404);
 
             return ApiResponse<GetRoleByTokenQueryResponse>.SuccessResponse(
                 new GetRoleByTokenQueryResponse { Role = _mapper.Map<Role>(dto) });

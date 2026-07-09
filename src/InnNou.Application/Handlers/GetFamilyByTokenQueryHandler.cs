@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await familyService.GetByTokenAsync(request.FamilyToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetFamilyByTokenQueryResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                return ApiResponse<GetFamilyByTokenQueryResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
 
             var response = new GetFamilyByTokenQueryResponse { Family = mapper.Map<Responses.Common.Family>(dto) };
             return ApiResponse<GetFamilyByTokenQueryResponse>.SuccessResponse(response, 200);

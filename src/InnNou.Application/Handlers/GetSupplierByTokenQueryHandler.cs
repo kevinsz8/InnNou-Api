@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             var dto = await _supplierService.GetSupplierByTokenAsync(request.SupplierToken, _context, cancellationToken);
 
             if (dto is null)
-                return ApiResponse<GetSupplierByTokenQueryResponse>.FailureResponse("SUPPLIER_NOT_FOUND", "Supplier not found or access denied.", 404);
+                return ApiResponse<GetSupplierByTokenQueryResponse>.FailureResponse(ErrorCodes.SupplierNotFound, "Supplier not found or access denied.", 404);
 
             return ApiResponse<GetSupplierByTokenQueryResponse>.SuccessResponse(
                 new GetSupplierByTokenQueryResponse { Supplier = _mapper.Map<Supplier>(dto) });

@@ -30,59 +30,49 @@ namespace InnNou.API.Endpoints
                 .Produces<ApiResponse<DeleteUserCommandResponse>>(200);
         }
 
-        private static async Task<ApiResponse<CreateUserCommandResponse>> HandleCreateUser(
+        private static async Task<IResult> HandleCreateUser(
             [FromBody] CreateUserCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<CreateUserCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetUserByTokenQueryResponse>> HandleGetUserByToken(
+        private static async Task<IResult> HandleGetUserByToken(
             [FromBody] GetUserByTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetUserByTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetUsersQueryResponse>> HandleGetUsers(
+        private static async Task<IResult> HandleGetUsers(
             [FromBody] GetUsersQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetUsersQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<EditUserCommandResponse>> HandleEditUser(
+        private static async Task<IResult> HandleEditUser(
             [FromBody] EditUserCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<EditUserCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<DeleteUserCommandResponse>> HandleDeleteUser(
+        private static async Task<IResult> HandleDeleteUser(
             [FromBody] DeleteUserCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<DeleteUserCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
     }
 }

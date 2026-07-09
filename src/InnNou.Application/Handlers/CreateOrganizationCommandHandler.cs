@@ -25,13 +25,13 @@ namespace InnNou.Application.Handlers
         {
             var exists = await _organizationService.OrganizationExistsByNameAsync(request.Name, cancellationToken);
             if (exists)
-                return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse("ORGANIZATION_ALREADY_EXISTS", "An organization with this name already exists.");
+                return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse(ErrorCodes.OrganizationAlreadyExists, "An organization with this name already exists.");
 
             var dto = _mapper.Map<OrganizationDto>(request);
             var created = await _organizationService.CreateOrganizationAsync(dto, _context, cancellationToken);
 
             if (created is null)
-                return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse("ORGANIZATION_CREATION_FAILED", "Organization could not be created.");
+                return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse(ErrorCodes.OrganizationCreationFailed, "Organization could not be created.");
 
             return ApiResponse<CreateOrganizationCommandResponse>.SuccessResponse(_mapper.Map<CreateOrganizationCommandResponse>(created), 201);
         }

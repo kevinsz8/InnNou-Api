@@ -35,7 +35,7 @@ namespace InnNou.Infrastructure.Services
                              ?? user.FindFirst("sub")?.Value;
 
             if (!Guid.TryParse(actorClaim, out var actorToken))
-                throw new UnauthorizedAccessException("Invalid or missing user token");
+                throw new ApiException(ErrorCodes.InvalidToken, "Invalid or missing user token", 401);
 
             ActorUserToken = actorToken;
 

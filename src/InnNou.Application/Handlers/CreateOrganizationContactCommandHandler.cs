@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = mapper.Map<OrganizationContactDto>(request);
             var result = await organizationContactService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateOrganizationContactCommandResponse>.FailureResponse("INVALID_REQUEST", "Failed to create organization contact.", 400);
+                return ApiResponse<CreateOrganizationContactCommandResponse>.FailureResponse(ErrorCodes.OrganizationContactCreateFailed, "Failed to create organization contact.", 400);
 
             return ApiResponse<CreateOrganizationContactCommandResponse>.SuccessResponse(mapper.Map<CreateOrganizationContactCommandResponse>(result), 201);
         }

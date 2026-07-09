@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
             {
                 var category = await categoryService.GetByTokenAsync(request.CategoryToken.Value, cancellationToken);
                 if (category is null)
-                    return ApiResponse<GetSubCategoriesQueryResponse>.FailureResponse("CATEGORY_NOT_FOUND", "Category not found.", 404);
+                    return ApiResponse<GetSubCategoriesQueryResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
                 categoryId = category.CategoryId;
             }
 

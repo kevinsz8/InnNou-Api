@@ -20,7 +20,7 @@ namespace InnNou.Application.Handlers
             var success = await _userService.DeleteUserAsync(request.UserToken, _context, cancellationToken);
             var response = new DeleteUserCommandResponse { UserToken = request.UserToken, Success = success };
             if (!success)
-                return ApiResponse<DeleteUserCommandResponse>.FailureResponse("USER_DELETE_FAILED", "User could not be deleted.");
+                return ApiResponse<DeleteUserCommandResponse>.FailureResponse(ErrorCodes.UserNotFound, "User not found.", 404);
             return ApiResponse<DeleteUserCommandResponse>.SuccessResponse(response);
         }
     }

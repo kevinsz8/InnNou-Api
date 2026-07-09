@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await subFamilyService.SetActiveAsync(request.SubFamilyToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveSubFamilyCommandResponse>.FailureResponse("SUB_FAMILY_NOT_FOUND", "Sub-family not found.", 404);
+                return ApiResponse<SetActiveSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
 
             var response = new SetActiveSubFamilyCommandResponse { SubFamily = mapper.Map<Responses.Common.SubFamily>(result) };
             return ApiResponse<SetActiveSubFamilyCommandResponse>.SuccessResponse(response, 200);

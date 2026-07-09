@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
             {
                 var unitType = await unitTypeService.GetByTokenAsync(request.UnitTypeToken.Value, cancellationToken);
                 if (unitType is null)
-                    return ApiResponse<GetUnitConversionRatesQueryResponse>.FailureResponse("UNIT_TYPE_NOT_FOUND", "Unit type not found.", 404);
+                    return ApiResponse<GetUnitConversionRatesQueryResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
                 unitTypeId = unitType.UnitTypeId;
             }
 

@@ -30,59 +30,49 @@ namespace InnNou.API.Endpoints
                 .Produces<ApiResponse<DeleteSupplierCommandResponse>>(200);
         }
 
-        private static async Task<ApiResponse<GetSupplierByTokenQueryResponse>> HandleGetSupplierByToken(
+        private static async Task<IResult> HandleGetSupplierByToken(
             [FromBody] GetSupplierByTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetSupplierByTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetSuppliersQueryResponse>> HandleGetSuppliers(
+        private static async Task<IResult> HandleGetSuppliers(
             [FromBody] GetSuppliersQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetSuppliersQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<CreateSupplierCommandResponse>> HandleCreateSupplier(
+        private static async Task<IResult> HandleCreateSupplier(
             [FromBody] CreateSupplierCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<EditSupplierCommandResponse>> HandleEditSupplier(
+        private static async Task<IResult> HandleEditSupplier(
             [FromBody] EditSupplierCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<EditSupplierCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<DeleteSupplierCommandResponse>> HandleDeleteSupplier(
+        private static async Task<IResult> HandleDeleteSupplier(
             [FromBody] DeleteSupplierCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<DeleteSupplierCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
     }
 }

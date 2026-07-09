@@ -203,7 +203,9 @@ namespace InnNou.Infrastructure.Mapping
                 MinimumOrderQty = e.MinimumOrderQty,
                 LeadTimeDays = e.LeadTimeDays,
                 IsActive = e.IsActive,
-                IsDeleted = e.IsDeleted
+                IsDeleted = e.IsDeleted,
+                ReplacedByArticleId = e.ReplacedByArticleId,
+                ReplacedByArticleToken = e.ReplacedByArticleToken
             });
 
             mapper.Register<OrganizationContactEntity, OrganizationContactDto>(e => new OrganizationContactDto

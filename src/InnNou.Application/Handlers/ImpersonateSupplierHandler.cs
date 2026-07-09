@@ -22,7 +22,7 @@ namespace InnNou.Application.Handlers
             if (!_context.IsAuthenticated)
             {
                 return ApiResponse<ImpersonateResponse>.FailureResponse(
-                    "UNAUTHORIZED",
+                    ErrorCodes.Unauthorized,
                     "User is not authenticated"
                 );
             }
@@ -36,7 +36,7 @@ namespace InnNou.Application.Handlers
             if (result == null)
             {
                 return ApiResponse<ImpersonateResponse>.FailureResponse(
-                    "FORBIDDEN",
+                    ErrorCodes.Forbidden,
                     "You are not allowed to impersonate this supplier"
                 );
             }

@@ -25,5 +25,6 @@ namespace InnNou.Application.Responses.Common
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }
+        public Guid? ReplacedByArticleToken { get; set; }
     }
 }

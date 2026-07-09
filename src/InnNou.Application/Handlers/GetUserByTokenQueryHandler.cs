@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             var dto = await _userService.GetUserByTokenAsync(request.UserToken, _context, cancellationToken);
 
             if (dto is null)
-                return ApiResponse<GetUserByTokenQueryResponse>.FailureResponse("USER_NOT_FOUND", "User not found or access denied.", 404);
+                return ApiResponse<GetUserByTokenQueryResponse>.FailureResponse(ErrorCodes.UserNotFound, "User not found or access denied.", 404);
 
             return ApiResponse<GetUserByTokenQueryResponse>.SuccessResponse(
                 new GetUserByTokenQueryResponse { User = _mapper.Map<User>(dto) });

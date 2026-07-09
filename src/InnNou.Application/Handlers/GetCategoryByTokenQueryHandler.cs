@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await categoryService.GetByTokenAsync(request.CategoryToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetCategoryByTokenQueryResponse>.FailureResponse("CATEGORY_NOT_FOUND", "Category not found.", 404);
+                return ApiResponse<GetCategoryByTokenQueryResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
 
             var response = new GetCategoryByTokenQueryResponse { Category = mapper.Map<Responses.Common.Category>(dto) };
             return ApiResponse<GetCategoryByTokenQueryResponse>.SuccessResponse(response, 200);

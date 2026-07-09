@@ -31,6 +31,8 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
+        public int? ReplacedByArticleId { get; set; }
+        public Guid? ReplacedByArticleToken { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

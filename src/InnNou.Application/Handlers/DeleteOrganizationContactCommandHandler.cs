@@ -13,7 +13,7 @@ namespace InnNou.Application.Handlers
         {
             var deleted = await organizationContactService.DeleteAsync(request.OrganizationContactToken, context, cancellationToken);
             if (!deleted)
-                return ApiResponse<DeleteOrganizationContactCommandResponse>.FailureResponse("NOT_FOUND", "Organization contact not found.", 404);
+                return ApiResponse<DeleteOrganizationContactCommandResponse>.FailureResponse(ErrorCodes.OrganizationContactNotFound, "Organization contact not found.", 404);
 
             return ApiResponse<DeleteOrganizationContactCommandResponse>.SuccessResponse(new DeleteOrganizationContactCommandResponse
             {

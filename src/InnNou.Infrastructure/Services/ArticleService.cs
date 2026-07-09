@@ -108,7 +108,7 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
     public async Task<ArticleDto?> CreateAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!CanManage(context, dto.SupplierId))
-            throw new UnauthorizedAccessException("Not allowed to create articles for this supplier.");
+            throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to create articles for this supplier.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
@@ -137,7 +137,7 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
     public async Task<ArticleDto?> EditAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!CanManage(context, dto.SupplierId))
-            throw new UnauthorizedAccessException("Not allowed to edit articles for this supplier.");
+            throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to edit articles for this supplier.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
@@ -162,6 +162,72 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
         return row is null ? null : mapper.Map<ArticleDto>(row);
     }
 
+    public async Task<ArticleDto?> SupersedeAsync(Guid oldArticleToken, ArticleDto newArticleData, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_GetByToken", new { ArticleToken = oldArticleToken }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        if (!CanManage(context, existing.SupplierId))
+            throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to supersede articles for this supplier.", 403);
+
+        if (existing.ReplacedByArticleId.HasValue)
+            throw new ApiException(ErrorCodes.ArticleAlreadyReplaced, "This article has already been replaced.", 409);
+
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var createP = new DynamicParameters();
+            createP.Add("@ArticleToken", Guid.NewGuid());
+            createP.Add("@SupplierId", existing.SupplierId);
+            createP.Add("@Name", newArticleData.Name);
+            createP.Add("@Description", newArticleData.Description);
+            createP.Add("@SupplierSku", newArticleData.SupplierSku);
+            createP.Add("@Barcode", newArticleData.Barcode);
+            createP.Add("@Brand", newArticleData.Brand);
+            createP.Add("@FamilyId", newArticleData.FamilyId);
+            createP.Add("@SubFamilyId", newArticleData.SubFamilyId);
+            createP.Add("@PurchaseUnitId", newArticleData.PurchaseUnitId);
+            createP.Add("@PurchaseQuantity", newArticleData.PurchaseQuantity);
+            createP.Add("@ContentUnitId", newArticleData.ContentUnitId);
+            createP.Add("@ContentQuantity", newArticleData.ContentQuantity);
+            createP.Add("@BaseUnitId", newArticleData.BaseUnitId);
+            createP.Add("@MinimumOrderQty", newArticleData.MinimumOrderQty);
+            createP.Add("@LeadTimeDays", newArticleData.LeadTimeDays);
+            createP.Add("@CreatedBy", context.ActorUserToken.ToString());
+
+            var newRow = await connection.QueryFirstOrDefaultAsync<Article>(
+                "sp_Article_Create", createP, transaction, commandType: CommandType.StoredProcedure);
+
+            if (newRow is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var setReplacedP = new DynamicParameters();
+            setReplacedP.Add("@ArticleToken", oldArticleToken);
+            setReplacedP.Add("@ReplacedByArticleId", newRow.ArticleId);
+            setReplacedP.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+
+            await connection.ExecuteAsync(
+                "sp_Article_SetReplacedBy", setReplacedP, transaction, commandType: CommandType.StoredProcedure);
+
+            await transaction.CommitAsync(cancellationToken);
+            return mapper.Map<ArticleDto>(newRow);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -173,7 +239,7 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
             return false;
 
         if (!CanManage(context, existing.SupplierId))
-            throw new UnauthorizedAccessException("Not allowed to delete articles for this supplier.");
+            throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to delete articles for this supplier.", 403);
 
         var p = new DynamicParameters();
         p.Add("@ArticleToken", token);

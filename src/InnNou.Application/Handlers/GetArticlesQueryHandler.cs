@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
             {
                 var supplier = await supplierService.GetSupplierByTokenAsync(request.SupplierToken.Value, context, cancellationToken);
                 if (supplier is null)
-                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse("SUPPLIER_NOT_FOUND", "Supplier not found.", 404);
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.SupplierNotFound, "Supplier not found.", 404);
                 supplierId = supplier.SupplierId;
             }
 
@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             {
                 var family = await familyService.GetByTokenAsync(request.FamilyToken.Value, cancellationToken);
                 if (family is null)
-                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
                 familyId = family.FamilyId;
             }
 
@@ -35,7 +35,7 @@ namespace InnNou.Application.Handlers
             {
                 var subFamily = await subFamilyService.GetByTokenAsync(request.SubFamilyToken.Value, cancellationToken);
                 if (subFamily is null)
-                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse("SUBFAMILY_NOT_FOUND", "Sub-family not found.", 404);
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
                 subFamilyId = subFamily.SubFamilyId;
             }
 

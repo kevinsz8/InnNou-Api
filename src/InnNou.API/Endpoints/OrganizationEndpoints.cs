@@ -30,59 +30,49 @@ namespace InnNou.API.Endpoints
                 .Produces<ApiResponse<DeleteOrganizationCommandResponse>>(200);
         }
 
-        private static async Task<ApiResponse<GetOrganizationsQueryResponse>> HandleGetOrganizations(
+        private static async Task<IResult> HandleGetOrganizations(
             [FromBody] GetOrganizationsQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetOrganizationsQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<GetOrganizationByTokenQueryResponse>> HandleGetOrganizationByToken(
+        private static async Task<IResult> HandleGetOrganizationByToken(
             [FromBody] GetOrganizationByTokenQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<GetOrganizationByTokenQueryResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<CreateOrganizationCommandResponse>> HandleCreateOrganization(
+        private static async Task<IResult> HandleCreateOrganization(
             [FromBody] CreateOrganizationCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<EditOrganizationCommandResponse>> HandleEditOrganization(
+        private static async Task<IResult> HandleEditOrganization(
             [FromBody] EditOrganizationCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<EditOrganizationCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<DeleteOrganizationCommandResponse>> HandleDeleteOrganization(
+        private static async Task<IResult> HandleDeleteOrganization(
             [FromBody] DeleteOrganizationCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<DeleteOrganizationCommandResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
     }
 }

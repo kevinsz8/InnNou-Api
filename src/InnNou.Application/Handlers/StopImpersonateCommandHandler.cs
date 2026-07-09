@@ -29,12 +29,12 @@ namespace InnNou.Application.Handlers
         {
             if (_currentUserContext.ActorUserToken == Guid.Empty)
             {
-                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse("Authentication_Failed","Authenticated user token was not found.");
+                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse(ErrorCodes.NotAuthenticated, "Authenticated user token was not found.", 401);
             }
 
             if (!_currentUserContext.IsImpersonating)
             {
-                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse("Authentication_Failed", "Current session is not impersonating any user.");
+                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse(ErrorCodes.NotImpersonating, "Current session is not impersonating any user.", 400);
             }
 
             var result = await _authService.StopImpersonationAsync(
@@ -43,7 +43,7 @@ namespace InnNou.Application.Handlers
 
             if (result == null)
             {
-                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse("Authentication_Failed", "Unable to stop impersonation.");
+                return ApiResponse<StopImpersonateCommandResponse>.FailureResponse(ErrorCodes.StopImpersonationFailed, "Unable to stop impersonation.", 500);
             }
 
             return ApiResponse<StopImpersonateCommandResponse>.SuccessResponse(

@@ -25,13 +25,13 @@ namespace InnNou.Application.Handlers
         {
             var exists = await _supplierService.SupplierExistsAsync(request.Name, cancellationToken);
             if (exists)
-                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse("SUPPLIER_ALREADY_EXISTS", "A supplier with this name already exists.");
+                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierAlreadyExists, "A supplier with this name already exists.");
 
             var dto = _mapper.Map<SupplierDto>(request);
             var created = await _supplierService.CreateSupplierAsync(dto, _context, cancellationToken);
 
             if (created is null)
-                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse("SUPPLIER_CREATION_FAILED", "Supplier could not be created.");
+                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierCreationFailed, "Supplier could not be created.");
 
             return ApiResponse<CreateSupplierCommandResponse>.SuccessResponse(_mapper.Map<CreateSupplierCommandResponse>(created), 201);
         }

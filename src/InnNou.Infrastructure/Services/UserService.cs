@@ -18,7 +18,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
     public async Task<UserDto?> CreateUserAsync(UserDto userDto, IRequestContext context, CancellationToken cancellationToken)
     {
         if (userDto.OrganizationId.HasValue && userDto.SupplierId.HasValue)
-            throw new InvalidOperationException("A user cannot belong to both an organization and a supplier");
+            throw new ApiException(ErrorCodes.UserOrgAndSupplierConflict, "A user cannot belong to both an organization and a supplier", 400);
 
         await using var connection = connectionFactory.CreateConnection();
 
@@ -28,21 +28,21 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
             commandType: CommandType.StoredProcedure);
 
         if (role is null)
-            throw new Exception("Invalid role");
+            throw new ApiException(ErrorCodes.UserInvalidRole, "Invalid role", 400);
 
         if (role.RoleLevel > context.RoleLevel)
-            throw new UnauthorizedAccessException("Cannot assign higher role");
+            throw new ApiException(ErrorCodes.UserCannotAssignHigherRole, "Cannot assign higher role", 403);
 
         if (context.RoleLevel < 100)
         {
             if (userDto.SupplierId.HasValue)
-                throw new UnauthorizedAccessException("Only superadmin can create supplier users");
+                throw new ApiException(ErrorCodes.UserSupplierCreateSuperadminOnly, "Only superadmin can create supplier users", 403);
 
             if (!context.OrganizationId.HasValue)
-                throw new UnauthorizedAccessException("Invalid organization context");
+                throw new ApiException(ErrorCodes.UserInvalidOrganizationContext, "Invalid organization context", 400);
 
             if (!userDto.OrganizationId.HasValue)
-                throw new UnauthorizedAccessException("Invalid organization assignment");
+                throw new ApiException(ErrorCodes.UserInvalidOrganizationAssignment, "Invalid organization assignment", 400);
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
                 "sp_Organization_IsInHierarchy",
@@ -50,7 +50,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Invalid organization assignment");
+                throw new ApiException(ErrorCodes.UserInvalidOrganizationAssignment, "Invalid organization assignment", 400);
         }
 
         var createdUser = await connection.QueryFirstOrDefaultAsync<User>(
@@ -127,12 +127,12 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
             return null;
 
         if (existing.RoleLevel > context.RoleLevel)
-            throw new UnauthorizedAccessException("Cannot edit higher role");
+            throw new ApiException(ErrorCodes.UserCannotEditHigherRole, "Cannot edit higher role", 403);
 
         if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
         {
             if (!existing.OrganizationId.HasValue)
-                throw new UnauthorizedAccessException("Cannot edit user from another organization");
+                throw new ApiException(ErrorCodes.UserOutsideOrganization, "Cannot edit user from another organization", 403);
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
                 "sp_Organization_IsInHierarchy",
@@ -140,7 +140,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot edit user from another organization");
+                throw new ApiException(ErrorCodes.UserOutsideOrganization, "Cannot edit user from another organization", 403);
         }
 
         var newRoleId = existing.RoleId;
@@ -152,10 +152,10 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 commandType: CommandType.StoredProcedure);
 
             if (newRole is null)
-                throw new Exception("Invalid role");
+                throw new ApiException(ErrorCodes.UserInvalidRole, "Invalid role", 400);
 
             if (newRole.RoleLevel > context.RoleLevel)
-                throw new UnauthorizedAccessException("Cannot assign higher role");
+                throw new ApiException(ErrorCodes.UserCannotAssignHigherRole, "Cannot assign higher role", 403);
 
             newRoleId = newRole.RoleId;
         }
@@ -200,12 +200,12 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
             return false;
 
         if (existing.RoleLevel > context.RoleLevel)
-            throw new UnauthorizedAccessException("Cannot delete higher role");
+            throw new ApiException(ErrorCodes.UserCannotDeleteHigherRole, "Cannot delete higher role", 403);
 
         if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
         {
             if (!existing.OrganizationId.HasValue)
-                throw new UnauthorizedAccessException("Cannot delete user from another organization");
+                throw new ApiException(ErrorCodes.UserOutsideOrganization, "Cannot delete user from another organization", 403);
 
             var canAccess = await connection.ExecuteScalarAsync<int>(
                 "sp_Organization_IsInHierarchy",
@@ -213,7 +213,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper)
                 commandType: CommandType.StoredProcedure);
 
             if (canAccess != 1)
-                throw new UnauthorizedAccessException("Cannot delete user from another organization");
+                throw new ApiException(ErrorCodes.UserOutsideOrganization, "Cannot delete user from another organization", 403);
         }
 
         var now = DateTime.UtcNow;

@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await subFamilyService.GetByTokenAsync(request.SubFamilyToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetSubFamilyByTokenQueryResponse>.FailureResponse("SUB_FAMILY_NOT_FOUND", "Sub-family not found.", 404);
+                return ApiResponse<GetSubFamilyByTokenQueryResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
 
             var response = new GetSubFamilyByTokenQueryResponse { SubFamily = mapper.Map<Responses.Common.SubFamily>(dto) };
             return ApiResponse<GetSubFamilyByTokenQueryResponse>.SuccessResponse(response, 200);

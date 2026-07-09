@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await subCategoryService.GetByTokenAsync(request.SubCategoryToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetSubCategoryByTokenQueryResponse>.FailureResponse("SUB_CATEGORY_NOT_FOUND", "Sub-category not found.", 404);
+                return ApiResponse<GetSubCategoryByTokenQueryResponse>.FailureResponse(ErrorCodes.SubCategoryNotFound, "Sub-category not found.", 404);
 
             var response = new GetSubCategoryByTokenQueryResponse { SubCategory = mapper.Map<Responses.Common.SubCategory>(dto) };
             return ApiResponse<GetSubCategoryByTokenQueryResponse>.SuccessResponse(response, 200);

@@ -14,12 +14,12 @@ namespace InnNou.Application.Handlers
         public async Task<ApiResponse<CreateUnitTypeCommandResponse>> Handle(CreateUnitTypeCommandRequest request, CancellationToken cancellationToken)
         {
             if (await unitTypeService.ExistsByCodeAsync(request.Code, cancellationToken))
-                return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse("UNIT_TYPE_CODE_EXISTS", "A unit type with this code already exists.", 409);
+                return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeCodeExists, "A unit type with this code already exists.", 409);
 
             var dto = new UnitTypeDto { Code = request.Code };
             var result = await unitTypeService.CreateAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse("UNIT_TYPE_CREATE_FAILED", "Unit type could not be created.", 500);
+                return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeCreateFailed, "Unit type could not be created.", 500);
 
             var response = new CreateUnitTypeCommandResponse { UnitType = mapper.Map<Responses.Common.UnitType>(result) };
             return ApiResponse<CreateUnitTypeCommandResponse>.SuccessResponse(response, 201);

@@ -15,22 +15,22 @@ namespace InnNou.Application.Handlers
         {
             var supplier = await supplierService.GetSupplierByTokenAsync(request.SupplierToken, context, cancellationToken);
             if (supplier is null)
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse("SUPPLIER_NOT_FOUND", "Supplier not found.", 404);
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.SupplierNotFound, "Supplier not found.", 404);
 
             var purchaseUnit = await unitOfMeasureService.GetByTokenAsync(request.PurchaseUnitToken, cancellationToken);
             if (purchaseUnit is null)
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse("PURCHASE_UNIT_NOT_FOUND", "Purchase unit of measure not found.", 404);
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.PurchaseUnitNotFound, "Purchase unit of measure not found.", 404);
 
             var contentUnit = await unitOfMeasureService.GetByTokenAsync(request.ContentUnitToken, cancellationToken);
             if (contentUnit is null)
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse("CONTENT_UNIT_NOT_FOUND", "Content unit of measure not found.", 404);
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitNotFound, "Content unit of measure not found.", 404);
 
             int? baseUnitId = null;
             if (request.BaseUnitToken.HasValue)
             {
                 var baseUnit = await unitOfMeasureService.GetByTokenAsync(request.BaseUnitToken.Value, cancellationToken);
                 if (baseUnit is null)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse("BASE_UNIT_NOT_FOUND", "Base unit of measure not found.", 404);
+                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.BaseUnitNotFound, "Base unit of measure not found.", 404);
                 baseUnitId = baseUnit.UnitOfMeasureId;
             }
 
@@ -39,7 +39,7 @@ namespace InnNou.Application.Handlers
             {
                 var family = await familyService.GetByTokenAsync(request.FamilyToken.Value, cancellationToken);
                 if (family is null)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
                 familyId = family.FamilyId;
             }
 
@@ -48,7 +48,7 @@ namespace InnNou.Application.Handlers
             {
                 var subFamily = await subFamilyService.GetByTokenAsync(request.SubFamilyToken.Value, cancellationToken);
                 if (subFamily is null)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse("SUBFAMILY_NOT_FOUND", "Sub-family not found.", 404);
+                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
                 subFamilyId = subFamily.SubFamilyId;
             }
 
@@ -56,7 +56,7 @@ namespace InnNou.Application.Handlers
             {
                 var skuExists = await articleService.ExistsBySupplierSkuAsync(supplier.SupplierId, request.SupplierSku, null, cancellationToken);
                 if (skuExists)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse("ARTICLE_SKU_EXISTS", "An article with this SKU already exists for this supplier.", 409);
+                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ArticleSkuExists, "An article with this SKU already exists for this supplier.", 409);
             }
 
             var dto = new ArticleDto
@@ -80,7 +80,7 @@ namespace InnNou.Application.Handlers
 
             var result = await articleService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse("ARTICLE_CREATE_FAILED", "Article could not be created.", 500);
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ArticleCreateFailed, "Article could not be created.", 500);
 
             return ApiResponse<CreateArticleCommandResponse>.SuccessResponse(
                 new CreateArticleCommandResponse { Article = mapper.Map<Responses.Common.Article>(result) }, 201);

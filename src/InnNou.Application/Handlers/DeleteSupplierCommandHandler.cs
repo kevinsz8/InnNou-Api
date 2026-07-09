@@ -22,7 +22,7 @@ namespace InnNou.Application.Handlers
             var success = await _supplierService.DeleteSupplierAsync(request.SupplierToken, _context, cancellationToken);
 
             if (!success)
-                return ApiResponse<DeleteSupplierCommandResponse>.FailureResponse("SUPPLIER_DELETE_FAILED", "Supplier could not be deleted.");
+                return ApiResponse<DeleteSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierNotFound, "Supplier not found.", 404);
 
             return ApiResponse<DeleteSupplierCommandResponse>.SuccessResponse(
                 new DeleteSupplierCommandResponse { SupplierToken = request.SupplierToken, Success = true });

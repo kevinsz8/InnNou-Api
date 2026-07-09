@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await familyService.SetActiveAsync(request.FamilyToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveFamilyCommandResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                return ApiResponse<SetActiveFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
 
             var response = new SetActiveFamilyCommandResponse { Family = mapper.Map<Responses.Common.Family>(result) };
             return ApiResponse<SetActiveFamilyCommandResponse>.SuccessResponse(response, 200);

@@ -27,7 +27,7 @@ namespace InnNou.Application.Handlers
             var updated = await _organizationService.EditOrganizationAsync(dto, _context, cancellationToken);
 
             if (updated is null)
-                return ApiResponse<EditOrganizationCommandResponse>.FailureResponse("ORGANIZATION_EDIT_FAILED", "Organization could not be updated.");
+                return ApiResponse<EditOrganizationCommandResponse>.FailureResponse(ErrorCodes.OrganizationNotFound, "Organization not found.", 404);
 
             return ApiResponse<EditOrganizationCommandResponse>.SuccessResponse(_mapper.Map<EditOrganizationCommandResponse>(updated));
         }

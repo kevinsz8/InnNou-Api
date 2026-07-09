@@ -26,7 +26,7 @@ namespace InnNou.Application.Handlers
             var dto = await _organizationService.GetOrganizationByTokenAsync(request.OrganizationToken, _context, cancellationToken);
 
             if (dto is null)
-                return ApiResponse<GetOrganizationByTokenQueryResponse>.FailureResponse("ORGANIZATION_NOT_FOUND", "Organization not found or access denied.", 404);
+                return ApiResponse<GetOrganizationByTokenQueryResponse>.FailureResponse(ErrorCodes.OrganizationNotFound, "Organization not found or access denied.", 404);
 
             return ApiResponse<GetOrganizationByTokenQueryResponse>.SuccessResponse(
                 new GetOrganizationByTokenQueryResponse { Organization = _mapper.Map<Organization>(dto) });

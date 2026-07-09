@@ -22,7 +22,7 @@ namespace InnNou.Application.Handlers
             var success = await _organizationService.DeleteOrganizationAsync(request.OrganizationToken, _context, cancellationToken);
 
             if (!success)
-                return ApiResponse<DeleteOrganizationCommandResponse>.FailureResponse("ORGANIZATION_DELETE_FAILED", "Organization could not be deleted.");
+                return ApiResponse<DeleteOrganizationCommandResponse>.FailureResponse(ErrorCodes.OrganizationNotFound, "Organization not found.", 404);
 
             return ApiResponse<DeleteOrganizationCommandResponse>.SuccessResponse(
                 new DeleteOrganizationCommandResponse { OrganizationToken = request.OrganizationToken, Success = true });

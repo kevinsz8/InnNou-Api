@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await unitTypeService.SetActiveAsync(request.UnitTypeToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveUnitTypeCommandResponse>.FailureResponse("UNIT_TYPE_NOT_FOUND", "Unit type not found.", 404);
+                return ApiResponse<SetActiveUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 
             var response = new SetActiveUnitTypeCommandResponse { UnitType = mapper.Map<Responses.Common.UnitType>(result) };
             return ApiResponse<SetActiveUnitTypeCommandResponse>.SuccessResponse(response, 200);

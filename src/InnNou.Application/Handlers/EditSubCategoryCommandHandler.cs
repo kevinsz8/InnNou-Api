@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = new SubCategoryDto { SubCategoryToken = request.SubCategoryToken, Code = request.Code };
             var result = await subCategoryService.EditAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<EditSubCategoryCommandResponse>.FailureResponse("SUB_CATEGORY_NOT_FOUND", "Sub-category not found.", 404);
+                return ApiResponse<EditSubCategoryCommandResponse>.FailureResponse(ErrorCodes.SubCategoryNotFound, "Sub-category not found.", 404);
 
             var response = new EditSubCategoryCommandResponse { SubCategory = mapper.Map<Responses.Common.SubCategory>(result) };
             return ApiResponse<EditSubCategoryCommandResponse>.SuccessResponse(response, 200);

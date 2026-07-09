@@ -29,52 +29,42 @@ namespace InnNou.API.Endpoints
                 .RequireAuthorization();
         }
 
-        private static async Task<ApiResponse<LoginResponse>> HandleLogin(
+        private static async Task<IResult> HandleLogin(
             [FromBody] LoginCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<LoginResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<LoginResponse>> Refresh(
+        private static async Task<IResult> Refresh(
             [FromBody] RefreshTokenRequest request,
              IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
-            if (!result.Success)
-                return ApiResponse<LoginResponse>.FailureResponse(result.Errors);
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<ImpersonateResponse>> Impersonate(
+        private static async Task<IResult> Impersonate(
             [FromBody] ImpersonateRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
 
-            if (!result.Success)
-                return ApiResponse<ImpersonateResponse>.FailureResponse(result.Errors);
-
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
-        private static async Task<ApiResponse<ImpersonateResponse>> ImpersonateSupplier(
+        private static async Task<IResult> ImpersonateSupplier(
             [FromBody] ImpersonateSupplierRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);
 
-            if (!result.Success)
-                return ApiResponse<ImpersonateResponse>.FailureResponse(result.Errors);
-
-            return result;
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }
 
         private static async Task<IResult> StopImpersonate(
@@ -83,7 +73,7 @@ namespace InnNou.API.Endpoints
         {
             var response = await mediator.Send(new StopImpersonateCommandRequest(), cancellationToken);
 
-            return Results.Ok(response);
+            return Results.Json(response, statusCode: response.StatusCode ?? (response.Success ? 200 : 400));
         }
     }
 }

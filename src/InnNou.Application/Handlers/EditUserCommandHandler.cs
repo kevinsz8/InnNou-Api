@@ -24,7 +24,7 @@ namespace InnNou.Application.Handlers
             var userDto = _mapper.Map<UserDto>(request);
             var updatedUser = await _userService.EditUserAsync(userDto, _context, cancellationToken);
             if (updatedUser == null)
-                return ApiResponse<EditUserCommandResponse>.FailureResponse("USER_EDIT_FAILED", "User could not be updated.");
+                return ApiResponse<EditUserCommandResponse>.FailureResponse(ErrorCodes.UserNotFound, "User not found.", 404);
             var response = _mapper.Map<EditUserCommandResponse>(updatedUser);
             return ApiResponse<EditUserCommandResponse>.SuccessResponse(response);
         }

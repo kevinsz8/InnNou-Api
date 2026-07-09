@@ -334,7 +334,8 @@ namespace InnNou.Application.Mapping
                 BaseUnitSymbol = d.BaseUnitSymbol,
                 MinimumOrderQty = d.MinimumOrderQty,
                 LeadTimeDays = d.LeadTimeDays,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                ReplacedByArticleToken = d.ReplacedByArticleToken
             });
 
             // OrganizationContact

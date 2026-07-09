@@ -31,5 +31,7 @@ namespace InnNou.Domain.Dtos
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
+        public int? ReplacedByArticleId { get; set; }
+        public Guid? ReplacedByArticleToken { get; set; }
     }
 }

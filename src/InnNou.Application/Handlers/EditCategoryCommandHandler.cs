@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = new CategoryDto { CategoryToken = request.CategoryToken, Code = request.Code };
             var result = await categoryService.EditAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<EditCategoryCommandResponse>.FailureResponse("CATEGORY_NOT_FOUND", "Category not found.", 404);
+                return ApiResponse<EditCategoryCommandResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
 
             var response = new EditCategoryCommandResponse { Category = mapper.Map<Responses.Common.Category>(result) };
             return ApiResponse<EditCategoryCommandResponse>.SuccessResponse(response, 200);

@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await categoryService.SetActiveAsync(request.CategoryToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveCategoryCommandResponse>.FailureResponse("CATEGORY_NOT_FOUND", "Category not found.", 404);
+                return ApiResponse<SetActiveCategoryCommandResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
 
             var response = new SetActiveCategoryCommandResponse { Category = mapper.Map<Responses.Common.Category>(result) };
             return ApiResponse<SetActiveCategoryCommandResponse>.SuccessResponse(response, 200);

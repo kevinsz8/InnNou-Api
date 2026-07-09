@@ -3,6 +3,7 @@ using InnNou.Application.Abstractions;
 using InnNou.Application.Common;
 using InnNou.Infrastructure.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Text;
@@ -81,13 +82,18 @@ app.UseExceptionHandler(app =>
 {
     app.Run(async context =>
     {
-        context.Response.StatusCode = 400;
+        var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
 
-        var response = ApiResponse<object>.FailureResponse(
-            "INVALID_REQUEST",
-            "Invalid request format",
-            400
-        );
+        var (code, message, statusCode) = error switch
+        {
+            ApiException apiEx => (apiEx.Code, apiEx.Message, apiEx.StatusCode),
+            BadHttpRequestException => (ErrorCodes.InvalidRequest, "Invalid request format", 400),
+            _ => (ErrorCodes.UnhandledError, "An unexpected error occurred.", 500)
+        };
+
+        context.Response.StatusCode = statusCode;
+
+        var response = ApiResponse<object>.FailureResponse(code, message, statusCode);
 
         await context.Response.WriteAsJsonAsync(response);
     });

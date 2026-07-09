@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await unitTypeService.GetByTokenAsync(request.UnitTypeToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetUnitTypeByTokenQueryResponse>.FailureResponse("UNIT_TYPE_NOT_FOUND", "Unit type not found.", 404);
+                return ApiResponse<GetUnitTypeByTokenQueryResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
             var response = new GetUnitTypeByTokenQueryResponse { UnitType = mapper.Map<Responses.Common.UnitType>(dto) };
             return ApiResponse<GetUnitTypeByTokenQueryResponse>.SuccessResponse(response, 200);
         }

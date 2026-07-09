@@ -16,7 +16,7 @@ namespace InnNou.Application.Handlers
             var dto = new SubFamilyDto { SubFamilyToken = request.SubFamilyToken, Code = request.Code };
             var result = await subFamilyService.EditAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<EditSubFamilyCommandResponse>.FailureResponse("SUB_FAMILY_NOT_FOUND", "Sub-family not found.", 404);
+                return ApiResponse<EditSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
 
             var response = new EditSubFamilyCommandResponse { SubFamily = mapper.Map<Responses.Common.SubFamily>(result) };
             return ApiResponse<EditSubFamilyCommandResponse>.SuccessResponse(response, 200);

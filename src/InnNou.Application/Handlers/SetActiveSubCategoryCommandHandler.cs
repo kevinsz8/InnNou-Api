@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await subCategoryService.SetActiveAsync(request.SubCategoryToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveSubCategoryCommandResponse>.FailureResponse("SUB_CATEGORY_NOT_FOUND", "Sub-category not found.", 404);
+                return ApiResponse<SetActiveSubCategoryCommandResponse>.FailureResponse(ErrorCodes.SubCategoryNotFound, "Sub-category not found.", 404);
 
             var response = new SetActiveSubCategoryCommandResponse { SubCategory = mapper.Map<Responses.Common.SubCategory>(result) };
             return ApiResponse<SetActiveSubCategoryCommandResponse>.SuccessResponse(response, 200);

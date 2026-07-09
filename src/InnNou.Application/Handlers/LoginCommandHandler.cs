@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
         {
             var login = await _authService.LoginAsync(request.Email, request.Password, cancellationToken);
             if (login == null)
-                return ApiResponse<LoginResponse>.FailureResponse("INVALID_CREDENTIALS", "Invalid email or password.");
+                return ApiResponse<LoginResponse>.FailureResponse(ErrorCodes.InvalidCredentials, "Invalid email or password.");
             var response = new LoginResponse
             {
                 UserId = login.UserId,

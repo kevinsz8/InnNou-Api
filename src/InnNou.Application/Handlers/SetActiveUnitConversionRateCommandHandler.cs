@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var result = await unitConversionRateService.SetActiveAsync(request.UnitConversionRateToken, request.IsActive, cancellationToken);
             if (result is null)
-                return ApiResponse<SetActiveUnitConversionRateCommandResponse>.FailureResponse("UNIT_CONVERSION_RATE_NOT_FOUND", "Unit conversion rate not found.", 404);
+                return ApiResponse<SetActiveUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateNotFound, "Unit conversion rate not found.", 404);
 
             var response = new SetActiveUnitConversionRateCommandResponse { UnitConversionRate = mapper.Map<Responses.Common.UnitConversionRate>(result) };
             return ApiResponse<SetActiveUnitConversionRateCommandResponse>.SuccessResponse(response, 200);

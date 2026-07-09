@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
             {
                 var family = await familyService.GetByTokenAsync(request.FamilyToken.Value, cancellationToken);
                 if (family is null)
-                    return ApiResponse<GetSubFamiliesQueryResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                    return ApiResponse<GetSubFamiliesQueryResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
                 familyId = family.FamilyId;
             }
 

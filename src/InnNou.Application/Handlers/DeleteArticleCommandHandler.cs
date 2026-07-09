@@ -13,7 +13,7 @@ namespace InnNou.Application.Handlers
         {
             var deleted = await articleService.DeleteAsync(request.ArticleToken, context, cancellationToken);
             if (!deleted)
-                return ApiResponse<DeleteArticleCommandResponse>.FailureResponse("ARTICLE_NOT_FOUND", "Article not found.", 404);
+                return ApiResponse<DeleteArticleCommandResponse>.FailureResponse(ErrorCodes.ArticleNotFound, "Article not found.", 404);
 
             return ApiResponse<DeleteArticleCommandResponse>.SuccessResponse(
                 new DeleteArticleCommandResponse { ArticleToken = request.ArticleToken, Success = true }, 200);

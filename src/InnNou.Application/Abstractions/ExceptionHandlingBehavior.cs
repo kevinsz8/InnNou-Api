@@ -28,11 +28,15 @@ namespace InnNou.Application.Abstractions
                         .MakeGenericType(responseType)
                         .GetMethod("FailureResponse", new[] { typeof(string), typeof(string), typeof(int?) });
 
+                    var (code, message, statusCode) = ex is ApiException apiEx
+                        ? (apiEx.Code, apiEx.Message, apiEx.StatusCode)
+                        : (ErrorCodes.UnhandledError, ex.Message, 500);
+
                     var result = failureMethod!.Invoke(null, new object[]
                     {
-                    "UNHANDLED_ERROR",
-                    ex.Message,
-                    500
+                    code,
+                    message,
+                    statusCode
                     });
 
                     return (TResponse)result!;

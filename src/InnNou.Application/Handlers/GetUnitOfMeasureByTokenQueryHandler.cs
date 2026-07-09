@@ -14,7 +14,7 @@ namespace InnNou.Application.Handlers
         {
             var dto = await unitOfMeasureService.GetByTokenAsync(request.UnitOfMeasureToken, cancellationToken);
             if (dto is null)
-                return ApiResponse<GetUnitOfMeasureByTokenQueryResponse>.FailureResponse("UNIT_OF_MEASURE_NOT_FOUND", "Unit of measure not found.", 404);
+                return ApiResponse<GetUnitOfMeasureByTokenQueryResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 
             var response = new GetUnitOfMeasureByTokenQueryResponse { UnitOfMeasure = mapper.Map<Responses.Common.UnitOfMeasure>(dto) };
             return ApiResponse<GetUnitOfMeasureByTokenQueryResponse>.SuccessResponse(response, 200);

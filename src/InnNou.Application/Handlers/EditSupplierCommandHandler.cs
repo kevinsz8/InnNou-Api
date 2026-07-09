@@ -27,7 +27,7 @@ namespace InnNou.Application.Handlers
             var updated = await _supplierService.EditSupplierAsync(dto, _context, cancellationToken);
 
             if (updated is null)
-                return ApiResponse<EditSupplierCommandResponse>.FailureResponse("SUPPLIER_EDIT_FAILED", "Supplier could not be updated.");
+                return ApiResponse<EditSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierNotFound, "Supplier not found.", 404);
 
             return ApiResponse<EditSupplierCommandResponse>.SuccessResponse(_mapper.Map<EditSupplierCommandResponse>(updated));
         }

@@ -15,15 +15,15 @@ namespace InnNou.Application.Handlers
         {
             var family = await familyService.GetByTokenAsync(request.FamilyToken, cancellationToken);
             if (family is null)
-                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse("FAMILY_NOT_FOUND", "Family not found.", 404);
+                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
 
             if (await subFamilyService.ExistsByCodeAsync(request.Code, family.FamilyId, cancellationToken))
-                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse("SUB_FAMILY_CODE_EXISTS", "A sub-family with this code already exists in the family.", 409);
+                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyCodeExists, "A sub-family with this code already exists in the family.", 409);
 
             var dto = new SubFamilyDto { FamilyId = family.FamilyId, Code = request.Code };
             var result = await subFamilyService.CreateAsync(dto, cancellationToken);
             if (result is null)
-                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse("SUB_FAMILY_CREATE_FAILED", "Sub-family could not be created.", 500);
+                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyCreateFailed, "Sub-family could not be created.", 500);
 
             var response = new CreateSubFamilyCommandResponse { SubFamily = mapper.Map<Responses.Common.SubFamily>(result) };
             return ApiResponse<CreateSubFamilyCommandResponse>.SuccessResponse(response, 201);
