@@ -15,6 +15,8 @@ using CommonCategory = InnNou.Application.Responses.Common.Category;
 using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 using CommonOrganizationContact = InnNou.Application.Responses.Common.OrganizationContact;
 using CommonArticle = InnNou.Application.Responses.Common.Article;
+using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
+using CommonCurrency = InnNou.Application.Responses.Common.Currency;
 
 namespace InnNou.Application.Mapping
 {
@@ -336,6 +338,27 @@ namespace InnNou.Application.Mapping
                 LeadTimeDays = d.LeadTimeDays,
                 IsActive = d.IsActive,
                 ReplacedByArticleToken = d.ReplacedByArticleToken
+            });
+
+            // ArticlePrice
+            mapper.Register<ArticlePriceDto, CommonArticlePrice>(d => new CommonArticlePrice
+            {
+                ArticlePriceToken = d.ArticlePriceToken,
+                ArticleToken = d.ArticleToken,
+                OrganizationToken = d.OrganizationToken,
+                Price = d.Price,
+                CurrencyCode = d.CurrencyCode,
+                EffectiveDate = d.EffectiveDate,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            // Currency
+            mapper.Register<CurrencyDto, CommonCurrency>(d => new CommonCurrency
+            {
+                Code = d.Code,
+                IsActive = d.IsActive
             });
 
             // OrganizationContact

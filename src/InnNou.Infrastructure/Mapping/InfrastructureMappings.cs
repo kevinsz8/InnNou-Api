@@ -15,6 +15,8 @@ using CategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.Category;
 using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCategory;
 using OrganizationContactEntity = InnNou.Infrastructure.Repositories.DbEntities.OrganizationContact;
 using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
+using ArticlePriceEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePrice;
+using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -119,6 +121,7 @@ namespace InnNou.Infrastructure.Mapping
                 UnitOfMeasureId = e.UnitOfMeasureId,
                 UnitOfMeasureToken = e.UnitOfMeasureToken,
                 UnitTypeId = e.UnitTypeId,
+                UnitTypeCode = e.UnitTypeCode,
                 Code = e.Code,
                 Symbol = e.Symbol,
                 Decimals = e.Decimals,
@@ -206,6 +209,29 @@ namespace InnNou.Infrastructure.Mapping
                 IsDeleted = e.IsDeleted,
                 ReplacedByArticleId = e.ReplacedByArticleId,
                 ReplacedByArticleToken = e.ReplacedByArticleToken
+            });
+
+            mapper.Register<ArticlePriceEntity, ArticlePriceDto>(e => new ArticlePriceDto
+            {
+                ArticlePriceId = e.ArticlePriceId,
+                ArticlePriceToken = e.ArticlePriceToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                Price = e.Price,
+                CurrencyCode = e.CurrencyCode,
+                EffectiveDate = e.EffectiveDate,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<CurrencyEntity, CurrencyDto>(e => new CurrencyDto
+            {
+                CurrencyId = e.CurrencyId,
+                Code = e.Code,
+                IsActive = e.IsActive
             });
 
             mapper.Register<OrganizationContactEntity, OrganizationContactDto>(e => new OrganizationContactDto

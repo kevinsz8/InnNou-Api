@@ -48,6 +48,8 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<ISubCategoryService, SubCategoryService>();
             services.AddScoped<IOrganizationContactService, OrganizationContactService>();
             services.AddScoped<IArticleService, ArticleService>();
+            services.AddScoped<IArticlePriceService, ArticlePriceService>();
+            services.AddScoped<ICurrencyService, CurrencyService>();
 
             return services;
         }

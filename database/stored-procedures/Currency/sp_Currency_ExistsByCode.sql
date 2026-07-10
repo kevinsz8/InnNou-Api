@@ -1,0 +1,10 @@
+CREATE OR ALTER PROCEDURE sp_Currency_ExistsByCode
+    @Code VARCHAR(3)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT CAST(CASE WHEN EXISTS (
+        SELECT 1 FROM Currencies WHERE Code = @Code AND IsActive = 1
+    ) THEN 1 ELSE 0 END AS BIT);
+END;

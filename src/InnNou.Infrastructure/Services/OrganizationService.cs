@@ -100,7 +100,13 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
 
     public async Task<OrganizationDto?> GetOrganizationByTokenAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken)
     {
-        var (scope, scopeOrganizationId) = ResolveScope(context);
+        // Supplier-scoped callers (real login or impersonated) never belong to an organization
+        // hierarchy, so the normal scoping below would always resolve to None for them. A read-only
+        // lookup by token is low-sensitivity (basic org info only) and is needed so a supplier can
+        // resolve which organization to grant a contract price to (see ArticlePriceService).
+        var (scope, scopeOrganizationId) = context.SupplierId.HasValue
+            ? (OrganizationScope.All, (int?)null)
+            : ResolveScope(context);
         if (scope == OrganizationScope.None)
             return null;
 

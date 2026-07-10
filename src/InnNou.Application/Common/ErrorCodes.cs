@@ -60,6 +60,16 @@ namespace InnNou.Application.Common
         public const string NoStructuralChange = "NO_STRUCTURAL_CHANGE";
         public const string ArticleSupplierForbidden = "ARTICLE_SUPPLIER_FORBIDDEN";
 
+        // ArticlePrice
+        public const string ArticlePriceNotFound = "ARTICLE_PRICE_NOT_FOUND";
+        public const string ArticlePriceCreateFailed = "ARTICLE_PRICE_CREATE_FAILED";
+        public const string ArticlePriceSupplierForbidden = "ARTICLE_PRICE_SUPPLIER_FORBIDDEN";
+        public const string ArticlePriceArticleReplaced = "ARTICLE_PRICE_ARTICLE_REPLACED";
+        public const string ArticlePriceInvalidCurrency = "ARTICLE_PRICE_INVALID_CURRENCY";
+        public const string ArticlePriceInvalidAmount = "ARTICLE_PRICE_INVALID_AMOUNT";
+        public const string ArticlePriceDuplicateEffectiveDate = "ARTICLE_PRICE_DUPLICATE_EFFECTIVE_DATE";
+        public const string ArticlePriceCurrencyRequired = "ARTICLE_PRICE_CURRENCY_REQUIRED";
+
         // Family
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";
         public const string FamilyCodeExists = "FAMILY_CODE_EXISTS";
@@ -92,6 +102,9 @@ namespace InnNou.Application.Common
         public const string PurchaseUnitNotFound = "PURCHASE_UNIT_NOT_FOUND";
         public const string ContentUnitNotFound = "CONTENT_UNIT_NOT_FOUND";
         public const string BaseUnitNotFound = "BASE_UNIT_NOT_FOUND";
+        public const string PurchaseUnitInvalidType = "PURCHASE_UNIT_INVALID_TYPE";
+        public const string ContentUnitInvalidType = "CONTENT_UNIT_INVALID_TYPE";
+        public const string BaseUnitTypeMismatch = "BASE_UNIT_TYPE_MISMATCH";
 
         // UnitConversionRate
         public const string UnitConversionRateNotFound = "UNIT_CONVERSION_RATE_NOT_FOUND";

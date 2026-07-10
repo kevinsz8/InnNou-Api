@@ -1,0 +1,39 @@
+using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
+using InnNou.Application.Requests;
+using InnNou.Application.Responses;
+using InnNou.Shared.Mapping;
+using MediatR;
+
+namespace InnNou.Application.Handlers
+{
+    public class GetCurrentArticlePriceQueryHandler(IArticlePriceService articlePriceService, IArticleService articleService, IOrganizationService organizationService, IMapper mapper, IRequestContext context)
+        : IRequestHandler<GetCurrentArticlePriceQueryRequest, ApiResponse<GetCurrentArticlePriceQueryResponse>>
+    {
+        public async Task<ApiResponse<GetCurrentArticlePriceQueryResponse>> Handle(GetCurrentArticlePriceQueryRequest request, CancellationToken cancellationToken)
+        {
+            var article = await articleService.GetByTokenAsync(request.ArticleToken, context, cancellationToken);
+            if (article is null)
+                return ApiResponse<GetCurrentArticlePriceQueryResponse>.FailureResponse(ErrorCodes.ArticleNotFound, "Article not found.", 404);
+
+            int? organizationId = null;
+            if (request.OrganizationToken.HasValue)
+            {
+                var organization = await organizationService.GetOrganizationByTokenAsync(request.OrganizationToken.Value, context, cancellationToken);
+                if (organization is null)
+                    return ApiResponse<GetCurrentArticlePriceQueryResponse>.FailureResponse(ErrorCodes.OrganizationNotFound, "Organization not found.", 404);
+                organizationId = organization.OrganizationId;
+            }
+
+            var currencyCode = string.IsNullOrWhiteSpace(request.CurrencyCode) ? null : request.CurrencyCode.Trim().ToUpperInvariant();
+            var asOfDate = request.AsOfDate ?? DateTime.UtcNow.Date;
+
+            var result = await articlePriceService.GetCurrentAsync(article.ArticleId, article.SupplierId, organizationId, currencyCode, asOfDate, context, cancellationToken);
+            if (result is null)
+                return ApiResponse<GetCurrentArticlePriceQueryResponse>.FailureResponse(ErrorCodes.ArticlePriceNotFound, "No price found for this article.", 404);
+
+            return ApiResponse<GetCurrentArticlePriceQueryResponse>.SuccessResponse(
+                new GetCurrentArticlePriceQueryResponse { ArticlePrice = mapper.Map<Responses.Common.ArticlePrice>(result) }, 200);
+        }
+    }
+}

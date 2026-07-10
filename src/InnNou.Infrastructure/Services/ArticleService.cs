@@ -34,9 +34,9 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
             // Supplier-scoped caller (real login or impersonated) only ever sees its own articles.
             effectiveSupplierId = context.SupplierId.Value;
         }
-        else if (context.RoleLevel < AdminRoleLevel)
+        else if (!context.OrganizationId.HasValue && context.RoleLevel < AdminRoleLevel)
         {
-            // Below Admin and not supplier-scoped: no visibility into the catalog.
+            // Below Admin, not supplier-scoped, and not organization-scoped: no visibility into the catalog.
             return new PagedResult<ArticleDto>
             {
                 Items = [],
@@ -86,7 +86,7 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
             if (row.SupplierId != context.SupplierId.Value)
                 return null;
         }
-        else if (context.RoleLevel < AdminRoleLevel)
+        else if (!context.OrganizationId.HasValue && context.RoleLevel < AdminRoleLevel)
         {
             return null;
         }
