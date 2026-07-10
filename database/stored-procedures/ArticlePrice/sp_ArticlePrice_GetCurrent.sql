@@ -1,15 +1,15 @@
 CREATE OR ALTER PROCEDURE sp_ArticlePrice_GetCurrent
     @ArticleId      INT,
     @OrganizationId INT           = NULL,
-    @CurrencyCode   VARCHAR(10)   = NULL OUTPUT,  -- caller override; when NULL and @OrganizationId is set, resolved from Organizations.CurrencyCode.
-                                                   -- Still NULL on exit = no currency could be determined (no override and no org context/org has none set) — the caller must ask for a currency explicitly.
+    @CurrencyCode   VARCHAR(10)   = NULL OUTPUT,  -- caller override; when NULL and @OrganizationId is set, resolved from the org's own or nearest ancestor's CurrencyCode (sp_Organization_ResolveCurrencyCode).
+                                                   -- Still NULL on exit = no currency could be determined (no override and no org in the hierarchy has one set) — the caller must ask for a currency explicitly.
     @AsOfDate       DATE
 AS
 BEGIN
     SET NOCOUNT ON;
 
     IF @CurrencyCode IS NULL AND @OrganizationId IS NOT NULL
-        SELECT @CurrencyCode = CurrencyCode FROM Organizations WHERE OrganizationId = @OrganizationId;
+        EXEC dbo.sp_Organization_ResolveCurrencyCode @OrganizationId, @CurrencyCode OUTPUT;
 
     IF @CurrencyCode IS NULL
         RETURN;

@@ -1,3 +1,11 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+-- ArticlePrices has filtered unique indexes (UX_ArticlePrices_Global/UX_ArticlePrices_Contract) —
+-- INSERT against a table with a filtered index requires QUOTED_IDENTIFIER ON at the session that
+-- created this procedure (SQL Server compiles that setting into the proc), not just at index
+-- creation time. Without this, every insert fails with error 1934.
 CREATE OR ALTER PROCEDURE sp_ArticlePrice_Create
     @ArticlePriceToken UNIQUEIDENTIFIER,
     @ArticleId         INT,

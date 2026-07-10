@@ -38,6 +38,7 @@ namespace InnNou.Application.Common
         public const string OrganizationDeleteForbidden = "ORGANIZATION_DELETE_FORBIDDEN";
         public const string OrganizationOutsideScope = "ORGANIZATION_OUTSIDE_SCOPE";
         public const string OrganizationParentOutsideScope = "ORGANIZATION_PARENT_OUTSIDE_SCOPE";
+        public const string OrganizationInvalidCurrency = "ORGANIZATION_INVALID_CURRENCY";
 
         // Supplier
         public const string SupplierNotFound = "SUPPLIER_NOT_FOUND";
