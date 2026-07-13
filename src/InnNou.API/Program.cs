@@ -4,9 +4,12 @@ using InnNou.Application.Common;
 using InnNou.Infrastructure.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -73,6 +76,62 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddRateLimiter(options =>
+{
+    var defaultPermitLimit = builder.Configuration.GetValue("RateLimiting:Default:PermitLimit", 100);
+    var defaultWindowSeconds = builder.Configuration.GetValue("RateLimiting:Default:WindowSeconds", 60);
+    var authPermitLimit = builder.Configuration.GetValue("RateLimiting:Auth:PermitLimit", 5);
+    var authWindowSeconds = builder.Configuration.GetValue("RateLimiting:Auth:WindowSeconds", 60);
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Applies to every endpoint automatically — no per-endpoint opt-in needed. Partitioned by
+    // authenticated user (JWT sub) when present, else by IP. Composes with named policies below
+    // (a request must satisfy both), so /auth gets an additional, stricter limit on top of this.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var partitionKey = httpContext.User.Identity?.IsAuthenticated == true
+            ? $"user:{httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value}"
+            : $"ip:{httpContext.Connection.RemoteIpAddress}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = defaultPermitLimit,
+            Window = TimeSpan.FromSeconds(defaultWindowSeconds),
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        });
+    });
+
+    // Stricter, IP-partitioned policy applied only to the /auth route group (brute-force surface —
+    // login attempts are anonymous, so there's no user identity to partition by yet).
+    options.AddPolicy("auth", httpContext =>
+    {
+        var partitionKey = $"ip:{httpContext.Connection.RemoteIpAddress}";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = authPermitLimit,
+            Window = TimeSpan.FromSeconds(authWindowSeconds),
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        });
+    });
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        var response = ApiResponse<object>.FailureResponse(
+            ErrorCodes.RateLimitExceeded,
+            "Too many requests. Please slow down and try again shortly.",
+            StatusCodes.Status429TooManyRequests);
+
+        await context.HttpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+    };
+});
+
 
 var app = builder.Build();
 
@@ -112,6 +171,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseRateLimiter();
 
 app.MapCarter();
 

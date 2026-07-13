@@ -4,6 +4,7 @@ using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace InnNou.API.Endpoints
 {
@@ -11,21 +12,25 @@ namespace InnNou.API.Endpoints
     {
         public void AddRoutes(IEndpointRouteBuilder app)
         {
-            app.MapPost("/auth/login", HandleLogin)
+            // Stricter, IP-partitioned rate limit than the rest of the API (see Program.cs's
+            // "auth" policy) — this whole group is the brute-force/token-replay surface.
+            var group = app.MapGroup("/auth").RequireRateLimiting("auth");
+
+            group.MapPost("/login", HandleLogin)
                 .Produces<ApiResponse<LoginResponse>>(200);
 
-            app.MapPost("/auth/refresh", Refresh)
+            group.MapPost("/refresh", Refresh)
                 .Produces<ApiResponse<LoginResponse>>(200);
 
-            app.MapPost("/auth/impersonate", Impersonate)
+            group.MapPost("/impersonate", Impersonate)
                 .RequireAuthorization()
                 .Produces<ApiResponse<ImpersonateResponse>>(200);
 
-            app.MapPost("/auth/impersonate-supplier", ImpersonateSupplier)
+            group.MapPost("/impersonate-supplier", ImpersonateSupplier)
                 .RequireAuthorization()
                 .Produces<ApiResponse<ImpersonateResponse>>(200);
 
-            app.MapPost("/auth/stop-impersonate", StopImpersonate)
+            group.MapPost("/stop-impersonate", StopImpersonate)
                 .RequireAuthorization();
         }
 

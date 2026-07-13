@@ -128,5 +128,8 @@ namespace InnNou.Application.Common
         // Generic / cross-cutting
         public const string UnhandledError = "UNHANDLED_ERROR";
         public const string InvalidRequest = "INVALID_REQUEST";
+        public const string RateLimitExceeded = "RATE_LIMIT_EXCEEDED";
+        public const string IdempotencyRequestInProgress = "IDEMPOTENCY_REQUEST_IN_PROGRESS";
+        public const string IdempotencyKeyPayloadMismatch = "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH";
     }
 }

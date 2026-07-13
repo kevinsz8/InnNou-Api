@@ -1,3 +1,4 @@
+using InnNou.Application.Abstractions;
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Application.Mapping;
@@ -51,6 +52,9 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IArticlePriceService, ArticlePriceService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<IMenuService, MenuService>();
+
+            services.AddScoped<IIdempotencyStore, IdempotencyStore>();
+            services.AddHostedService<IdempotencyKeyCleanupService>();
 
             return services;
         }
