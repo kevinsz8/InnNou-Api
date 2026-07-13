@@ -12,5 +12,8 @@ namespace InnNou.Application.Persistence
         Task<UserDto?> EditUserAsync(UserDto request, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteUserAsync(Guid userToken, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> IsUserExists(string email, CancellationToken cancellationToken);
+        Task<BulkImportResultDto> BulkImportUsersAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> ExportUsersAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> GenerateUserImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken);
     }
 }

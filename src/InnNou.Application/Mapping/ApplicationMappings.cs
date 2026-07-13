@@ -17,6 +17,7 @@ using CommonOrganizationContact = InnNou.Application.Responses.Common.Organizati
 using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonCurrency = InnNou.Application.Responses.Common.Currency;
+using CommonMenuItem = InnNou.Application.Responses.Common.MenuItem;
 
 namespace InnNou.Application.Mapping
 {
@@ -73,6 +74,20 @@ namespace InnNou.Application.Mapping
                 SupplierId = d.SupplierId,
                 RoleId = d.RoleId,
                 IsActive = d.IsActive
+            });
+            mapper.Register<BulkImportRowErrorDto, BulkImportUserRowError>(d => new BulkImportUserRowError
+            {
+                RowNumber = d.RowNumber,
+                Email = d.Email,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportResultDto, BulkImportUsersCommandResponse>(d => new BulkImportUsersCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportUserRowError>(d.Errors)
             });
 
             // Organization
@@ -359,6 +374,17 @@ namespace InnNou.Application.Mapping
             {
                 Code = d.Code,
                 IsActive = d.IsActive
+            });
+
+            // MenuItem
+            mapper.Register<MenuItemDto, CommonMenuItem>(d => new CommonMenuItem
+            {
+                MenuItemToken = d.MenuItemToken,
+                ParentMenuItemToken = d.ParentMenuItemToken,
+                Name = d.Name,
+                Route = d.Route,
+                Icon = d.Icon,
+                SortOrder = d.SortOrder
             });
 
             // OrganizationContact

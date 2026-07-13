@@ -29,6 +29,12 @@ namespace InnNou.Application.Common
         public const string UserOrgAndSupplierConflict = "USER_ORG_AND_SUPPLIER_CONFLICT";
         public const string UserOutsideOrganization = "USER_OUTSIDE_ORGANIZATION";
         public const string UserSupplierCreateSuperadminOnly = "USER_SUPPLIER_CREATE_SUPERADMIN_ONLY";
+        public const string UserBulkImportForbidden = "USER_BULK_IMPORT_FORBIDDEN";
+        public const string UserBulkImportInvalidFile = "USER_BULK_IMPORT_INVALID_FILE";
+        public const string UserBulkImportTooManyRows = "USER_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string UserBulkImportRowInvalid = "USER_BULK_IMPORT_ROW_INVALID";
+        public const string UserBulkImportWeakPassword = "USER_BULK_IMPORT_WEAK_PASSWORD";
+        public const string UserBulkImportRowFailed = "USER_BULK_IMPORT_ROW_FAILED";
 
         // Organization
         public const string OrganizationNotFound = "ORGANIZATION_NOT_FOUND";
