@@ -12,7 +12,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<bool> DeleteSupplierAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> SupplierExistsAsync(string name, CancellationToken cancellationToken);
         Task<BulkImportSupplierResultDto> BulkImportSuppliersAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken);
-        Task<(byte[] FileBytes, string FileName)> ExportSuppliersAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken);
-        Task<(byte[] FileBytes, string FileName)> GenerateSupplierImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> ExportSuppliersAsync(string? searchField, string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> GenerateSupplierImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken);
     }
 }

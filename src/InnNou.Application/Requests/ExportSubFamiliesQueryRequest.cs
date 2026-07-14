@@ -5,6 +5,7 @@ namespace InnNou.Application.Requests
 {
     public class ExportSubFamiliesQueryRequest : IRequest<FileResult>
     {
+        public string? Language { get; set; }
         public string? SearchText { get; set; }
         public bool IncludeInactive { get; set; }
     }

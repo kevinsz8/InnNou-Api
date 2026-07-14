@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -178,7 +179,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportFamiliesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportFamiliesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.FamilyBulkImportForbidden, "Only Admins and SuperAdmins can export families.", 403);
@@ -190,7 +191,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
 
         string[] headers = ["Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -209,7 +210,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         return (ms.ToArray(), $"families_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public Task<(byte[] FileBytes, string FileName)> GenerateFamilyImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public Task<(byte[] FileBytes, string FileName)> GenerateFamilyImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.FamilyBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -217,7 +218,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         using var workbook = new XLWorkbook();
 
         var familiesSheet = workbook.Worksheets.Add("Families");
-        familiesSheet.Cell(1, 1).Value = "Code";
+        familiesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         familiesSheet.Row(1).Style.Font.Bold = true;
         familiesSheet.Columns().AdjustToContents();
 

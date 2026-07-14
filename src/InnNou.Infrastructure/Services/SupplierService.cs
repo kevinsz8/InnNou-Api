@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -491,7 +492,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportSuppliersAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<(byte[] FileBytes, string FileName)> ExportSuppliersAsync(string? searchField, string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only Admins and SuperAdmins can export suppliers.", 403);
@@ -503,7 +504,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
         string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -533,7 +534,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         return (ms.ToArray(), $"suppliers_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public Task<(byte[] FileBytes, string FileName)> GenerateSupplierImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken)
+    public Task<(byte[] FileBytes, string FileName)> GenerateSupplierImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -545,7 +546,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         var suppliersSheet = workbook.Worksheets.Add("Suppliers");
         string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal"];
         for (var i = 0; i < headers.Length; i++)
-            suppliersSheet.Cell(1, i + 1).Value = headers[i];
+            suppliersSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         suppliersSheet.Row(1).Style.Font.Bold = true;
         suppliersSheet.Columns().AdjustToContents();
 

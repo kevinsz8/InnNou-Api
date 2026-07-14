@@ -62,9 +62,9 @@ public class SubFamilyEndpoints : ICarterModule
         return Results.File(result.FileBytes, result.ContentType, result.FileName);
     }
 
-    private static async Task<IResult> HandleDownloadImportTemplate(ISender sender, CancellationToken ct)
+    private static async Task<IResult> HandleDownloadImportTemplate([FromBody] GetSubFamilyImportTemplateQueryRequest request, ISender sender, CancellationToken ct)
     {
-        var result = await sender.Send(new GetSubFamilyImportTemplateQueryRequest(), ct);
+        var result = await sender.Send(request, ct);
         return Results.File(result.FileBytes, result.ContentType, result.FileName);
     }
 

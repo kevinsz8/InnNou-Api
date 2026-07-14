@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 using System.Globalization;
@@ -649,7 +650,7 @@ public class ArticleService(
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportArticlesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportArticlesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.ArticleBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can export articles.", 403);
@@ -664,7 +665,7 @@ public class ArticleService(
 
         string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -697,7 +698,7 @@ public class ArticleService(
         return (ms.ToArray(), $"articles_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateArticleImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateArticleImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.ArticleBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can download the import template.", 403);
@@ -707,7 +708,7 @@ public class ArticleService(
         var articlesSheet = workbook.Worksheets.Add("Articles");
         string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays"];
         for (var i = 0; i < headers.Length; i++)
-            articlesSheet.Cell(1, i + 1).Value = headers[i];
+            articlesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         articlesSheet.Row(1).Style.Font.Bold = true;
 
         // Suppliers reference sheet + dropdown — only wired up for an Admin+ actor, who must
@@ -718,7 +719,7 @@ public class ArticleService(
         {
             var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
             var suppliersSheet = workbook.Worksheets.Add("Suppliers");
-            suppliersSheet.Cell(1, 1).Value = "Name";
+            suppliersSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
             suppliersSheet.Row(1).Style.Font.Bold = true;
             var supplierRow = 2;
             foreach (var supplier in suppliers.Items.OrderBy(s => s.Name))
@@ -734,7 +735,7 @@ public class ArticleService(
 
         var families = await familyService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
         var familiesSheet = workbook.Worksheets.Add("Families");
-        familiesSheet.Cell(1, 1).Value = "Code";
+        familiesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         familiesSheet.Row(1).Style.Font.Bold = true;
         var familyRow = 2;
         foreach (var family in families.Items.OrderBy(f => f.Code))
@@ -754,8 +755,8 @@ public class ArticleService(
         // SubFamilyCode) together and requires FamilyCode whenever SubFamilyCode is filled in.
         var subFamilies = await subFamilyService.GetPagedAsync(1, MaxExportRows, null, null, false, cancellationToken);
         var subFamiliesSheet = workbook.Worksheets.Add("SubFamilies");
-        subFamiliesSheet.Cell(1, 1).Value = "FamilyCode";
-        subFamiliesSheet.Cell(1, 2).Value = "SubFamilyCode";
+        subFamiliesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("FamilyCode", language);
+        subFamiliesSheet.Cell(1, 2).Value = BulkExcelLocalization.Header("SubFamilyCode", language);
         subFamiliesSheet.Row(1).Style.Font.Bold = true;
         var subFamilyRow = 2;
         var familyCodesById = families.Items.ToDictionary(f => f.FamilyId, f => f.Code);
@@ -780,8 +781,8 @@ public class ArticleService(
         // resolved type server-side.
         var units = await unitOfMeasureService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
         var unitsSheet = workbook.Worksheets.Add("Units");
-        unitsSheet.Cell(1, 1).Value = "Code";
-        unitsSheet.Cell(1, 2).Value = "UnitType";
+        unitsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
+        unitsSheet.Cell(1, 2).Value = BulkExcelLocalization.Header("UnitType", language);
         unitsSheet.Row(1).Style.Font.Bold = true;
         var unitRow = 2;
         foreach (var unit in units.Items.OrderBy(u => u.UnitTypeCode).ThenBy(u => u.Code))

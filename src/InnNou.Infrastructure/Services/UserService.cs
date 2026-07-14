@@ -8,6 +8,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 using System.Text.RegularExpressions;
@@ -459,7 +460,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportUsersAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<(byte[] FileBytes, string FileName)> ExportUsersAsync(string? searchField, string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.UserBulkImportForbidden, "Only Admins and SuperAdmins can export users.", 403);
@@ -476,7 +477,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
 
         string[] headers = ["FirstName", "LastName", "Email", "UserName", "RoleName", "OrganizationName", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -500,7 +501,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         return (ms.ToArray(), $"users_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateUserImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateUserImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.UserBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -516,12 +517,12 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         var usersSheet = workbook.Worksheets.Add("Users");
         string[] headers = ["FirstName", "LastName", "Email", "UserName", "Password", "RoleName", "OrganizationName"];
         for (var i = 0; i < headers.Length; i++)
-            usersSheet.Cell(1, i + 1).Value = headers[i];
+            usersSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         usersSheet.Row(1).Style.Font.Bold = true;
         usersSheet.Columns().AdjustToContents();
 
         var rolesSheet = workbook.Worksheets.Add("Roles");
-        rolesSheet.Cell(1, 1).Value = "Name";
+        rolesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
         rolesSheet.Row(1).Style.Font.Bold = true;
         var roleRow = 2;
         foreach (var role in roles.Items.OrderByDescending(role => role.RoleLevel))
@@ -529,7 +530,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         rolesSheet.Columns().AdjustToContents();
 
         var organizationsSheet = workbook.Worksheets.Add("Organizations");
-        organizationsSheet.Cell(1, 1).Value = "Name";
+        organizationsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
         organizationsSheet.Row(1).Style.Font.Bold = true;
         var organizationRow = 2;
         foreach (var organization in organizations.Items.OrderBy(organization => organization.Name))

@@ -18,7 +18,7 @@ namespace InnNou.Application.Handlers
 
         public async Task<FileResult> Handle(GetUserImportTemplateQueryRequest request, CancellationToken cancellationToken)
         {
-            var (fileBytes, fileName) = await _userService.GenerateUserImportTemplateAsync(_context, cancellationToken);
+            var (fileBytes, fileName) = await _userService.GenerateUserImportTemplateAsync(request.Language, _context, cancellationToken);
             return new FileResult { FileBytes = fileBytes, FileName = fileName };
         }
     }

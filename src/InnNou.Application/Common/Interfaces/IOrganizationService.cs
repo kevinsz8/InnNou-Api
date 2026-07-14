@@ -12,7 +12,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<OrganizationDto?> EditOrganizationAsync(OrganizationDto dto, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteOrganizationAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken);
         Task<BulkImportOrganizationResultDto> BulkImportOrganizationsAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken);
-        Task<(byte[] FileBytes, string FileName)> ExportOrganizationsAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken);
-        Task<(byte[] FileBytes, string FileName)> GenerateOrganizationImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> ExportOrganizationsAsync(string? searchField, string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken);
+        Task<(byte[] FileBytes, string FileName)> GenerateOrganizationImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken);
     }
 }

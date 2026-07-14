@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -201,7 +202,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportSubCategoriesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportSubCategoriesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubCategoryBulkImportForbidden, "Only Admins and SuperAdmins can export sub-categories.", 403);
@@ -215,7 +216,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
 
         string[] headers = ["CategoryCode", "Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -235,7 +236,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         return (ms.ToArray(), $"subcategories_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateSubCategoryImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateSubCategoryImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubCategoryBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -247,11 +248,11 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         var subCategoriesSheet = workbook.Worksheets.Add("SubCategories");
         string[] headers = ["CategoryCode", "Code"];
         for (var i = 0; i < headers.Length; i++)
-            subCategoriesSheet.Cell(1, i + 1).Value = headers[i];
+            subCategoriesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         subCategoriesSheet.Row(1).Style.Font.Bold = true;
 
         var categoriesSheet = workbook.Worksheets.Add("Categories");
-        categoriesSheet.Cell(1, 1).Value = "Code";
+        categoriesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         categoriesSheet.Row(1).Style.Font.Bold = true;
         var categoryRow = 2;
         foreach (var category in categories.Items.OrderBy(c => c.Code))

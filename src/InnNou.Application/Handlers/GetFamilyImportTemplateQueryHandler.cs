@@ -18,7 +18,7 @@ namespace InnNou.Application.Handlers
 
         public async Task<FileResult> Handle(GetFamilyImportTemplateQueryRequest request, CancellationToken cancellationToken)
         {
-            var (fileBytes, fileName) = await _familyService.GenerateFamilyImportTemplateAsync(_context, cancellationToken);
+            var (fileBytes, fileName) = await _familyService.GenerateFamilyImportTemplateAsync(request.Language, _context, cancellationToken);
             return new FileResult { FileBytes = fileBytes, FileName = fileName };
         }
     }

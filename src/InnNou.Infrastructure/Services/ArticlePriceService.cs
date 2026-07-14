@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -370,7 +371,7 @@ public class ArticlePriceService(
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportArticlePricesAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportArticlePricesAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.ArticlePriceBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can export article prices.", 403);
@@ -388,7 +389,7 @@ public class ArticlePriceService(
 
         string[] headers = ["SupplierName", "SupplierSku", "ArticleName", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes", "CreatedUtc"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -414,7 +415,7 @@ public class ArticlePriceService(
         return (ms.ToArray(), $"article_prices_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateArticlePriceImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateArticlePriceImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.ArticlePriceBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can download the import template.", 403);
@@ -424,7 +425,7 @@ public class ArticlePriceService(
         var pricesSheet = workbook.Worksheets.Add("ArticlePrices");
         string[] headers = ["SupplierName", "SupplierSku", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes"];
         for (var i = 0; i < headers.Length; i++)
-            pricesSheet.Cell(1, i + 1).Value = headers[i];
+            pricesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         pricesSheet.Row(1).Style.Font.Bold = true;
 
         // Suppliers reference sheet + dropdown — Admin+ only, same reasoning as
@@ -433,7 +434,7 @@ public class ArticlePriceService(
         {
             var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
             var suppliersSheet = workbook.Worksheets.Add("Suppliers");
-            suppliersSheet.Cell(1, 1).Value = "Name";
+            suppliersSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
             suppliersSheet.Row(1).Style.Font.Bold = true;
             var supplierRow = 2;
             foreach (var supplier in suppliers.Items.OrderBy(s => s.Name))
@@ -452,7 +453,7 @@ public class ArticlePriceService(
         // Organization reference sheet in this codebase.
         var organizations = await organizationService.GetOrganizationsAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
         var organizationsSheet = workbook.Worksheets.Add("Organizations");
-        organizationsSheet.Cell(1, 1).Value = "Name";
+        organizationsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
         organizationsSheet.Row(1).Style.Font.Bold = true;
         var organizationRow = 2;
         foreach (var organization in organizations.Items.OrderBy(o => o.Name))
@@ -469,7 +470,7 @@ public class ArticlePriceService(
         // codes), cheap to include and removes free-text typos as a row-error source.
         var currencies = await currencyService.GetAllAsync(false, cancellationToken);
         var currenciesSheet = workbook.Worksheets.Add("Currencies");
-        currenciesSheet.Cell(1, 1).Value = "Code";
+        currenciesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         currenciesSheet.Row(1).Style.Font.Bold = true;
         var currencyRow = 2;
         foreach (var currency in currencies.OrderBy(c => c.Code))

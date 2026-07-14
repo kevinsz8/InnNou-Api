@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -201,7 +202,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportSubFamiliesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportSubFamiliesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubFamilyBulkImportForbidden, "Only Admins and SuperAdmins can export sub-families.", 403);
@@ -215,7 +216,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
 
         string[] headers = ["FamilyCode", "Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -235,7 +236,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         return (ms.ToArray(), $"subfamilies_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateSubFamilyImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateSubFamilyImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubFamilyBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -247,11 +248,11 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         var subFamiliesSheet = workbook.Worksheets.Add("SubFamilies");
         string[] headers = ["FamilyCode", "Code"];
         for (var i = 0; i < headers.Length; i++)
-            subFamiliesSheet.Cell(1, i + 1).Value = headers[i];
+            subFamiliesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         subFamiliesSheet.Row(1).Style.Font.Bold = true;
 
         var familiesSheet = workbook.Worksheets.Add("Families");
-        familiesSheet.Cell(1, 1).Value = "Code";
+        familiesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         familiesSheet.Row(1).Style.Font.Bold = true;
         var familyRow = 2;
         foreach (var family in families.Items.OrderBy(f => f.Code))

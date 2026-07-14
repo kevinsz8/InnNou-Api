@@ -19,7 +19,7 @@ namespace InnNou.Application.Handlers
         public async Task<FileResult> Handle(ExportOrganizationsQueryRequest request, CancellationToken cancellationToken)
         {
             var (fileBytes, fileName) = await _organizationService.ExportOrganizationsAsync(
-                request.SearchField, request.SearchText, request.IncludeInactive, _context, cancellationToken);
+                request.SearchField, request.SearchText, request.IncludeInactive, request.Language, _context, cancellationToken);
 
             return new FileResult { FileBytes = fileBytes, FileName = fileName };
         }

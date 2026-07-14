@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -415,7 +416,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportOrganizationsAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<(byte[] FileBytes, string FileName)> ExportOrganizationsAsync(string? searchField, string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.OrganizationBulkImportForbidden, "Only Admins and SuperAdmins can export organizations.", 403);
@@ -428,7 +429,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
 
         string[] headers = ["Name", "LegalName", "Code", "ParentOrganizationName", "TimeZone", "CurrencyCode", "LanguageCode", "OrganizationTypeCode", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -456,7 +457,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         return (ms.ToArray(), $"organizations_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateOrganizationImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken)
+    public async Task<(byte[] FileBytes, string FileName)> GenerateOrganizationImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.OrganizationBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -470,11 +471,11 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         var organizationsSheet = workbook.Worksheets.Add("Organizations");
         string[] headers = ["Name", "LegalName", "Code", "ParentOrganizationName", "TimeZone", "CurrencyCode", "LanguageCode"];
         for (var i = 0; i < headers.Length; i++)
-            organizationsSheet.Cell(1, i + 1).Value = headers[i];
+            organizationsSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         organizationsSheet.Row(1).Style.Font.Bold = true;
 
         var existingSheet = workbook.Worksheets.Add("Existing Organizations");
-        existingSheet.Cell(1, 1).Value = "Name";
+        existingSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
         existingSheet.Row(1).Style.Font.Bold = true;
         var existingRow = 2;
         foreach (var organization in organizations.Items.OrderBy(o => o.Name))

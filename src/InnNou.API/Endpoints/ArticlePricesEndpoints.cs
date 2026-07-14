@@ -48,9 +48,9 @@ public class ArticlePricesEndpoints : ICarterModule
         return Results.File(result.FileBytes, result.ContentType, result.FileName);
     }
 
-    private static async Task<IResult> HandleDownloadImportTemplate(ISender sender, CancellationToken ct)
+    private static async Task<IResult> HandleDownloadImportTemplate([FromBody] GetArticlePriceImportTemplateQueryRequest request, ISender sender, CancellationToken ct)
     {
-        var result = await sender.Send(new GetArticlePriceImportTemplateQueryRequest(), ct);
+        var result = await sender.Send(request, ct);
         return Results.File(result.FileBytes, result.ContentType, result.FileName);
     }
 

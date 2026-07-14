@@ -93,10 +93,11 @@ namespace InnNou.API.Endpoints
         }
 
         private static async Task<IResult> HandleDownloadImportTemplate(
+            [FromBody] GetSupplierImportTemplateQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {
-            var result = await mediator.Send(new GetSupplierImportTemplateQueryRequest(), ct);
+            var result = await mediator.Send(request, ct);
             return Results.File(result.FileBytes, result.ContentType, result.FileName);
         }
 

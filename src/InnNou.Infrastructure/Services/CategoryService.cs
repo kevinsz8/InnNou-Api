@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using System.Data;
 
@@ -181,7 +182,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         }
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> ExportCategoriesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<(byte[] FileBytes, string FileName)> ExportCategoriesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.CategoryBulkImportForbidden, "Only Admins and SuperAdmins can export categories.", 403);
@@ -193,7 +194,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
 
         string[] headers = ["Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
-            worksheet.Cell(1, i + 1).Value = headers[i];
+            worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
@@ -212,7 +213,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         return (ms.ToArray(), $"categories_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public Task<(byte[] FileBytes, string FileName)> GenerateCategoryImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    public Task<(byte[] FileBytes, string FileName)> GenerateCategoryImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.CategoryBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
@@ -222,7 +223,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         using var workbook = new XLWorkbook();
 
         var categoriesSheet = workbook.Worksheets.Add("Categories");
-        categoriesSheet.Cell(1, 1).Value = "Code";
+        categoriesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         categoriesSheet.Row(1).Style.Font.Bold = true;
         categoriesSheet.Columns().AdjustToContents();
 
