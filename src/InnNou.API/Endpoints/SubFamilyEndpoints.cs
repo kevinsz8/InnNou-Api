@@ -18,6 +18,12 @@ public class SubFamilyEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateSubFamilyCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditSubFamilyCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveSubFamilyCommandResponse>>(200);
+
+        group.MapPost("/export",                 HandleExport);
+        group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
+        group.MapPost("/bulkImport",             HandleBulkImport)
+            .Produces<ApiResponse<BulkImportSubFamiliesCommandResponse>>(200)
+            .DisableAntiforgery();
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetSubFamiliesQueryRequest request, ISender sender, CancellationToken cancellationToken)
@@ -47,6 +53,38 @@ public class SubFamilyEndpoints : ICarterModule
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveSubFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleExport([FromBody] ExportSubFamiliesQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return Results.File(result.FileBytes, result.ContentType, result.FileName);
+    }
+
+    private static async Task<IResult> HandleDownloadImportTemplate(ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(new GetSubFamilyImportTemplateQueryRequest(), ct);
+        return Results.File(result.FileBytes, result.ContentType, result.FileName);
+    }
+
+    private static async Task<IResult> HandleBulkImport(HttpRequest httpRequest, ISender sender, CancellationToken ct)
+    {
+        var form = await httpRequest.ReadFormAsync(ct);
+        var file = form.Files["file"];
+
+        if (file is null || file.Length == 0)
+        {
+            var failure = ApiResponse<BulkImportSubFamiliesCommandResponse>.FailureResponse(
+                ErrorCodes.SubFamilyBulkImportInvalidFile, "No file was uploaded.", 400);
+            return Results.Json(failure, statusCode: 400);
+        }
+
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream, ct);
+
+        var request = new BulkImportSubFamiliesCommandRequest { FileBytes = memoryStream.ToArray(), FileName = file.FileName };
+        var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 }

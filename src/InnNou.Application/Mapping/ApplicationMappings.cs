@@ -338,6 +338,34 @@ namespace InnNou.Application.Mapping
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive
             });
+            mapper.Register<BulkImportFamilyRowErrorDto, BulkImportFamilyRowError>(d => new BulkImportFamilyRowError
+            {
+                RowNumber = d.RowNumber,
+                FamilyCode = d.FamilyCode,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportFamilyResultDto, BulkImportFamiliesCommandResponse>(d => new BulkImportFamiliesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportFamilyRowError>(d.Errors)
+            });
+            mapper.Register<BulkImportSubFamilyRowErrorDto, BulkImportSubFamilyRowError>(d => new BulkImportSubFamilyRowError
+            {
+                RowNumber = d.RowNumber,
+                SubFamilyCode = d.SubFamilyCode,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportSubFamilyResultDto, BulkImportSubFamiliesCommandResponse>(d => new BulkImportSubFamiliesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportSubFamilyRowError>(d.Errors)
+            });
             mapper.Register<CategoryDto, CommonCategory>(d => new CommonCategory
             {
                 CategoryToken = d.CategoryToken,
@@ -352,6 +380,34 @@ namespace InnNou.Application.Mapping
                 Code = d.Code,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive
+            });
+            mapper.Register<BulkImportCategoryRowErrorDto, BulkImportCategoryRowError>(d => new BulkImportCategoryRowError
+            {
+                RowNumber = d.RowNumber,
+                CategoryCode = d.CategoryCode,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportCategoryResultDto, BulkImportCategoriesCommandResponse>(d => new BulkImportCategoriesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportCategoryRowError>(d.Errors)
+            });
+            mapper.Register<BulkImportSubCategoryRowErrorDto, BulkImportSubCategoryRowError>(d => new BulkImportSubCategoryRowError
+            {
+                RowNumber = d.RowNumber,
+                SubCategoryCode = d.SubCategoryCode,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportSubCategoryResultDto, BulkImportSubCategoriesCommandResponse>(d => new BulkImportSubCategoriesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportSubCategoryRowError>(d.Errors)
             });
 
             // Article

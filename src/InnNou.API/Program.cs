@@ -49,7 +49,12 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              // Browsers only expose a small safelist of response headers to client-side JS by
+              // default (Content-Disposition isn't one of them) — without this, every export/
+              // template/file-download response's real filename is invisible to fetch() and the
+              // frontend silently falls back to a generic name for every single entity.
+              .WithExposedHeaders("Content-Disposition");
     });
 });
 

@@ -101,21 +101,41 @@ namespace InnNou.Application.Common
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";
         public const string FamilyCodeExists = "FAMILY_CODE_EXISTS";
         public const string FamilyCreateFailed = "FAMILY_CREATE_FAILED";
+        public const string FamilyBulkImportForbidden = "FAMILY_BULK_IMPORT_FORBIDDEN";
+        public const string FamilyBulkImportInvalidFile = "FAMILY_BULK_IMPORT_INVALID_FILE";
+        public const string FamilyBulkImportTooManyRows = "FAMILY_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string FamilyBulkImportRowInvalid = "FAMILY_BULK_IMPORT_ROW_INVALID";
+        public const string FamilyBulkImportRowFailed = "FAMILY_BULK_IMPORT_ROW_FAILED";
 
         // SubFamily
         public const string SubFamilyNotFound = "SUB_FAMILY_NOT_FOUND";
         public const string SubFamilyCodeExists = "SUB_FAMILY_CODE_EXISTS";
         public const string SubFamilyCreateFailed = "SUB_FAMILY_CREATE_FAILED";
+        public const string SubFamilyBulkImportForbidden = "SUB_FAMILY_BULK_IMPORT_FORBIDDEN";
+        public const string SubFamilyBulkImportInvalidFile = "SUB_FAMILY_BULK_IMPORT_INVALID_FILE";
+        public const string SubFamilyBulkImportTooManyRows = "SUB_FAMILY_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string SubFamilyBulkImportRowInvalid = "SUB_FAMILY_BULK_IMPORT_ROW_INVALID";
+        public const string SubFamilyBulkImportRowFailed = "SUB_FAMILY_BULK_IMPORT_ROW_FAILED";
 
         // Category
         public const string CategoryNotFound = "CATEGORY_NOT_FOUND";
         public const string CategoryCodeExists = "CATEGORY_CODE_EXISTS";
         public const string CategoryCreateFailed = "CATEGORY_CREATE_FAILED";
+        public const string CategoryBulkImportForbidden = "CATEGORY_BULK_IMPORT_FORBIDDEN";
+        public const string CategoryBulkImportInvalidFile = "CATEGORY_BULK_IMPORT_INVALID_FILE";
+        public const string CategoryBulkImportTooManyRows = "CATEGORY_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string CategoryBulkImportRowInvalid = "CATEGORY_BULK_IMPORT_ROW_INVALID";
+        public const string CategoryBulkImportRowFailed = "CATEGORY_BULK_IMPORT_ROW_FAILED";
 
         // SubCategory
         public const string SubCategoryNotFound = "SUB_CATEGORY_NOT_FOUND";
         public const string SubCategoryCodeExists = "SUB_CATEGORY_CODE_EXISTS";
         public const string SubCategoryCreateFailed = "SUB_CATEGORY_CREATE_FAILED";
+        public const string SubCategoryBulkImportForbidden = "SUB_CATEGORY_BULK_IMPORT_FORBIDDEN";
+        public const string SubCategoryBulkImportInvalidFile = "SUB_CATEGORY_BULK_IMPORT_INVALID_FILE";
+        public const string SubCategoryBulkImportTooManyRows = "SUB_CATEGORY_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string SubCategoryBulkImportRowInvalid = "SUB_CATEGORY_BULK_IMPORT_ROW_INVALID";
+        public const string SubCategoryBulkImportRowFailed = "SUB_CATEGORY_BULK_IMPORT_ROW_FAILED";
 
         // UnitType
         public const string UnitTypeNotFound = "UNIT_TYPE_NOT_FOUND";

@@ -11,5 +11,8 @@ namespace InnNou.Application.Common.Interfaces
         Task<CategoryDto?> CreateAsync(CategoryDto dto, CancellationToken cancellationToken = default);
         Task<CategoryDto?> EditAsync(CategoryDto dto, CancellationToken cancellationToken = default);
         Task<CategoryDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
+        Task<BulkImportCategoryResultDto> BulkImportCategoriesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<(byte[] FileBytes, string FileName)> ExportCategoriesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<(byte[] FileBytes, string FileName)> GenerateCategoryImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default);
     }
 }
