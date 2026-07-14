@@ -18,6 +18,7 @@ public class ArticlesEndpoints : ICarterModule
         group.MapPost("/create",       HandleCreate).Produces<ApiResponse<CreateArticleCommandResponse>>(201);
         group.MapPost("/edit",         HandleEdit).Produces<ApiResponse<EditArticleCommandResponse>>(200);
         group.MapPost("/supersede",    HandleSupersede).Produces<ApiResponse<SupersedeArticleCommandResponse>>(201);
+        group.MapPost("/setActive",    HandleSetActive).Produces<ApiResponse<SetActiveArticleCommandResponse>>(200);
         group.MapPost("/delete",       HandleDelete).Produces<ApiResponse<DeleteArticleCommandResponse>>(200);
 
         group.MapPost("/export",                 HandleExport);
@@ -55,6 +56,12 @@ public class ArticlesEndpoints : ICarterModule
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Created("/articles", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSetActive([FromBody] SetActiveArticleCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleDelete([FromBody] DeleteArticleCommandRequest request, ISender sender, CancellationToken ct)

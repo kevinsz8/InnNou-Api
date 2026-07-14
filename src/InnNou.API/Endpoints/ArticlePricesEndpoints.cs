@@ -17,9 +17,8 @@ public class ArticlePricesEndpoints : ICarterModule
         group.MapPost("/getCurrent", HandleGetCurrent).Produces<ApiResponse<GetCurrentArticlePriceQueryResponse>>(200);
         group.MapPost("/getHistory", HandleGetHistory).Produces<ApiResponse<GetArticlePriceHistoryQueryResponse>>(200);
 
-        group.MapPost("/export",                 HandleExport);
-        group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
-        group.MapPost("/bulkImport",             HandleBulkImport)
+        group.MapPost("/export",     HandleExport);
+        group.MapPost("/bulkImport", HandleBulkImport)
             .Produces<ApiResponse<BulkImportArticlePricesCommandResponse>>(200)
             .DisableAntiforgery();
     }
@@ -43,12 +42,6 @@ public class ArticlePricesEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleExport([FromBody] ExportArticlePricesQueryRequest request, ISender sender, CancellationToken ct)
-    {
-        var result = await sender.Send(request, ct);
-        return Results.File(result.FileBytes, result.ContentType, result.FileName);
-    }
-
-    private static async Task<IResult> HandleDownloadImportTemplate([FromBody] GetArticlePriceImportTemplateQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return Results.File(result.FileBytes, result.ContentType, result.FileName);

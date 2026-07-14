@@ -52,6 +52,7 @@ public static class BulkExcelLocalization
         ["Notes"] = new() { ["en"] = "Notes", ["es"] = "Notas", ["ca"] = "Notes" },
         ["CreatedUtc"] = new() { ["en"] = "Created At", ["es"] = "Fecha de creación", ["ca"] = "Data de creació" },
         ["CategoryCode"] = new() { ["en"] = "Category Code", ["es"] = "Código de categoría", ["ca"] = "Codi de categoria" },
+        ["ArticleToken"] = new() { ["en"] = "Article Token (do not edit)", ["es"] = "Token de artículo (no editar)", ["ca"] = "Token d'article (no editar)" },
     };
 
     public static string NormalizeLanguage(string? languageCode)

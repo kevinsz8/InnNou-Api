@@ -12,6 +12,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<ArticleDto?> CreateAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDto?> EditAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDto?> SupersedeAsync(Guid oldArticleToken, ArticleDto newArticleData, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<ArticleDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default);
         Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default);
         Task<BulkImportArticleResultDto> BulkImportArticlesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> ExportArticlesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default);

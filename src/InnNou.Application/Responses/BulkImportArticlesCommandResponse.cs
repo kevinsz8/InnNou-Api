@@ -5,6 +5,7 @@ namespace InnNou.Application.Responses
         public int TotalRows { get; set; }
         public int InsertedCount { get; set; }
         public int UpdatedCount { get; set; }
+        public int DeletedCount { get; set; }
         public int FailureCount { get; set; }
         public List<BulkImportArticleRowError> Errors { get; set; } = new();
     }

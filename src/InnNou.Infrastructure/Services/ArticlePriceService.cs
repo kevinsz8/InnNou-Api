@@ -17,8 +17,6 @@ namespace InnNou.Infrastructure.Services;
 public class ArticlePriceService(
     IDbConnectionFactory connectionFactory,
     IMapper mapper,
-    ISupplierService supplierService,
-    IOrganizationService organizationService,
     ICurrencyService currencyService) : IArticlePriceService
 {
     private sealed class ArticlePricePageRow : ArticlePrice { public int TotalCount { get; set; } }
@@ -201,15 +199,22 @@ public class ArticlePriceService(
             {
                 var rowNumber = row.RowNumber();
 
+                // Column layout mirrors ExportArticlePricesAsync exactly — there is no separate
+                // import template for ArticlePrices (see GetArticlePriceImportTemplate removal):
+                // the export IS the template. ArticleName/CreatedUtc are informational only and
+                // ignored here; ArticleToken (col 10) is the typo-proof primary match key.
                 var supplierName = row.Cell(1).GetString().Trim();
                 var supplierSku = row.Cell(2).GetString().Trim();
-                var organizationName = row.Cell(3).GetString().Trim();
-                var priceText = row.Cell(4).GetString().Trim();
-                var currencyCodeText = row.Cell(5).GetString().Trim();
-                var effectiveDateCell = row.Cell(6);
-                var notes = row.Cell(7).GetString().Trim();
+                var organizationName = row.Cell(4).GetString().Trim();
+                var priceText = row.Cell(5).GetString().Trim();
+                var currencyCodeText = row.Cell(6).GetString().Trim();
+                var effectiveDateCell = row.Cell(7);
+                var notes = row.Cell(8).GetString().Trim();
+                var articleTokenText = row.Cell(10).GetString().Trim();
 
-                var rowIdentifier = string.IsNullOrWhiteSpace(supplierSku) ? null : supplierSku;
+                var rowIdentifier = !string.IsNullOrWhiteSpace(supplierSku)
+                    ? supplierSku
+                    : (string.IsNullOrWhiteSpace(articleTokenText) ? null : articleTokenText);
 
                 // --- Resolve supplier (same pattern as ArticleService.BulkImportArticlesAsync) ---
                 int supplierId;
@@ -255,26 +260,58 @@ public class ArticlePriceService(
                     supplierId = supplier.SupplierId;
                 }
 
-                // --- Resolve article by (SupplierId, SupplierSku) — the identifying key chosen
-                // for this template, since it's already the natural per-supplier business key
-                // (sp_Article_ExistsBySupplierSku) rather than an opaque ArticleToken. ---
-                if (string.IsNullOrWhiteSpace(supplierSku))
+                // --- Resolve the article. ArticleToken (populated when this row came from
+                // ExportArticlePricesAsync) is the primary, typo-proof match key — a mistyped
+                // SupplierSku can never silently attach a price to the wrong article when a token
+                // is present. A row with no token (freshly hand-typed) falls back to matching by
+                // (SupplierId, SupplierSku), the natural per-supplier business key. ---
+                Article? article;
+                if (!string.IsNullOrWhiteSpace(articleTokenText))
                 {
-                    result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceBulkImportRowInvalid, Description = "SupplierSku is required." });
-                    continue;
-                }
+                    if (!Guid.TryParse(articleTokenText, out var articleToken))
+                    {
+                        result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceBulkImportRowInvalid, Description = "ArticleToken is not a valid identifier." });
+                        continue;
+                    }
 
-                var articleKey = $"{supplierId}:{supplierSku.ToUpperInvariant()}";
-                if (!articleCache.TryGetValue(articleKey, out var article))
-                {
-                    article = await connection.QueryFirstOrDefaultAsync<Article>(
-                        "sp_Article_GetBySupplierSku", new { SupplierId = supplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
-                    articleCache[articleKey] = article;
+                    var tokenKey = $"token:{articleToken}";
+                    if (!articleCache.TryGetValue(tokenKey, out article))
+                    {
+                        article = await connection.QueryFirstOrDefaultAsync<Article>(
+                            "sp_Article_GetByToken", new { ArticleToken = articleToken }, commandType: CommandType.StoredProcedure);
+                        articleCache[tokenKey] = article;
+                    }
+                    if (article is null)
+                    {
+                        result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article found for ArticleToken '{articleTokenText}'." });
+                        continue;
+                    }
+                    if (article.SupplierId != supplierId)
+                    {
+                        result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceSupplierForbidden, Description = "ArticleToken does not belong to the resolved SupplierName — this row may have been copied from a different supplier's export." });
+                        continue;
+                    }
                 }
-                if (article is null)
+                else
                 {
-                    result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article with SupplierSku '{supplierSku}' was found for this supplier." });
-                    continue;
+                    if (string.IsNullOrWhiteSpace(supplierSku))
+                    {
+                        result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceBulkImportRowInvalid, Description = "SupplierSku is required when ArticleToken is not provided." });
+                        continue;
+                    }
+
+                    var articleKey = $"{supplierId}:{supplierSku.ToUpperInvariant()}";
+                    if (!articleCache.TryGetValue(articleKey, out article))
+                    {
+                        article = await connection.QueryFirstOrDefaultAsync<Article>(
+                            "sp_Article_GetBySupplierSku", new { SupplierId = supplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
+                        articleCache[articleKey] = article;
+                    }
+                    if (article is null)
+                    {
+                        result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article with SupplierSku '{supplierSku}' was found for this supplier." });
+                        continue;
+                    }
                 }
                 if (article.ReplacedByArticleId.HasValue)
                 {
@@ -387,7 +424,11 @@ public class ArticlePriceService(
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("ArticlePrices");
 
-        string[] headers = ["SupplierName", "SupplierSku", "ArticleName", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes", "CreatedUtc"];
+        // This export doubles as the import file — there is no separate ArticlePrice import
+        // template (see "Bulk import/export" in CLAUDE.md). ArticleToken (col 10) is what lets
+        // BulkImportArticlePricesAsync match a re-uploaded row back to its article without relying
+        // on a free-text SupplierSku a user could mistype.
+        string[] headers = ["SupplierName", "SupplierSku", "ArticleName", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes", "CreatedUtc", "ArticleToken"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
@@ -404,6 +445,7 @@ public class ArticlePriceService(
             worksheet.Cell(r, 7).Value = price.EffectiveDate;
             worksheet.Cell(r, 8).Value = price.Notes;
             worksheet.Cell(r, 9).Value = price.CreatedUtc;
+            worksheet.Cell(r, 10).Value = price.ArticleToken.ToString();
             r++;
         }
 
@@ -415,79 +457,4 @@ public class ArticlePriceService(
         return (ms.ToArray(), $"article_prices_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
     }
 
-    public async Task<(byte[] FileBytes, string FileName)> GenerateArticlePriceImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default)
-    {
-        if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
-            throw new ApiException(ErrorCodes.ArticlePriceBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can download the import template.", 403);
-
-        using var workbook = new XLWorkbook();
-
-        var pricesSheet = workbook.Worksheets.Add("ArticlePrices");
-        string[] headers = ["SupplierName", "SupplierSku", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes"];
-        for (var i = 0; i < headers.Length; i++)
-            pricesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        pricesSheet.Row(1).Style.Font.Bold = true;
-
-        // Suppliers reference sheet + dropdown — Admin+ only, same reasoning as
-        // ArticleService.GenerateArticleImportTemplateAsync.
-        if (!context.SupplierId.HasValue)
-        {
-            var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
-            var suppliersSheet = workbook.Worksheets.Add("Suppliers");
-            suppliersSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-            suppliersSheet.Row(1).Style.Font.Bold = true;
-            var supplierRow = 2;
-            foreach (var supplier in suppliers.Items.OrderBy(s => s.Name))
-                suppliersSheet.Cell(supplierRow++, 1).Value = supplier.Name;
-            suppliersSheet.Columns().AdjustToContents();
-
-            if (suppliers.Items.Count > 0)
-            {
-                var supplierNamedRange = workbook.DefinedNames.Add("ArticlePriceImportSupplierNames", suppliersSheet.Range(2, 1, supplierRow - 1, 1));
-                pricesSheet.Range(2, 1, MaxBulkImportRows + 1, 1).CreateDataValidation().List(supplierNamedRange.Name, true);
-            }
-        }
-
-        // Organizations reference sheet + dropdown for the optional OrganizationName column
-        // (blank = global list price) — scoped to the caller's own hierarchy like every other
-        // Organization reference sheet in this codebase.
-        var organizations = await organizationService.GetOrganizationsAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
-        var organizationsSheet = workbook.Worksheets.Add("Organizations");
-        organizationsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-        organizationsSheet.Row(1).Style.Font.Bold = true;
-        var organizationRow = 2;
-        foreach (var organization in organizations.Items.OrderBy(o => o.Name))
-            organizationsSheet.Cell(organizationRow++, 1).Value = organization.Name;
-        organizationsSheet.Columns().AdjustToContents();
-
-        if (organizations.Items.Count > 0)
-        {
-            var organizationNamedRange = workbook.DefinedNames.Add("ArticlePriceImportOrganizationNames", organizationsSheet.Range(2, 1, organizationRow - 1, 1));
-            pricesSheet.Range(2, 3, MaxBulkImportRows + 1, 3).CreateDataValidation().List(organizationNamedRange.Name, true);
-        }
-
-        // Currencies reference sheet + dropdown — short, mostly-static list (~154 active ISO 4217
-        // codes), cheap to include and removes free-text typos as a row-error source.
-        var currencies = await currencyService.GetAllAsync(false, cancellationToken);
-        var currenciesSheet = workbook.Worksheets.Add("Currencies");
-        currenciesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
-        currenciesSheet.Row(1).Style.Font.Bold = true;
-        var currencyRow = 2;
-        foreach (var currency in currencies.OrderBy(c => c.Code))
-            currenciesSheet.Cell(currencyRow++, 1).Value = currency.Code;
-        currenciesSheet.Columns().AdjustToContents();
-
-        if (currencies.Count > 0)
-        {
-            var currencyNamedRange = workbook.DefinedNames.Add("ArticlePriceImportCurrencyCodes", currenciesSheet.Range(2, 1, currencyRow - 1, 1));
-            pricesSheet.Range(2, 5, MaxBulkImportRows + 1, 5).CreateDataValidation().List(currencyNamedRange.Name, true);
-        }
-
-        pricesSheet.Columns().AdjustToContents();
-
-        using var ms = new MemoryStream();
-        workbook.SaveAs(ms);
-
-        return (ms.ToArray(), "article_prices_import_template.xlsx");
-    }
 }

@@ -153,6 +153,31 @@ public class ArticleService(
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to edit articles for this supplier.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
+
+        // Defense in depth: EditArticleCommandHandler and BulkImportArticlesAsync both already
+        // reject a structural-field change before calling this method, but that guard lived only
+        // in those two callers — a future caller that skips it would silently mutate structural
+        // fields with nothing here to catch it. This re-checks independently against the current
+        // DB row so the rule holds no matter which caller reaches EditAsync.
+        var existing = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_GetByToken", new { ArticleToken = dto.ArticleToken }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        var isStructuralChange =
+            dto.PurchaseUnitId != existing.PurchaseUnitId ||
+            dto.PurchaseQuantity != existing.PurchaseQuantity ||
+            dto.ContentUnitId != existing.ContentUnitId ||
+            dto.ContentQuantity != existing.ContentQuantity ||
+            dto.BaseUnitId != existing.BaseUnitId;
+
+        if (isStructuralChange)
+            throw new ApiException(
+                ErrorCodes.ArticleStructuralChangeNotAllowed,
+                "This change would modify the article's structure (units/quantities), which is not allowed — use Supersede instead.",
+                409);
+
         var p = new DynamicParameters();
         p.Add("@ArticleToken", dto.ArticleToken);
         p.Add("@Name", dto.Name);
@@ -239,6 +264,28 @@ public class ArticleService(
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<ArticleDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_GetByToken", new { ArticleToken = token }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        if (!CanManage(context, existing.SupplierId))
+            throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to change the active state of articles for this supplier.", 403);
+
+        var p = new DynamicParameters();
+        p.Add("@ArticleToken", token);
+        p.Add("@IsActive", isActive);
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+        var row = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_SetActive", p, commandType: CommandType.StoredProcedure);
+        return row is null ? null : mapper.Map<ArticleDto>(row);
     }
 
     public async Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
@@ -348,10 +395,31 @@ public class ArticleService(
                 var baseUnitCode = row.Cell(13).GetString().Trim();
                 var minimumOrderQtyText = row.Cell(14).GetString().Trim();
                 var leadTimeDaysText = row.Cell(15).GetString().Trim();
+                var articleTokenText = row.Cell(16).GetString().Trim();
+                var statusText = row.Cell(17).GetString().Trim();
 
                 var rowIdentifier = !string.IsNullOrWhiteSpace(supplierSku)
                     ? supplierSku
                     : (string.IsNullOrWhiteSpace(name) ? null : name);
+
+                // --- Status: Active/Inactive/Deleted/blank. Deleted short-circuits below (before
+                // Name/Family/Unit validation — deleting a row shouldn't require the rest of the
+                // sheet to be well-formed); Active/Inactive are applied after a successful
+                // insert/update. Values are literal English tokens, not localized — same decision
+                // CLAUDE.md already made for the Status column's Active/Inactive display values on
+                // export. ---
+                string? normalizedStatus = null;
+                if (!string.IsNullOrWhiteSpace(statusText))
+                {
+                    if (string.Equals(statusText, "Active", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Active";
+                    else if (string.Equals(statusText, "Inactive", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Inactive";
+                    else if (string.Equals(statusText, "Deleted", StringComparison.OrdinalIgnoreCase)) normalizedStatus = "Deleted";
+                    else
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "Status must be Active, Inactive, Deleted, or left blank." });
+                        continue;
+                    }
+                }
 
                 // --- Resolve supplier ---
                 int supplierId;
@@ -399,6 +467,76 @@ public class ArticleService(
                         continue;
                     }
                     supplierId = supplier.SupplierId;
+                }
+
+                // --- Resolve the existing article, if any. Moved ahead of Name/Family/Unit
+                // validation (rather than immediately before insert/update below) so a
+                // Status=Deleted row can short-circuit without requiring the rest of the sheet to
+                // be well-formed — a caller flipping a batch of rows to Deleted on a re-uploaded
+                // export shouldn't need every other column to still validate. ArticleToken
+                // (populated when this row came from ExportArticlesAsync, i.e. the "export, edit,
+                // re-upload" flow) is the primary, typo-proof match key — a mistyped
+                // SupplierSku/Name can never silently update the wrong article or create an
+                // unwanted duplicate when a token is present. A row with no token (freshly
+                // hand-typed from the template) falls back to matching by (SupplierId,
+                // SupplierSku); a blank SKU can never match an existing article there, so it's
+                // always an insert. ---
+                Article? existingArticle = null;
+                if (!string.IsNullOrWhiteSpace(articleTokenText))
+                {
+                    if (!Guid.TryParse(articleTokenText, out var articleToken))
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "ArticleToken is not a valid identifier — leave it blank for a new article." });
+                        continue;
+                    }
+
+                    existingArticle = await connection.QueryFirstOrDefaultAsync<Article>(
+                        "sp_Article_GetByToken", new { ArticleToken = articleToken }, commandType: CommandType.StoredProcedure);
+
+                    if (existingArticle is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article found for ArticleToken '{articleTokenText}'." });
+                        continue;
+                    }
+
+                    if (existingArticle.SupplierId != supplierId)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleSupplierForbidden, Description = "ArticleToken does not belong to the resolved SupplierName — this row may have been copied from a different supplier's export." });
+                        continue;
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(supplierSku))
+                {
+                    existingArticle = await connection.QueryFirstOrDefaultAsync<Article>(
+                        "sp_Article_GetBySupplierSku", new { SupplierId = supplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
+                }
+
+                if (normalizedStatus == "Deleted")
+                {
+                    if (existingArticle is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "Status is Deleted but no existing article was matched (via ArticleToken or SupplierSku) — nothing to delete." });
+                        continue;
+                    }
+
+                    try
+                    {
+                        var deleted = await DeleteAsync(existingArticle.ArticleToken, context, cancellationToken);
+                        if (deleted)
+                            result.DeletedCount++;
+                        else
+                            result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = "Article could not be deleted." });
+                    }
+                    catch (ApiException ex)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
+                    }
+                    catch (Exception)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
+                    }
+
+                    continue;
                 }
 
                 if (string.IsNullOrWhiteSpace(name))
@@ -545,15 +683,6 @@ public class ArticleService(
                     leadTimeDays = parsedLeadTime;
                 }
 
-                // --- Insert vs update, matched by (SupplierId, SupplierSku). A blank SKU can never
-                // match an existing article, so it's always an insert. ---
-                Article? existingArticle = null;
-                if (!string.IsNullOrWhiteSpace(supplierSku))
-                {
-                    existingArticle = await connection.QueryFirstOrDefaultAsync<Article>(
-                        "sp_Article_GetBySupplierSku", new { SupplierId = supplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
-                }
-
                 try
                 {
                     if (existingArticle is not null)
@@ -602,6 +731,15 @@ public class ArticleService(
                             continue;
                         }
 
+                        // normalizedStatus is never "Deleted" here — that case already
+                        // short-circuited earlier in the loop before reaching this update path.
+                        if (normalizedStatus is not null)
+                        {
+                            var desiredActive = normalizedStatus == "Active";
+                            if (updated.IsActive != desiredActive)
+                                await SetActiveAsync(existingArticle.ArticleToken, desiredActive, context, cancellationToken);
+                        }
+
                         result.UpdatedCount++;
                     }
                     else
@@ -631,6 +769,13 @@ public class ArticleService(
                             result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleCreateFailed, Description = "Article could not be created." });
                             continue;
                         }
+
+                        // A brand-new article is always created Active (CreateAsync's own,
+                        // unchanged default) — Status=Inactive on an insert row deactivates it
+                        // immediately afterward. Status=Deleted on an insert row was already
+                        // rejected earlier in the loop (nothing to delete yet).
+                        if (normalizedStatus == "Inactive")
+                            await SetActiveAsync(created.ArticleToken, false, context, cancellationToken);
 
                         result.InsertedCount++;
                     }
@@ -663,7 +808,10 @@ public class ArticleService(
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Articles");
 
-        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "Status"];
+        // ArticleToken sits right after the fields that also appear on the import template (same
+        // column position, 16) so a re-uploaded export lines up with a hand-filled template file;
+        // Status is export-only and trails after it, where the importer already ignores it.
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
@@ -686,7 +834,8 @@ public class ArticleService(
             worksheet.Cell(r, 13).Value = article.BaseUnitCode;
             worksheet.Cell(r, 14).Value = article.MinimumOrderQty;
             worksheet.Cell(r, 15).Value = article.LeadTimeDays;
-            worksheet.Cell(r, 16).Value = article.IsActive ? "Active" : "Inactive";
+            worksheet.Cell(r, 16).Value = article.ArticleToken.ToString();
+            worksheet.Cell(r, 17).Value = article.IsActive ? "Active" : "Inactive";
             r++;
         }
 
@@ -706,7 +855,13 @@ public class ArticleService(
         using var workbook = new XLWorkbook();
 
         var articlesSheet = workbook.Worksheets.Add("Articles");
-        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays"];
+        // ArticleToken (column 16) and Status (column 17) are left blank on a fresh template —
+        // every row is a new article, so there's nothing to match and no status to change yet.
+        // Both exist here purely so the columns line up with ExportArticlesAsync's layout: a
+        // caller who re-uploads their own export (the recommended update flow) gets
+        // ArticleToken-based matching and Status-driven activate/deactivate/delete for free,
+        // instead of relying on SupplierSku and having no bulk lifecycle-state control at all.
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             articlesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         articlesSheet.Row(1).Style.Font.Bold = true;

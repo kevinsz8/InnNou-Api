@@ -450,6 +450,7 @@ namespace InnNou.Application.Mapping
                 TotalRows = d.TotalRows,
                 InsertedCount = d.InsertedCount,
                 UpdatedCount = d.UpdatedCount,
+                DeletedCount = d.DeletedCount,
                 FailureCount = d.FailureCount,
                 Errors = mapper.MapList<BulkImportArticleRowError>(d.Errors)
             });
