@@ -157,6 +157,20 @@ namespace InnNou.Application.Mapping
                 LanguageCode = d.LanguageCode,
                 IsActive = d.IsActive
             });
+            mapper.Register<BulkImportOrganizationRowErrorDto, BulkImportOrganizationRowError>(d => new BulkImportOrganizationRowError
+            {
+                RowNumber = d.RowNumber,
+                Name = d.Name,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportOrganizationResultDto, BulkImportOrganizationsCommandResponse>(d => new BulkImportOrganizationsCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportOrganizationRowError>(d.Errors)
+            });
 
             // Role
             mapper.Register<RoleDto, CommonRole>(d => new CommonRole
@@ -264,6 +278,20 @@ namespace InnNou.Application.Mapping
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
+            mapper.Register<BulkImportSupplierRowErrorDto, BulkImportSupplierRowError>(d => new BulkImportSupplierRowError
+            {
+                RowNumber = d.RowNumber,
+                Name = d.Name,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportSupplierResultDto, BulkImportSuppliersCommandResponse>(d => new BulkImportSuppliersCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportSupplierRowError>(d.Errors)
+            });
 
             // Catalog — DTO → Common response shape
             mapper.Register<UnitTypeDto, CommonUnitType>(d => new CommonUnitType
@@ -354,6 +382,21 @@ namespace InnNou.Application.Mapping
                 IsActive = d.IsActive,
                 ReplacedByArticleToken = d.ReplacedByArticleToken
             });
+            mapper.Register<BulkImportArticleRowErrorDto, BulkImportArticleRowError>(d => new BulkImportArticleRowError
+            {
+                RowNumber = d.RowNumber,
+                Identifier = d.Identifier,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportArticleResultDto, BulkImportArticlesCommandResponse>(d => new BulkImportArticlesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                InsertedCount = d.InsertedCount,
+                UpdatedCount = d.UpdatedCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportArticleRowError>(d.Errors)
+            });
 
             // ArticlePrice
             mapper.Register<ArticlePriceDto, CommonArticlePrice>(d => new CommonArticlePrice
@@ -367,6 +410,20 @@ namespace InnNou.Application.Mapping
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
+            });
+            mapper.Register<BulkImportArticlePriceRowErrorDto, BulkImportArticlePriceRowError>(d => new BulkImportArticlePriceRowError
+            {
+                RowNumber = d.RowNumber,
+                SupplierSku = d.SupplierSku,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<BulkImportArticlePriceResultDto, BulkImportArticlePricesCommandResponse>(d => new BulkImportArticlePricesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SuccessCount = d.SuccessCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<BulkImportArticlePriceRowError>(d.Errors)
             });
 
             // Currency

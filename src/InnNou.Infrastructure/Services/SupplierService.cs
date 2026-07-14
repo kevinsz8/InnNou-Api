@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Dapper;
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
@@ -22,7 +23,17 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     private const int AdminRoleLevel = 80;
     private const int SuperAdminRoleLevel = 100;
 
+    private const int MaxBulkImportRows = 500;
+    private const int MaxExportRows = 10_000;
+
     private sealed class SupplierPageRow : Supplier { public int TotalCount { get; set; } }
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static bool IsTruthy(string value) =>
+        string.Equals(value.Trim(), "TRUE", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value.Trim(), "YES", StringComparison.OrdinalIgnoreCase) ||
+        value.Trim() == "1";
 
     public async Task<PagedResult<SupplierDto>> GetSuppliersAsync(
         int pageNumber,
@@ -356,5 +367,191 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             commandType: CommandType.StoredProcedure);
 
         return true;
+    }
+
+    public async Task<BulkImportSupplierResultDto> BulkImportSuppliersAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken)
+    {
+        // Gated at SuperAdminRoleLevel (not AdminRoleLevel like Users' bulk import) because each row
+        // ultimately calls CreateSupplierAsync, which itself is superadmin-only — gating lower here
+        // would let an Admin upload a file where every single row fails with SUPPLIER_CREATE_SUPERADMIN_ONLY.
+        if (context.RoleLevel < SuperAdminRoleLevel)
+            throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only super admins can bulk-import suppliers.", 403);
+
+        IXLWorkbook workbook;
+        try
+        {
+            workbook = new XLWorkbook(new MemoryStream(fileBytes));
+        }
+        catch
+        {
+            throw new ApiException(ErrorCodes.SupplierBulkImportInvalidFile, "The uploaded file is not a valid Excel (.xlsx) file.", 400);
+        }
+
+        using (workbook)
+        {
+            var worksheet = workbook.Worksheets.First();
+
+            // Skip the header row and any trailing blank rows (ClosedXML's used-range often
+            // includes them from formatting bleed) so they don't count toward the row cap or
+            // produce a spurious "missing required field" error.
+            var dataRows = worksheet.RowsUsed()
+                .Skip(1)
+                .Where(row => row.CellsUsed().Any(c => !string.IsNullOrWhiteSpace(c.GetString())))
+                .ToList();
+
+            if (dataRows.Count > MaxBulkImportRows)
+                throw new ApiException(ErrorCodes.SupplierBulkImportTooManyRows, $"A single import file cannot contain more than {MaxBulkImportRows} rows.", 400);
+
+            var result = new BulkImportSupplierResultDto { TotalRows = dataRows.Count };
+
+            if (dataRows.Count == 0)
+                return result;
+
+            // IMPORTANT: rows must be processed strictly sequentially — never Task.WhenAll/Parallel.ForEach
+            // this loop. Suppliers.NormalizedName only has a non-unique index (UX_Suppliers_NormalizedName_NotDeleted);
+            // the only thing preventing two rows in this same file from creating duplicate suppliers with the
+            // same name is that each row's SupplierExistsAsync check below runs after the previous row's
+            // insert has already committed.
+            foreach (var row in dataRows)
+            {
+                var rowNumber = row.RowNumber();
+
+                var name = row.Cell(1).GetString().Trim();
+                var legalName = row.Cell(2).GetString().Trim();
+                var taxId = row.Cell(3).GetString().Trim();
+                var email = row.Cell(4).GetString().Trim();
+                var phone = row.Cell(5).GetString().Trim();
+                var addressLine1 = row.Cell(6).GetString().Trim();
+                var addressLine2 = row.Cell(7).GetString().Trim();
+                var city = row.Cell(8).GetString().Trim();
+                var state = row.Cell(9).GetString().Trim();
+                var postalCode = row.Cell(10).GetString().Trim();
+                var country = row.Cell(11).GetString().Trim();
+                var isGlobalText = row.Cell(12).GetString();
+
+                var rowName = string.IsNullOrWhiteSpace(name) ? null : name;
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierBulkImportRowInvalid, Description = "Name is required." });
+                    continue;
+                }
+
+                if (await SupplierExistsAsync(name, cancellationToken))
+                {
+                    result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierAlreadyExists, Description = "A supplier with this name already exists." });
+                    continue;
+                }
+
+                try
+                {
+                    // HasAccessToSystem/LoginEmail/Password are deliberately not sourced from the
+                    // import file — bulk-imported suppliers always start with no system access;
+                    // granting it later is a separate, superadmin-only EditSupplierAsync call.
+                    var created = await CreateSupplierAsync(
+                        new SupplierDto
+                        {
+                            Name = name,
+                            LegalName = NullIfEmpty(legalName),
+                            TaxId = NullIfEmpty(taxId),
+                            Email = NullIfEmpty(email),
+                            Phone = NullIfEmpty(phone),
+                            AddressLine1 = NullIfEmpty(addressLine1),
+                            AddressLine2 = NullIfEmpty(addressLine2),
+                            City = NullIfEmpty(city),
+                            State = NullIfEmpty(state),
+                            PostalCode = NullIfEmpty(postalCode),
+                            Country = NullIfEmpty(country),
+                            IsGlobal = IsTruthy(isGlobalText),
+                            HasAccessToSystem = false
+                        },
+                        context,
+                        cancellationToken);
+
+                    if (created is null)
+                    {
+                        result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierCreationFailed, Description = "Supplier creation failed." });
+                        continue;
+                    }
+
+                    result.SuccessCount++;
+                }
+                catch (ApiException ex)
+                {
+                    result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ex.Code, Description = ex.Message });
+                }
+                catch (Exception)
+                {
+                    result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierBulkImportRowFailed, Description = "An unexpected error occurred while creating this supplier." });
+                }
+            }
+
+            result.FailureCount = result.Errors.Count;
+            return result;
+        }
+    }
+
+    public async Task<(byte[] FileBytes, string FileName)> ExportSuppliersAsync(string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only Admins and SuperAdmins can export suppliers.", 403);
+
+        var suppliers = await GetSuppliersAsync(1, MaxExportRows, searchField, searchText, includeInactive, context, cancellationToken);
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Suppliers");
+
+        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal", "Status"];
+        for (var i = 0; i < headers.Length; i++)
+            worksheet.Cell(1, i + 1).Value = headers[i];
+        worksheet.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        foreach (var supplier in suppliers.Items)
+        {
+            worksheet.Cell(r, 1).Value = supplier.Name;
+            worksheet.Cell(r, 2).Value = supplier.LegalName;
+            worksheet.Cell(r, 3).Value = supplier.TaxId;
+            worksheet.Cell(r, 4).Value = supplier.Email;
+            worksheet.Cell(r, 5).Value = supplier.Phone;
+            worksheet.Cell(r, 6).Value = supplier.AddressLine1;
+            worksheet.Cell(r, 7).Value = supplier.AddressLine2;
+            worksheet.Cell(r, 8).Value = supplier.City;
+            worksheet.Cell(r, 9).Value = supplier.State;
+            worksheet.Cell(r, 10).Value = supplier.PostalCode;
+            worksheet.Cell(r, 11).Value = supplier.Country;
+            worksheet.Cell(r, 12).Value = (supplier.IsGlobal ?? false) ? "TRUE" : "FALSE";
+            worksheet.Cell(r, 13).Value = supplier.IsActive ? "Active" : "Inactive";
+            r++;
+        }
+
+        worksheet.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        return (ms.ToArray(), $"suppliers_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
+    }
+
+    public Task<(byte[] FileBytes, string FileName)> GenerateSupplierImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
+
+        // Unlike Users' template, Suppliers have no Role/Organization-style foreign key resolved
+        // by name, so no reference lookup sheet is needed — just the data-entry headers.
+        using var workbook = new XLWorkbook();
+
+        var suppliersSheet = workbook.Worksheets.Add("Suppliers");
+        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal"];
+        for (var i = 0; i < headers.Length; i++)
+            suppliersSheet.Cell(1, i + 1).Value = headers[i];
+        suppliersSheet.Row(1).Style.Font.Bold = true;
+        suppliersSheet.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        return Task.FromResult((ms.ToArray(), "suppliers_import_template.xlsx"));
     }
 }

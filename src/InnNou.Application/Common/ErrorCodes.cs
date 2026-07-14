@@ -45,6 +45,11 @@ namespace InnNou.Application.Common
         public const string OrganizationOutsideScope = "ORGANIZATION_OUTSIDE_SCOPE";
         public const string OrganizationParentOutsideScope = "ORGANIZATION_PARENT_OUTSIDE_SCOPE";
         public const string OrganizationInvalidCurrency = "ORGANIZATION_INVALID_CURRENCY";
+        public const string OrganizationBulkImportForbidden = "ORGANIZATION_BULK_IMPORT_FORBIDDEN";
+        public const string OrganizationBulkImportInvalidFile = "ORGANIZATION_BULK_IMPORT_INVALID_FILE";
+        public const string OrganizationBulkImportTooManyRows = "ORGANIZATION_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string OrganizationBulkImportRowInvalid = "ORGANIZATION_BULK_IMPORT_ROW_INVALID";
+        public const string OrganizationBulkImportRowFailed = "ORGANIZATION_BULK_IMPORT_ROW_FAILED";
 
         // Supplier
         public const string SupplierNotFound = "SUPPLIER_NOT_FOUND";
@@ -56,6 +61,11 @@ namespace InnNou.Application.Common
         public const string SupplierDeleteSuperadminOnly = "SUPPLIER_DELETE_SUPERADMIN_ONLY";
         public const string SupplierLoginCredentialsRequired = "SUPPLIER_LOGIN_CREDENTIALS_REQUIRED";
         public const string SupplierLoginEmailExists = "SUPPLIER_LOGIN_EMAIL_EXISTS";
+        public const string SupplierBulkImportForbidden = "SUPPLIER_BULK_IMPORT_FORBIDDEN";
+        public const string SupplierBulkImportInvalidFile = "SUPPLIER_BULK_IMPORT_INVALID_FILE";
+        public const string SupplierBulkImportTooManyRows = "SUPPLIER_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string SupplierBulkImportRowInvalid = "SUPPLIER_BULK_IMPORT_ROW_INVALID";
+        public const string SupplierBulkImportRowFailed = "SUPPLIER_BULK_IMPORT_ROW_FAILED";
 
         // Article
         public const string ArticleNotFound = "ARTICLE_NOT_FOUND";
@@ -66,6 +76,11 @@ namespace InnNou.Application.Common
         public const string ArticleStructuralChangeNotAllowed = "ARTICLE_STRUCTURAL_CHANGE_NOT_ALLOWED";
         public const string NoStructuralChange = "NO_STRUCTURAL_CHANGE";
         public const string ArticleSupplierForbidden = "ARTICLE_SUPPLIER_FORBIDDEN";
+        public const string ArticleBulkImportForbidden = "ARTICLE_BULK_IMPORT_FORBIDDEN";
+        public const string ArticleBulkImportInvalidFile = "ARTICLE_BULK_IMPORT_INVALID_FILE";
+        public const string ArticleBulkImportTooManyRows = "ARTICLE_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string ArticleBulkImportRowInvalid = "ARTICLE_BULK_IMPORT_ROW_INVALID";
+        public const string ArticleBulkImportRowFailed = "ARTICLE_BULK_IMPORT_ROW_FAILED";
 
         // ArticlePrice
         public const string ArticlePriceNotFound = "ARTICLE_PRICE_NOT_FOUND";
@@ -76,6 +91,11 @@ namespace InnNou.Application.Common
         public const string ArticlePriceInvalidAmount = "ARTICLE_PRICE_INVALID_AMOUNT";
         public const string ArticlePriceDuplicateEffectiveDate = "ARTICLE_PRICE_DUPLICATE_EFFECTIVE_DATE";
         public const string ArticlePriceCurrencyRequired = "ARTICLE_PRICE_CURRENCY_REQUIRED";
+        public const string ArticlePriceBulkImportForbidden = "ARTICLE_PRICE_BULK_IMPORT_FORBIDDEN";
+        public const string ArticlePriceBulkImportInvalidFile = "ARTICLE_PRICE_BULK_IMPORT_INVALID_FILE";
+        public const string ArticlePriceBulkImportTooManyRows = "ARTICLE_PRICE_BULK_IMPORT_TOO_MANY_ROWS";
+        public const string ArticlePriceBulkImportRowInvalid = "ARTICLE_PRICE_BULK_IMPORT_ROW_INVALID";
+        public const string ArticlePriceBulkImportRowFailed = "ARTICLE_PRICE_BULK_IMPORT_ROW_FAILED";
 
         // Family
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";

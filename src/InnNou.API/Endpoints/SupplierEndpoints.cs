@@ -28,6 +28,14 @@ namespace InnNou.API.Endpoints
 
             group.MapPost("/deleteSupplier", HandleDeleteSupplier)
                 .Produces<ApiResponse<DeleteSupplierCommandResponse>>(200);
+
+            group.MapPost("/exportSuppliers", HandleExportSuppliers);
+
+            group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
+
+            group.MapPost("/bulkImportSuppliers", HandleBulkImportSuppliers)
+                .Produces<ApiResponse<BulkImportSuppliersCommandResponse>>(200)
+                .DisableAntiforgery();
         }
 
         private static async Task<IResult> HandleGetSupplierByToken(
@@ -71,6 +79,48 @@ namespace InnNou.API.Endpoints
             IMediator mediator,
             CancellationToken ct)
         {
+            var result = await mediator.Send(request, ct);
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> HandleExportSuppliers(
+            [FromBody] ExportSuppliersQueryRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            return Results.File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        private static async Task<IResult> HandleDownloadImportTemplate(
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(new GetSupplierImportTemplateQueryRequest(), ct);
+            return Results.File(result.FileBytes, result.ContentType, result.FileName);
+        }
+
+        private static async Task<IResult> HandleBulkImportSuppliers(
+            HttpRequest httpRequest,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            // Kestrel disables synchronous I/O by default — the synchronous HttpRequest.Form
+            // getter throws; ReadFormAsync is the async-safe way to bind multipart form data.
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files["file"];
+
+            if (file is null || file.Length == 0)
+            {
+                var failure = ApiResponse<BulkImportSuppliersCommandResponse>.FailureResponse(
+                    ErrorCodes.SupplierBulkImportInvalidFile, "No file was uploaded.", 400);
+                return Results.Json(failure, statusCode: 400);
+            }
+
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream, ct);
+
+            var request = new BulkImportSuppliersCommandRequest { FileBytes = memoryStream.ToArray(), FileName = file.FileName };
             var result = await mediator.Send(request, ct);
             return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
         }

@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Dapper;
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
@@ -7,14 +8,23 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using System.Data;
+using System.Globalization;
 
 namespace InnNou.Infrastructure.Services;
 
-public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapper) : IArticleService
+public class ArticleService(
+    IDbConnectionFactory connectionFactory,
+    IMapper mapper,
+    ISupplierService supplierService,
+    IFamilyService familyService,
+    ISubFamilyService subFamilyService,
+    IUnitOfMeasureService unitOfMeasureService) : IArticleService
 {
     private sealed class ArticlePageRow : Article { public int TotalCount { get; set; } }
 
     private const int AdminRoleLevel = 80;
+    private const int MaxBulkImportRows = 500;
+    private const int MaxExportRows = 10_000;
 
     // Supplier-scoped callers (real login or impersonated) may only manage their own supplier's
     // articles; below Admin and not supplier-scoped, no manage rights at all; Admin+ manages any.
@@ -22,6 +32,8 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
         context.SupplierId.HasValue
             ? context.SupplierId.Value == supplierId
             : context.RoleLevel >= AdminRoleLevel;
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
     {
@@ -253,5 +265,546 @@ public class ArticleService(IDbConnectionFactory connectionFactory, IMapper mapp
         {
             return false;
         }
+    }
+
+    public async Task<BulkImportArticleResultDto> BulkImportArticlesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        // Unlike Users/Suppliers/Organizations (flat AdminRoleLevel gate), Articles is
+        // ownership-scoped at the single-row level already (CanManage) — bulk import follows the
+        // same shape rather than raising the floor above what a supplier can already do one row at
+        // a time: the owning supplier may bulk-manage their own catalog, Admin+ may bulk-manage any
+        // supplier's (resolved per row via the SupplierName column).
+        if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.ArticleBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can bulk-import articles.", 403);
+
+        IXLWorkbook workbook;
+        try
+        {
+            workbook = new XLWorkbook(new MemoryStream(fileBytes));
+        }
+        catch
+        {
+            throw new ApiException(ErrorCodes.ArticleBulkImportInvalidFile, "The uploaded file is not a valid Excel (.xlsx) file.", 400);
+        }
+
+        using (workbook)
+        {
+            var worksheet = workbook.Worksheets.First();
+
+            var dataRows = worksheet.RowsUsed()
+                .Skip(1)
+                .Where(row => row.CellsUsed().Any(c => !string.IsNullOrWhiteSpace(c.GetString())))
+                .ToList();
+
+            if (dataRows.Count > MaxBulkImportRows)
+                throw new ApiException(ErrorCodes.ArticleBulkImportTooManyRows, $"A single import file cannot contain more than {MaxBulkImportRows} rows.", 400);
+
+            var result = new BulkImportArticleResultDto { TotalRows = dataRows.Count };
+
+            if (dataRows.Count == 0)
+                return result;
+
+            await using var connection = connectionFactory.CreateConnection();
+
+            var supplierCache = new Dictionary<string, Supplier?>(StringComparer.OrdinalIgnoreCase);
+            var familyCache = new Dictionary<string, Family?>(StringComparer.OrdinalIgnoreCase);
+            var subFamilyCache = new Dictionary<string, SubFamily?>(StringComparer.OrdinalIgnoreCase);
+            var unitCache = new Dictionary<string, UnitOfMeasure?>(StringComparer.OrdinalIgnoreCase);
+
+            async Task<UnitOfMeasure?> ResolveUnitAsync(string code)
+            {
+                var key = code.Trim().ToUpperInvariant();
+                if (!unitCache.TryGetValue(key, out var unit))
+                {
+                    unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+                        "sp_UnitOfMeasure_GetByCode", new { Code = key }, commandType: CommandType.StoredProcedure);
+                    unitCache[key] = unit;
+                }
+                return unit;
+            }
+
+            // IMPORTANT: rows are processed strictly sequentially — same convention as every other
+            // bulk import in this codebase. Articles' uniqueness (SupplierId, NormalizedName) is a
+            // real DB constraint, but sequential processing is what lets an insert-vs-update match
+            // (SupplierId, SupplierSku) reflect an earlier row's insert within the same file, and
+            // keeps row-numbered error reporting deterministic.
+            foreach (var row in dataRows)
+            {
+                var rowNumber = row.RowNumber();
+
+                var supplierName = row.Cell(1).GetString().Trim();
+                var supplierSku = row.Cell(2).GetString().Trim();
+                var name = row.Cell(3).GetString().Trim();
+                var description = row.Cell(4).GetString().Trim();
+                var barcode = row.Cell(5).GetString().Trim();
+                var brand = row.Cell(6).GetString().Trim();
+                var familyCode = row.Cell(7).GetString().Trim();
+                var subFamilyCode = row.Cell(8).GetString().Trim();
+                var purchaseUnitCode = row.Cell(9).GetString().Trim();
+                var purchaseQuantityText = row.Cell(10).GetString().Trim();
+                var contentUnitCode = row.Cell(11).GetString().Trim();
+                var contentQuantityText = row.Cell(12).GetString().Trim();
+                var baseUnitCode = row.Cell(13).GetString().Trim();
+                var minimumOrderQtyText = row.Cell(14).GetString().Trim();
+                var leadTimeDaysText = row.Cell(15).GetString().Trim();
+
+                var rowIdentifier = !string.IsNullOrWhiteSpace(supplierSku)
+                    ? supplierSku
+                    : (string.IsNullOrWhiteSpace(name) ? null : name);
+
+                // --- Resolve supplier ---
+                int supplierId;
+                if (context.SupplierId.HasValue)
+                {
+                    // A supplier-scoped caller's SupplierName cell is ignored (always forced to
+                    // their own account) — but if they filled it in with something else, that's
+                    // almost certainly a copy-paste mistake worth flagging rather than silently
+                    // overriding, per the requirement that insert/update both stay self-scoped.
+                    if (!string.IsNullOrWhiteSpace(supplierName))
+                    {
+                        var ownKey = supplierName.ToUpperInvariant();
+                        if (!supplierCache.TryGetValue(ownKey, out var maybeOwnSupplier))
+                        {
+                            maybeOwnSupplier = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                                "sp_Supplier_GetByNormalizedName", new { NormalizedName = ownKey }, commandType: CommandType.StoredProcedure);
+                            supplierCache[ownKey] = maybeOwnSupplier;
+                        }
+                        if (maybeOwnSupplier is null || maybeOwnSupplier.SupplierId != context.SupplierId.Value)
+                        {
+                            result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleSupplierForbidden, Description = "SupplierName does not match your own supplier account." });
+                            continue;
+                        }
+                    }
+                    supplierId = context.SupplierId.Value;
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(supplierName))
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "SupplierName is required." });
+                        continue;
+                    }
+
+                    var supplierKey = supplierName.ToUpperInvariant();
+                    if (!supplierCache.TryGetValue(supplierKey, out var supplier))
+                    {
+                        supplier = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                            "sp_Supplier_GetByNormalizedName", new { NormalizedName = supplierKey }, commandType: CommandType.StoredProcedure);
+                        supplierCache[supplierKey] = supplier;
+                    }
+                    if (supplier is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.SupplierNotFound, Description = $"Supplier '{supplierName}' was not found." });
+                        continue;
+                    }
+                    supplierId = supplier.SupplierId;
+                }
+
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "Name is required." });
+                    continue;
+                }
+
+                // --- Resolve Family / SubFamily ---
+                int? familyId = null;
+                if (!string.IsNullOrWhiteSpace(familyCode))
+                {
+                    var familyKey = familyCode.ToUpperInvariant();
+                    if (!familyCache.TryGetValue(familyKey, out var family))
+                    {
+                        family = await connection.QueryFirstOrDefaultAsync<Family>(
+                            "sp_Family_GetByCode", new { Code = familyKey }, commandType: CommandType.StoredProcedure);
+                        familyCache[familyKey] = family;
+                    }
+                    if (family is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.FamilyNotFound, Description = $"Family '{familyCode}' was not found." });
+                        continue;
+                    }
+                    familyId = family.FamilyId;
+                }
+
+                int? subFamilyId = null;
+                if (!string.IsNullOrWhiteSpace(subFamilyCode))
+                {
+                    // SubFamily.Code is only unique per-Family (UX_SubFamilies), not globally, so
+                    // FamilyCode is required to resolve it unambiguously.
+                    if (familyId is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "FamilyCode is required when SubFamilyCode is set." });
+                        continue;
+                    }
+
+                    var subFamilyKey = $"{familyId}:{subFamilyCode.ToUpperInvariant()}";
+                    if (!subFamilyCache.TryGetValue(subFamilyKey, out var subFamily))
+                    {
+                        subFamily = await connection.QueryFirstOrDefaultAsync<SubFamily>(
+                            "sp_SubFamily_GetByCode", new { FamilyId = familyId, Code = subFamilyCode.ToUpperInvariant() }, commandType: CommandType.StoredProcedure);
+                        subFamilyCache[subFamilyKey] = subFamily;
+                    }
+                    if (subFamily is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.SubFamilyNotFound, Description = $"Sub-family '{subFamilyCode}' was not found under family '{familyCode}'." });
+                        continue;
+                    }
+                    subFamilyId = subFamily.SubFamilyId;
+                }
+
+                // --- Resolve units (same COUNT / WEIGHT-VOLUME / matching-type rules as the
+                // single-row Create/Edit handlers) ---
+                if (string.IsNullOrWhiteSpace(purchaseUnitCode))
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "PurchaseUnitCode is required." });
+                    continue;
+                }
+                var purchaseUnit = await ResolveUnitAsync(purchaseUnitCode);
+                if (purchaseUnit is null)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.PurchaseUnitNotFound, Description = $"Purchase unit '{purchaseUnitCode}' was not found." });
+                    continue;
+                }
+                if (!string.Equals(purchaseUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.PurchaseUnitInvalidType, Description = "Purchase unit must be a COUNT unit (e.g. BOX, PACK, BAG)." });
+                    continue;
+                }
+
+                if (!decimal.TryParse(purchaseQuantityText, NumberStyles.Any, CultureInfo.InvariantCulture, out var purchaseQuantity) || purchaseQuantity <= 0)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "PurchaseQuantity is required and must be a positive number." });
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(contentUnitCode))
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "ContentUnitCode is required." });
+                    continue;
+                }
+                var contentUnit = await ResolveUnitAsync(contentUnitCode);
+                if (contentUnit is null)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitNotFound, Description = $"Content unit '{contentUnitCode}' was not found." });
+                    continue;
+                }
+                if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitInvalidType, Description = "Content unit must be a WEIGHT or VOLUME unit." });
+                    continue;
+                }
+
+                decimal? contentQuantity = null;
+                if (!string.IsNullOrWhiteSpace(contentQuantityText))
+                {
+                    if (!decimal.TryParse(contentQuantityText, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedContentQuantity) || parsedContentQuantity <= 0)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "ContentQuantity must be a positive number." });
+                        continue;
+                    }
+                    contentQuantity = parsedContentQuantity;
+                }
+
+                int? baseUnitId = null;
+                if (!string.IsNullOrWhiteSpace(baseUnitCode))
+                {
+                    var baseUnit = await ResolveUnitAsync(baseUnitCode);
+                    if (baseUnit is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.BaseUnitNotFound, Description = $"Base unit '{baseUnitCode}' was not found." });
+                        continue;
+                    }
+                    if (baseUnit.UnitTypeId != contentUnit.UnitTypeId)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.BaseUnitTypeMismatch, Description = "Base unit must be the same UnitType as the content unit (e.g. both WEIGHT or both VOLUME)." });
+                        continue;
+                    }
+                    baseUnitId = baseUnit.UnitOfMeasureId;
+                }
+
+                decimal? minimumOrderQty = null;
+                if (!string.IsNullOrWhiteSpace(minimumOrderQtyText))
+                {
+                    if (!decimal.TryParse(minimumOrderQtyText, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedMinQty) || parsedMinQty < 0)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "MinimumOrderQty must be a non-negative number." });
+                        continue;
+                    }
+                    minimumOrderQty = parsedMinQty;
+                }
+
+                int? leadTimeDays = null;
+                if (!string.IsNullOrWhiteSpace(leadTimeDaysText))
+                {
+                    if (!int.TryParse(leadTimeDaysText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedLeadTime) || parsedLeadTime < 0)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "LeadTimeDays must be a non-negative whole number." });
+                        continue;
+                    }
+                    leadTimeDays = parsedLeadTime;
+                }
+
+                // --- Insert vs update, matched by (SupplierId, SupplierSku). A blank SKU can never
+                // match an existing article, so it's always an insert. ---
+                Article? existingArticle = null;
+                if (!string.IsNullOrWhiteSpace(supplierSku))
+                {
+                    existingArticle = await connection.QueryFirstOrDefaultAsync<Article>(
+                        "sp_Article_GetBySupplierSku", new { SupplierId = supplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
+                }
+
+                try
+                {
+                    if (existingArticle is not null)
+                    {
+                        // UPDATE path — structural fields are immutable via edit, same rule
+                        // EditArticleCommandHandler enforces for the single-row edit endpoint. A row
+                        // that tries to change them is rejected rather than silently applied or
+                        // auto-superseded — bulk import is not the place for a structural change.
+                        var isStructuralChange =
+                            purchaseUnit.UnitOfMeasureId != existingArticle.PurchaseUnitId ||
+                            purchaseQuantity != existingArticle.PurchaseQuantity ||
+                            contentUnit.UnitOfMeasureId != existingArticle.ContentUnitId ||
+                            contentQuantity != existingArticle.ContentQuantity ||
+                            baseUnitId != existingArticle.BaseUnitId;
+
+                        if (isStructuralChange)
+                        {
+                            result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleStructuralChangeNotAllowed, Description = "This row would change the article's structure (units/quantities), which bulk import does not allow — use Supersede instead." });
+                            continue;
+                        }
+
+                        var updateDto = new ArticleDto
+                        {
+                            ArticleToken = existingArticle.ArticleToken,
+                            SupplierId = existingArticle.SupplierId,
+                            Name = name,
+                            Description = NullIfEmpty(description),
+                            SupplierSku = NullIfEmpty(supplierSku),
+                            Barcode = NullIfEmpty(barcode),
+                            Brand = NullIfEmpty(brand),
+                            FamilyId = familyId,
+                            SubFamilyId = subFamilyId,
+                            PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
+                            PurchaseQuantity = purchaseQuantity,
+                            ContentUnitId = contentUnit.UnitOfMeasureId,
+                            ContentQuantity = contentQuantity,
+                            BaseUnitId = baseUnitId,
+                            MinimumOrderQty = minimumOrderQty,
+                            LeadTimeDays = leadTimeDays
+                        };
+
+                        var updated = await EditAsync(updateDto, context, cancellationToken);
+                        if (updated is null)
+                        {
+                            result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = "Article could not be updated." });
+                            continue;
+                        }
+
+                        result.UpdatedCount++;
+                    }
+                    else
+                    {
+                        var createDto = new ArticleDto
+                        {
+                            SupplierId = supplierId,
+                            Name = name,
+                            Description = NullIfEmpty(description),
+                            SupplierSku = NullIfEmpty(supplierSku),
+                            Barcode = NullIfEmpty(barcode),
+                            Brand = NullIfEmpty(brand),
+                            FamilyId = familyId,
+                            SubFamilyId = subFamilyId,
+                            PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
+                            PurchaseQuantity = purchaseQuantity,
+                            ContentUnitId = contentUnit.UnitOfMeasureId,
+                            ContentQuantity = contentQuantity,
+                            BaseUnitId = baseUnitId,
+                            MinimumOrderQty = minimumOrderQty,
+                            LeadTimeDays = leadTimeDays
+                        };
+
+                        var created = await CreateAsync(createDto, context, cancellationToken);
+                        if (created is null)
+                        {
+                            result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleCreateFailed, Description = "Article could not be created." });
+                            continue;
+                        }
+
+                        result.InsertedCount++;
+                    }
+                }
+                catch (ApiException ex)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
+                }
+                catch (Exception)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
+                }
+            }
+
+            result.FailureCount = result.Errors.Count;
+            return result;
+        }
+    }
+
+    public async Task<(byte[] FileBytes, string FileName)> ExportArticlesAsync(string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.ArticleBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can export articles.", 403);
+
+        // No supplierId/familyId/subFamilyId filter here — GetPagedAsync's own visibility rule
+        // already forces a supplier-scoped caller to their own catalog; an Admin+ caller exports
+        // the full catalog, matching the single-row read scope.
+        var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, searchText, includeInactive, context, cancellationToken);
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Articles");
+
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "Status"];
+        for (var i = 0; i < headers.Length; i++)
+            worksheet.Cell(1, i + 1).Value = headers[i];
+        worksheet.Row(1).Style.Font.Bold = true;
+
+        var r = 2;
+        foreach (var article in articles.Items)
+        {
+            worksheet.Cell(r, 1).Value = article.SupplierName;
+            worksheet.Cell(r, 2).Value = article.SupplierSku;
+            worksheet.Cell(r, 3).Value = article.Name;
+            worksheet.Cell(r, 4).Value = article.Description;
+            worksheet.Cell(r, 5).Value = article.Barcode;
+            worksheet.Cell(r, 6).Value = article.Brand;
+            worksheet.Cell(r, 7).Value = article.FamilyCode;
+            worksheet.Cell(r, 8).Value = article.SubFamilyCode;
+            worksheet.Cell(r, 9).Value = article.PurchaseUnitCode;
+            worksheet.Cell(r, 10).Value = article.PurchaseQuantity;
+            worksheet.Cell(r, 11).Value = article.ContentUnitCode;
+            worksheet.Cell(r, 12).Value = article.ContentQuantity;
+            worksheet.Cell(r, 13).Value = article.BaseUnitCode;
+            worksheet.Cell(r, 14).Value = article.MinimumOrderQty;
+            worksheet.Cell(r, 15).Value = article.LeadTimeDays;
+            worksheet.Cell(r, 16).Value = article.IsActive ? "Active" : "Inactive";
+            r++;
+        }
+
+        worksheet.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        return (ms.ToArray(), $"articles_export_{DateTime.UtcNow:yyyyMMdd}.xlsx");
+    }
+
+    public async Task<(byte[] FileBytes, string FileName)> GenerateArticleImportTemplateAsync(IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        if (!context.SupplierId.HasValue && context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.ArticleBulkImportForbidden, "Only the owning supplier or Admins/SuperAdmins can download the import template.", 403);
+
+        using var workbook = new XLWorkbook();
+
+        var articlesSheet = workbook.Worksheets.Add("Articles");
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays"];
+        for (var i = 0; i < headers.Length; i++)
+            articlesSheet.Cell(1, i + 1).Value = headers[i];
+        articlesSheet.Row(1).Style.Font.Bold = true;
+
+        // Suppliers reference sheet + dropdown — only wired up for an Admin+ actor, who must
+        // specify which supplier each row belongs to. A supplier-scoped caller's SupplierName cell
+        // is ignored on import (always forced to their own account), so there's nothing useful to
+        // pick from a dropdown for them.
+        if (!context.SupplierId.HasValue)
+        {
+            var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
+            var suppliersSheet = workbook.Worksheets.Add("Suppliers");
+            suppliersSheet.Cell(1, 1).Value = "Name";
+            suppliersSheet.Row(1).Style.Font.Bold = true;
+            var supplierRow = 2;
+            foreach (var supplier in suppliers.Items.OrderBy(s => s.Name))
+                suppliersSheet.Cell(supplierRow++, 1).Value = supplier.Name;
+            suppliersSheet.Columns().AdjustToContents();
+
+            if (suppliers.Items.Count > 0)
+            {
+                var namedRange = workbook.DefinedNames.Add("ArticleImportSupplierNames", suppliersSheet.Range(2, 1, supplierRow - 1, 1));
+                articlesSheet.Range(2, 1, MaxBulkImportRows + 1, 1).CreateDataValidation().List(namedRange.Name, true);
+            }
+        }
+
+        var families = await familyService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
+        var familiesSheet = workbook.Worksheets.Add("Families");
+        familiesSheet.Cell(1, 1).Value = "Code";
+        familiesSheet.Row(1).Style.Font.Bold = true;
+        var familyRow = 2;
+        foreach (var family in families.Items.OrderBy(f => f.Code))
+            familiesSheet.Cell(familyRow++, 1).Value = family.Code;
+        familiesSheet.Columns().AdjustToContents();
+
+        if (families.Items.Count > 0)
+        {
+            var familyNamedRange = workbook.DefinedNames.Add("ArticleImportFamilyCodes", familiesSheet.Range(2, 1, familyRow - 1, 1));
+            articlesSheet.Range(2, 7, MaxBulkImportRows + 1, 7).CreateDataValidation().List(familyNamedRange.Name, true);
+        }
+
+        // SubFamilies reference sheet lists FamilyCode alongside SubFamilyCode since Code is only
+        // unique per-family (not globally) — the dropdown itself can't be dynamically filtered by
+        // the row's own FamilyCode cell (Excel has no cross-cell List validation without VBA), so
+        // this is a visual grouping aid; BulkImportArticlesAsync still resolves (FamilyCode,
+        // SubFamilyCode) together and requires FamilyCode whenever SubFamilyCode is filled in.
+        var subFamilies = await subFamilyService.GetPagedAsync(1, MaxExportRows, null, null, false, cancellationToken);
+        var subFamiliesSheet = workbook.Worksheets.Add("SubFamilies");
+        subFamiliesSheet.Cell(1, 1).Value = "FamilyCode";
+        subFamiliesSheet.Cell(1, 2).Value = "SubFamilyCode";
+        subFamiliesSheet.Row(1).Style.Font.Bold = true;
+        var subFamilyRow = 2;
+        var familyCodesById = families.Items.ToDictionary(f => f.FamilyId, f => f.Code);
+        foreach (var subFamily in subFamilies.Items.OrderBy(sf => familyCodesById.GetValueOrDefault(sf.FamilyId, "")).ThenBy(sf => sf.Code))
+        {
+            subFamiliesSheet.Cell(subFamilyRow, 1).Value = familyCodesById.GetValueOrDefault(subFamily.FamilyId, "");
+            subFamiliesSheet.Cell(subFamilyRow, 2).Value = subFamily.Code;
+            subFamilyRow++;
+        }
+        subFamiliesSheet.Columns().AdjustToContents();
+
+        if (subFamilies.Items.Count > 0)
+        {
+            var subFamilyNamedRange = workbook.DefinedNames.Add("ArticleImportSubFamilyCodes", subFamiliesSheet.Range(2, 2, subFamilyRow - 1, 2));
+            articlesSheet.Range(2, 8, MaxBulkImportRows + 1, 8).CreateDataValidation().List(subFamilyNamedRange.Name, true);
+        }
+
+        // Units reference sheet backs all three unit columns (Purchase/Content/Base) — Excel can't
+        // restrict a dropdown to only COUNT (for Purchase) or WEIGHT/VOLUME (for Content/Base)
+        // units without VBA, so all three share the same full list; the UnitType column is a
+        // visual hint for whoever fills the sheet, and BulkImportArticlesAsync still validates the
+        // resolved type server-side.
+        var units = await unitOfMeasureService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
+        var unitsSheet = workbook.Worksheets.Add("Units");
+        unitsSheet.Cell(1, 1).Value = "Code";
+        unitsSheet.Cell(1, 2).Value = "UnitType";
+        unitsSheet.Row(1).Style.Font.Bold = true;
+        var unitRow = 2;
+        foreach (var unit in units.Items.OrderBy(u => u.UnitTypeCode).ThenBy(u => u.Code))
+        {
+            unitsSheet.Cell(unitRow, 1).Value = unit.Code;
+            unitsSheet.Cell(unitRow, 2).Value = unit.UnitTypeCode;
+            unitRow++;
+        }
+        unitsSheet.Columns().AdjustToContents();
+
+        if (units.Items.Count > 0)
+        {
+            var unitNamedRange = workbook.DefinedNames.Add("ArticleImportUnitCodes", unitsSheet.Range(2, 1, unitRow - 1, 1));
+            articlesSheet.Range(2, 9, MaxBulkImportRows + 1, 9).CreateDataValidation().List(unitNamedRange.Name, true);
+            articlesSheet.Range(2, 11, MaxBulkImportRows + 1, 11).CreateDataValidation().List(unitNamedRange.Name, true);
+            articlesSheet.Range(2, 13, MaxBulkImportRows + 1, 13).CreateDataValidation().List(unitNamedRange.Name, true);
+        }
+
+        articlesSheet.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        return (ms.ToArray(), "articles_import_template.xlsx");
     }
 }
