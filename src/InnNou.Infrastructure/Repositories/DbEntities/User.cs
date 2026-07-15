@@ -14,6 +14,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int RoleId { get; set; }
         public int? OrganizationId { get; set; }
         public int? SupplierId { get; set; }
+        public int? WarehouseContactId { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
         public bool EmailConfirmed { get; set; }

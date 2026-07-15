@@ -162,6 +162,25 @@ namespace InnNou.Application.Common
         public const string OrganizationContactCreateFailed = "ORGANIZATION_CONTACT_CREATE_FAILED";
         public const string OrganizationContactOutsideScope = "ORGANIZATION_CONTACT_OUTSIDE_SCOPE";
 
+        // Warehouse
+        public const string WarehouseNotFound = "WAREHOUSE_NOT_FOUND";
+        public const string WarehouseCreateFailed = "WAREHOUSE_CREATE_FAILED";
+        public const string WarehouseOrganizationNotFound = "WAREHOUSE_ORGANIZATION_NOT_FOUND";
+        public const string WarehouseNameExists = "WAREHOUSE_NAME_EXISTS";
+        public const string WarehouseOutsideScope = "WAREHOUSE_OUTSIDE_SCOPE";
+        public const string WarehouseForbidden = "WAREHOUSE_FORBIDDEN";
+        public const string WarehouseInvalidPurpose = "WAREHOUSE_INVALID_PURPOSE";
+        public const string WarehouseDefaultReceivingConflict = "WAREHOUSE_DEFAULT_RECEIVING_CONFLICT";
+        public const string WarehouseDefaultConsumptionConflict = "WAREHOUSE_DEFAULT_CONSUMPTION_CONFLICT";
+
+        // WarehouseContact
+        public const string WarehouseContactNotFound = "WAREHOUSE_CONTACT_NOT_FOUND";
+        public const string WarehouseContactCreateFailed = "WAREHOUSE_CONTACT_CREATE_FAILED";
+        public const string WarehouseContactOutsideScope = "WAREHOUSE_CONTACT_OUTSIDE_SCOPE";
+        public const string WarehouseContactAccessSuperadminOnly = "WAREHOUSE_CONTACT_ACCESS_SUPERADMIN_ONLY";
+        public const string WarehouseContactLoginCredentialsRequired = "WAREHOUSE_CONTACT_LOGIN_CREDENTIALS_REQUIRED";
+        public const string WarehouseContactLoginEmailExists = "WAREHOUSE_CONTACT_LOGIN_EMAIL_EXISTS";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 

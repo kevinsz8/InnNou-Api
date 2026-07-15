@@ -30,6 +30,10 @@ namespace InnNou.API.Endpoints
                 .RequireAuthorization()
                 .Produces<ApiResponse<ImpersonateResponse>>(200);
 
+            group.MapPost("/impersonate-warehouse-contact", ImpersonateWarehouseContact)
+                .RequireAuthorization()
+                .Produces<ApiResponse<ImpersonateResponse>>(200);
+
             group.MapPost("/stop-impersonate", StopImpersonate)
                 .RequireAuthorization();
         }
@@ -64,6 +68,16 @@ namespace InnNou.API.Endpoints
 
         private static async Task<IResult> ImpersonateSupplier(
             [FromBody] ImpersonateSupplierRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> ImpersonateWarehouseContact(
+            [FromBody] ImpersonateWarehouseContactRequest request,
             IMediator mediator,
             CancellationToken ct)
         {

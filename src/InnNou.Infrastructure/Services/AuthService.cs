@@ -208,6 +208,26 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         return result;
     }
 
+    public async Task<Login?> ImpersonateWarehouseContactAsync(Guid actorUserToken, Guid warehouseContactToken, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var linkedUser = await connection.QueryFirstOrDefaultAsync<UserWithRoleResult>(
+            "sp_Auth_GetUserByWarehouseContactToken",
+            new { WarehouseContactToken = warehouseContactToken },
+            commandType: CommandType.StoredProcedure);
+
+        if (linkedUser is null)
+            return null;
+
+        var result = await ImpersonateAsync(actorUserToken, linkedUser.UserToken, cancellationToken);
+
+        if (result is not null)
+            result.WarehouseContactName = linkedUser.WarehouseContactName;
+
+        return result;
+    }
+
     public async Task<Login?> StopImpersonationAsync(Guid actorUserToken, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();

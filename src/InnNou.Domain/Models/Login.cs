@@ -8,5 +8,6 @@ namespace InnNou.Domain.Models
         public string Token { get; set; } = default!;
         public string RefreshToken { get; set; } = default!;
         public string? SupplierName { get; set; }
+        public string? WarehouseContactName { get; set; }
     }
 }

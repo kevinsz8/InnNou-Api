@@ -19,6 +19,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_User_Create
     @RoleId             INT,
     @OrganizationId     INT          = NULL,
     @SupplierId         INT          = NULL,
+    @WarehouseContactId INT          = NULL,
     @IsActive           BIT,
     @IsDeleted          BIT,
     @CreatedUtc         DATETIME2(7),
@@ -32,13 +33,13 @@ BEGIN
     (
         UserToken, FirstName, LastName, Email, NormalizedEmail,
         UserName, NormalizedUserName, PasswordHash, RoleId,
-        OrganizationId, SupplierId, IsActive, IsDeleted, CreatedUtc, CreatedBy
+        OrganizationId, SupplierId, WarehouseContactId, IsActive, IsDeleted, CreatedUtc, CreatedBy
     )
     VALUES
     (
         @UserToken, @FirstName, @LastName, @Email, @NormalizedEmail,
         @UserName, @NormalizedUserName, @PasswordHash, @RoleId,
-        @OrganizationId, @SupplierId, @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
+        @OrganizationId, @SupplierId, @WarehouseContactId, @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
     );
 
     SELECT * FROM dbo.Users WHERE UserToken = @UserToken;

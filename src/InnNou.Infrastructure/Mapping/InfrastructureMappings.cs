@@ -17,6 +17,8 @@ using OrganizationContactEntity = InnNou.Infrastructure.Repositories.DbEntities.
 using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
 using ArticlePriceEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePrice;
 using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
+using WarehouseEntity = InnNou.Infrastructure.Repositories.DbEntities.Warehouse;
+using WarehouseContactEntity = InnNou.Infrastructure.Repositories.DbEntities.WarehouseContact;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -248,6 +250,53 @@ namespace InnNou.Infrastructure.Mapping
                 Email = e.Email,
                 Notes = e.Notes,
                 IsPrimary = e.IsPrimary,
+                IsActive = e.IsActive,
+                IsDeleted = e.IsDeleted
+            });
+
+            mapper.Register<WarehouseEntity, WarehouseDto>(e => new WarehouseDto
+            {
+                WarehouseId = e.WarehouseId,
+                WarehouseToken = e.WarehouseToken,
+                OrganizationId = e.OrganizationId,
+                Name = e.Name,
+                Code = e.Code,
+                Description = e.Description,
+                PurposeCode = e.PurposeCode,
+                IsInventoriable = e.IsInventoriable,
+                CanReceivePurchases = e.CanReceivePurchases,
+                CanReceiveTransfers = e.CanReceiveTransfers,
+                CanTransferOut = e.CanTransferOut,
+                CanConsumeInventory = e.CanConsumeInventory,
+                CanProduceItems = e.CanProduceItems,
+                CanSellItems = e.CanSellItems,
+                CanAdjustInventory = e.CanAdjustInventory,
+                CanReceiveReturns = e.CanReceiveReturns,
+                TrackLotNumbers = e.TrackLotNumbers,
+                TrackExpirationDates = e.TrackExpirationDates,
+                TrackSerialNumbers = e.TrackSerialNumbers,
+                RequireApproval = e.RequireApproval,
+                IsDefaultReceivingWarehouse = e.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = e.IsDefaultConsumptionWarehouse,
+                IsActive = e.IsActive,
+                IsDeleted = e.IsDeleted
+            });
+
+            mapper.Register<WarehouseContactEntity, WarehouseContactDto>(e => new WarehouseContactDto
+            {
+                WarehouseContactId = e.WarehouseContactId,
+                WarehouseContactToken = e.WarehouseContactToken,
+                WarehouseId = e.WarehouseId,
+                ContactName = e.ContactName,
+                ContactType = e.ContactType,
+                Department = e.Department,
+                Phone = e.Phone,
+                Mobile = e.Mobile,
+                Fax = e.Fax,
+                Email = e.Email,
+                Notes = e.Notes,
+                IsPrimary = e.IsPrimary,
+                HasAccessToSystem = e.HasAccessToSystem,
                 IsActive = e.IsActive,
                 IsDeleted = e.IsDeleted
             });

@@ -18,6 +18,8 @@ using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonCurrency = InnNou.Application.Responses.Common.Currency;
 using CommonMenuItem = InnNou.Application.Responses.Common.MenuItem;
+using CommonWarehouse = InnNou.Application.Responses.Common.Warehouse;
+using CommonWarehouseContact = InnNou.Application.Responses.Common.WarehouseContact;
 
 namespace InnNou.Application.Mapping
 {
@@ -574,6 +576,217 @@ namespace InnNou.Application.Mapping
                 Email = d.Email,
                 Notes = d.Notes,
                 IsPrimary = d.IsPrimary,
+                IsActive = d.IsActive
+            });
+
+            // Warehouse
+            mapper.Register<CreateWarehouseCommandRequest, WarehouseDto>(r => new WarehouseDto
+            {
+                OrganizationToken = r.OrganizationToken,
+                Name = r.Name,
+                Code = r.Code,
+                Description = r.Description,
+                PurposeCode = r.PurposeCode ?? string.Empty,
+                IsInventoriable = r.IsInventoriable,
+                CanReceivePurchases = r.CanReceivePurchases,
+                CanReceiveTransfers = r.CanReceiveTransfers,
+                CanTransferOut = r.CanTransferOut,
+                CanConsumeInventory = r.CanConsumeInventory,
+                CanProduceItems = r.CanProduceItems,
+                CanSellItems = r.CanSellItems,
+                CanAdjustInventory = r.CanAdjustInventory,
+                CanReceiveReturns = r.CanReceiveReturns,
+                TrackLotNumbers = r.TrackLotNumbers,
+                TrackExpirationDates = r.TrackExpirationDates,
+                TrackSerialNumbers = r.TrackSerialNumbers,
+                RequireApproval = r.RequireApproval,
+                IsDefaultReceivingWarehouse = r.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse
+            });
+            mapper.Register<EditWarehouseCommandRequest, WarehouseDto>(r => new WarehouseDto
+            {
+                WarehouseToken = r.WarehouseToken,
+                Name = r.Name,
+                Code = r.Code,
+                Description = r.Description,
+                PurposeCode = r.PurposeCode ?? string.Empty,
+                IsInventoriable = r.IsInventoriable,
+                CanReceivePurchases = r.CanReceivePurchases,
+                CanReceiveTransfers = r.CanReceiveTransfers,
+                CanTransferOut = r.CanTransferOut,
+                CanConsumeInventory = r.CanConsumeInventory,
+                CanProduceItems = r.CanProduceItems,
+                CanSellItems = r.CanSellItems,
+                CanAdjustInventory = r.CanAdjustInventory,
+                CanReceiveReturns = r.CanReceiveReturns,
+                TrackLotNumbers = r.TrackLotNumbers,
+                TrackExpirationDates = r.TrackExpirationDates,
+                TrackSerialNumbers = r.TrackSerialNumbers,
+                RequireApproval = r.RequireApproval,
+                IsDefaultReceivingWarehouse = r.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse
+            });
+            mapper.Register<WarehouseDto, CreateWarehouseCommandResponse>(d => new CreateWarehouseCommandResponse
+            {
+                WarehouseId = d.WarehouseId,
+                WarehouseToken = d.WarehouseToken,
+                OrganizationId = d.OrganizationId,
+                Name = d.Name,
+                Code = d.Code,
+                Description = d.Description,
+                PurposeCode = d.PurposeCode,
+                IsInventoriable = d.IsInventoriable,
+                CanReceivePurchases = d.CanReceivePurchases,
+                CanReceiveTransfers = d.CanReceiveTransfers,
+                CanTransferOut = d.CanTransferOut,
+                CanConsumeInventory = d.CanConsumeInventory,
+                CanProduceItems = d.CanProduceItems,
+                CanSellItems = d.CanSellItems,
+                CanAdjustInventory = d.CanAdjustInventory,
+                CanReceiveReturns = d.CanReceiveReturns,
+                TrackLotNumbers = d.TrackLotNumbers,
+                TrackExpirationDates = d.TrackExpirationDates,
+                TrackSerialNumbers = d.TrackSerialNumbers,
+                RequireApproval = d.RequireApproval,
+                IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsActive = d.IsActive
+            });
+            mapper.Register<WarehouseDto, EditWarehouseCommandResponse>(d => new EditWarehouseCommandResponse
+            {
+                WarehouseId = d.WarehouseId,
+                WarehouseToken = d.WarehouseToken,
+                OrganizationId = d.OrganizationId,
+                Name = d.Name,
+                Code = d.Code,
+                Description = d.Description,
+                PurposeCode = d.PurposeCode,
+                IsInventoriable = d.IsInventoriable,
+                CanReceivePurchases = d.CanReceivePurchases,
+                CanReceiveTransfers = d.CanReceiveTransfers,
+                CanTransferOut = d.CanTransferOut,
+                CanConsumeInventory = d.CanConsumeInventory,
+                CanProduceItems = d.CanProduceItems,
+                CanSellItems = d.CanSellItems,
+                CanAdjustInventory = d.CanAdjustInventory,
+                CanReceiveReturns = d.CanReceiveReturns,
+                TrackLotNumbers = d.TrackLotNumbers,
+                TrackExpirationDates = d.TrackExpirationDates,
+                TrackSerialNumbers = d.TrackSerialNumbers,
+                RequireApproval = d.RequireApproval,
+                IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsActive = d.IsActive
+            });
+            mapper.Register<WarehouseDto, CommonWarehouse>(d => new CommonWarehouse
+            {
+                WarehouseId = d.WarehouseId,
+                WarehouseToken = d.WarehouseToken,
+                OrganizationId = d.OrganizationId,
+                Name = d.Name,
+                Code = d.Code,
+                Description = d.Description,
+                PurposeCode = d.PurposeCode,
+                IsInventoriable = d.IsInventoriable,
+                CanReceivePurchases = d.CanReceivePurchases,
+                CanReceiveTransfers = d.CanReceiveTransfers,
+                CanTransferOut = d.CanTransferOut,
+                CanConsumeInventory = d.CanConsumeInventory,
+                CanProduceItems = d.CanProduceItems,
+                CanSellItems = d.CanSellItems,
+                CanAdjustInventory = d.CanAdjustInventory,
+                CanReceiveReturns = d.CanReceiveReturns,
+                TrackLotNumbers = d.TrackLotNumbers,
+                TrackExpirationDates = d.TrackExpirationDates,
+                TrackSerialNumbers = d.TrackSerialNumbers,
+                RequireApproval = d.RequireApproval,
+                IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
+                IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsActive = d.IsActive
+            });
+
+            // WarehouseContact
+            mapper.Register<CreateWarehouseContactCommandRequest, WarehouseContactDto>(r => new WarehouseContactDto
+            {
+                WarehouseToken = r.WarehouseToken,
+                ContactName = r.ContactName,
+                ContactType = r.ContactType,
+                Department = r.Department,
+                Phone = r.Phone,
+                Mobile = r.Mobile,
+                Fax = r.Fax,
+                Email = r.Email,
+                Notes = r.Notes,
+                IsPrimary = r.IsPrimary,
+                HasAccessToSystem = r.HasAccessToSystem,
+                LoginEmail = r.LoginEmail,
+                Password = r.Password
+            });
+            mapper.Register<EditWarehouseContactCommandRequest, WarehouseContactDto>(r => new WarehouseContactDto
+            {
+                WarehouseContactToken = r.WarehouseContactToken,
+                ContactName = r.ContactName,
+                ContactType = r.ContactType,
+                Department = r.Department,
+                Phone = r.Phone,
+                Mobile = r.Mobile,
+                Fax = r.Fax,
+                Email = r.Email,
+                Notes = r.Notes,
+                IsPrimary = r.IsPrimary,
+                HasAccessToSystem = r.HasAccessToSystem,
+                LoginEmail = r.LoginEmail,
+                Password = r.Password
+            });
+            mapper.Register<WarehouseContactDto, CreateWarehouseContactCommandResponse>(d => new CreateWarehouseContactCommandResponse
+            {
+                WarehouseContactId = d.WarehouseContactId,
+                WarehouseContactToken = d.WarehouseContactToken,
+                WarehouseId = d.WarehouseId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
+                IsActive = d.IsActive
+            });
+            mapper.Register<WarehouseContactDto, EditWarehouseContactCommandResponse>(d => new EditWarehouseContactCommandResponse
+            {
+                WarehouseContactId = d.WarehouseContactId,
+                WarehouseContactToken = d.WarehouseContactToken,
+                WarehouseId = d.WarehouseId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
+                IsActive = d.IsActive
+            });
+            mapper.Register<WarehouseContactDto, CommonWarehouseContact>(d => new CommonWarehouseContact
+            {
+                WarehouseContactId = d.WarehouseContactId,
+                WarehouseContactToken = d.WarehouseContactToken,
+                WarehouseId = d.WarehouseId,
+                ContactName = d.ContactName,
+                ContactType = d.ContactType,
+                Department = d.Department,
+                Phone = d.Phone,
+                Mobile = d.Mobile,
+                Fax = d.Fax,
+                Email = d.Email,
+                Notes = d.Notes,
+                IsPrimary = d.IsPrimary,
+                HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
         }
