@@ -25,6 +25,7 @@ public static class BulkExcelLocalization
         ["PostalCode"] = new() { ["en"] = "Postal Code", ["es"] = "Código postal", ["ca"] = "Codi postal" },
         ["Country"] = new() { ["en"] = "Country", ["es"] = "País", ["ca"] = "País" },
         ["IsGlobal"] = new() { ["en"] = "Is Global", ["es"] = "Es global", ["ca"] = "És global" },
+        ["SupplierType"] = new() { ["en"] = "Supplier Type", ["es"] = "Tipo de proveedor", ["ca"] = "Tipus de proveïdor" },
         ["Code"] = new() { ["en"] = "Code", ["es"] = "Código", ["ca"] = "Codi" },
         ["ParentOrganizationName"] = new() { ["en"] = "Parent Organization", ["es"] = "Organización padre", ["ca"] = "Organització pare" },
         ["TimeZone"] = new() { ["en"] = "Time Zone", ["es"] = "Zona horaria", ["ca"] = "Fus horari" },

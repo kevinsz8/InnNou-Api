@@ -1,7 +1,13 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    SUPPLIER - UPDATE
    Updates an existing supplier's fields and returns the full
    updated row. Only acts on non-deleted records.
+   See sp_Supplier_Create's header comment for why the SET
+   statements above are required (filtered-index gotcha).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Update
 (
@@ -19,6 +25,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Update
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
     @IsGlobal           BIT,
+    @SupplierType       VARCHAR(20),
     @HasAccessToSystem  BIT,
     @LastUpdatedUtc     DATETIME2(7),
     @LastUpdatedBy      VARCHAR(150) = NULL
@@ -42,6 +49,7 @@ BEGIN
         PostalCode         = @PostalCode,
         Country            = @Country,
         IsGlobal           = @IsGlobal,
+        SupplierType       = @SupplierType,
         HasAccessToSystem  = @HasAccessToSystem,
         LastUpdatedUtc     = @LastUpdatedUtc,
         LastUpdatedBy      = @LastUpdatedBy
@@ -51,7 +59,7 @@ BEGIN
     SELECT
         SupplierId, SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, HasAccessToSystem, IsActive, IsDeleted,
+        PostalCode, Country, IsGlobal, SupplierType, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
     FROM dbo.Suppliers
     WHERE SupplierToken = @SupplierToken;

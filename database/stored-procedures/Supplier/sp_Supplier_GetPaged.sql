@@ -34,6 +34,7 @@ BEGIN
         s.PostalCode,
         s.Country,
         s.IsGlobal,
+        s.SupplierType,
         s.HasAccessToSystem,
         s.IsActive,
         s.IsDeleted,

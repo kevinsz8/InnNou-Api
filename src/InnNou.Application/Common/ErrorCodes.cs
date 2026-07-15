@@ -61,6 +61,7 @@ namespace InnNou.Application.Common
         public const string SupplierDeleteSuperadminOnly = "SUPPLIER_DELETE_SUPERADMIN_ONLY";
         public const string SupplierLoginCredentialsRequired = "SUPPLIER_LOGIN_CREDENTIALS_REQUIRED";
         public const string SupplierLoginEmailExists = "SUPPLIER_LOGIN_EMAIL_EXISTS";
+        public const string SupplierInvalidType = "SUPPLIER_INVALID_TYPE";
         public const string SupplierBulkImportForbidden = "SUPPLIER_BULK_IMPORT_FORBIDDEN";
         public const string SupplierBulkImportInvalidFile = "SUPPLIER_BULK_IMPORT_INVALID_FILE";
         public const string SupplierBulkImportTooManyRows = "SUPPLIER_BULK_IMPORT_TOO_MANY_ROWS";

@@ -23,7 +23,13 @@ namespace InnNou.Application.Handlers
 
         public async Task<ApiResponse<EditSupplierCommandResponse>> Handle(EditSupplierCommandRequest request, CancellationToken cancellationToken)
         {
+            if (!string.IsNullOrWhiteSpace(request.SupplierType) && !SupplierTypeCodes.IsValid(request.SupplierType))
+                return ApiResponse<EditSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierInvalidType, "SupplierType must be Product, Service, or Mixed.", 400);
+
             var dto = _mapper.Map<SupplierDto>(request);
+            if (!string.IsNullOrWhiteSpace(dto.SupplierType))
+                dto.SupplierType = dto.SupplierType.Trim().ToUpperInvariant();
+
             var updated = await _supplierService.EditSupplierAsync(dto, _context, cancellationToken);
 
             if (updated is null)

@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    USER - SET SUPPLIER ACCESS
    Updates the login fields (Email/UserName/PasswordHash) and
@@ -6,6 +10,9 @@
    toggle flow — distinct from sp_User_Update, which serves the
    general Users CRUD edit flow and has different parameters.
    Returns the full updated row.
+   The SET statements above are required because Users has filtered
+   unique indexes (UX_Users_OneUserPerSupplier, UX_Users_OneUserPerWarehouseContact)
+   — see sp_Supplier_Create's header comment for the full gotcha.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_User_SetSupplierAccess
 (

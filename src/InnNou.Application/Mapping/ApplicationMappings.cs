@@ -1,3 +1,4 @@
+using InnNou.Application.Common;
 using InnNou.Application.Requests;
 using InnNou.Application.Responses;
 using InnNou.Domain.Dtos;
@@ -200,6 +201,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = r.PostalCode,
                 Country = r.Country,
                 IsGlobal = r.IsGlobal,
+                SupplierType = r.SupplierType,
                 HasAccessToSystem = r.HasAccessToSystem,
                 LoginEmail = r.LoginEmail,
                 Password = r.Password
@@ -220,6 +222,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
@@ -238,6 +241,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = r.PostalCode,
                 Country = r.Country,
                 IsGlobal = r.IsGlobal,
+                SupplierType = r.SupplierType,
                 HasAccessToSystem = r.HasAccessToSystem,
                 LoginEmail = r.LoginEmail,
                 Password = r.Password
@@ -258,6 +262,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });
@@ -277,6 +282,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = d.PostalCode,
                 Country = d.Country,
                 IsGlobal = d.IsGlobal ?? false,
+                SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
             });

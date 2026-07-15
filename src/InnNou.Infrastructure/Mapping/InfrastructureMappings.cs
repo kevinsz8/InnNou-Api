@@ -104,6 +104,7 @@ namespace InnNou.Infrastructure.Mapping
                 PostalCode = s.PostalCode,
                 Country = s.Country,
                 IsGlobal = s.IsGlobal,
+                SupplierType = s.SupplierType,
                 HasAccessToSystem = s.HasAccessToSystem,
                 IsActive = s.IsActive,
                 IsDeleted = s.IsDeleted

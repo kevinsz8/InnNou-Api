@@ -1,7 +1,13 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 /* =============================================================
    SUPPLIER - SOFT DELETE
    Marks a supplier as deleted and inactive, recording the full
    deleted audit trail. Does not physically remove the row.
+   See sp_Supplier_Create's header comment for why the SET
+   statements above are required (filtered-index gotcha).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Supplier_SoftDelete
 (

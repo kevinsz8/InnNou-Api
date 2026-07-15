@@ -17,6 +17,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
         public bool IsGlobal { get; set; }
+        public string SupplierType { get; set; } = default!;
         public bool HasAccessToSystem { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }

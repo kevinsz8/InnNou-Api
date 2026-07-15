@@ -26,6 +26,7 @@ BEGIN
         PostalCode,
         Country,
         IsGlobal,
+        SupplierType,
         HasAccessToSystem,
         IsActive,
         IsDeleted,
