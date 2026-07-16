@@ -12,10 +12,15 @@ namespace InnNou.Infrastructure.Services;
 
 public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMapper mapper) : IWarehouseContactService
 {
-    // Deliberately reuses the existing generic EMPLOYEE role rather than a dedicated
-    // "warehouse contact" role — the privilege/role-architecture question for warehouse
-    // contacts is explicitly deferred (see CLAUDE.md, "Warehouse contacts (shadow User)").
-    private const string WarehouseContactRoleNormalizedName = "EMPLOYEE";
+    // Shared "WAREHOUSE" role (added 2026-07-16, resolving a previously-deferred design
+    // question — see CLAUDE.md, "Warehouse contacts (shadow User)"). A short-lived
+    // dedicated "WAREHOUSE_CONTACT" role and a separate per-Warehouse shadow-user
+    // impersonation feature both existed briefly the same day and were reversed —
+    // impersonating anything warehouse-related always goes through a specific contact
+    // now, so WAREHOUSE is the only warehouse-side role left, and RoleLevel was bumped
+    // 10 -> 20 (it used to back a read-mostly warehouse-only identity) so contacts keep
+    // full Staff-level capability when impersonated.
+    private const string WarehouseContactRoleNormalizedName = "WAREHOUSE";
     private const string NoAccessEmailDomain = "@no-access.innou.internal";
 
     private const int StaffRoleLevel = 20;
