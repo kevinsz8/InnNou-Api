@@ -7,6 +7,13 @@ GO
    Returns a paginated list of users. Super admins see all.
    Organization users see only users in their organization subtree.
    Supplier users see only users belonging to their supplier.
+
+   @RoleIds/@OrganizationIds are optional comma-delimited lists of ids
+   (STRING_SPLIT, no dynamic SQL) that further narrow the result set.
+   They are applied as additional AND conditions on top of the existing
+   SuperAdmin/Supplier/OrganizationHierarchy OR-block below, never in
+   place of it — a caller can only filter within what they could already
+   see, not expand their visibility.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_User_GetPaged
 (
@@ -17,7 +24,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_User_GetPaged
     @SearchText          VARCHAR(200) = NULL,
     @PageNumber          INT,
     @PageSize            INT,
-    @IncludeInactive     BIT          = 0
+    @IncludeInactive     BIT          = 0,
+    @RoleIds             VARCHAR(MAX) = NULL,
+    @OrganizationIds     VARCHAR(MAX) = NULL
 )
 AS
 BEGIN
@@ -86,6 +95,16 @@ BEGIN
             OR (@SearchField = 'firstname' AND LOWER(u.FirstName) LIKE '%' + LOWER(@SearchText) + '%')
             OR (@SearchField = 'lastname'  AND LOWER(u.LastName)  LIKE '%' + LOWER(@SearchText) + '%')
             OR (@SearchField = 'username'  AND LOWER(u.UserName)  LIKE '%' + LOWER(@SearchText) + '%')
+        )
+        AND
+        (
+            @RoleIds IS NULL
+            OR u.RoleId IN (SELECT TRY_CAST(value AS INT) FROM STRING_SPLIT(@RoleIds, ','))
+        )
+        AND
+        (
+            @OrganizationIds IS NULL
+            OR u.OrganizationId IN (SELECT TRY_CAST(value AS INT) FROM STRING_SPLIT(@OrganizationIds, ','))
         )
     ORDER BY u.UserId
     OFFSET (@PageNumber - 1) * @PageSize ROWS

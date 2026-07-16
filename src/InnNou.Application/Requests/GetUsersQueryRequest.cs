@@ -11,5 +11,7 @@ namespace InnNou.Application.Requests
         public string? SearchField { get; set; }
         public string? SearchText { get; set; }
         public bool IncludeInactive { get; set; } = false;
+        public List<int>? RoleIds { get; set; }
+        public List<int>? OrganizationIds { get; set; }
     }
 }

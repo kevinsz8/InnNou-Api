@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
         }
         public async Task<ApiResponse<GetUsersQueryResponse>> Handle(GetUsersQueryRequest request, CancellationToken cancellationToken)
         {
-            var resultUsers = await _userService.GetUsersAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, request.IncludeInactive, _context, cancellationToken);
+            var resultUsers = await _userService.GetUsersAsync(request.PageNumber, request.PageSize, request.SearchField, request.SearchText, request.IncludeInactive, request.RoleIds, request.OrganizationIds, _context, cancellationToken);
             var users = _mapper.MapList<User>(resultUsers.Items);
             var totalPages = resultUsers.TotalPages;
             var response = new GetUsersQueryResponse

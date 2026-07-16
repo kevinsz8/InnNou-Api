@@ -101,6 +101,8 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         string? searchField,
         string? searchText,
         bool includeInactive,
+        List<int>? roleIds,
+        List<int>? organizationIds,
         IRequestContext context,
         CancellationToken cancellationToken)
     {
@@ -118,6 +120,8 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
         p.Add("@IncludeInactive", includeInactive);
+        p.Add("@RoleIds", roleIds is { Count: > 0 } ? string.Join(',', roleIds) : null);
+        p.Add("@OrganizationIds", organizationIds is { Count: > 0 } ? string.Join(',', organizationIds) : null);
 
         var rows = (await connection.QueryAsync<UserPageRow>(
             "sp_User_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
@@ -465,7 +469,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.UserBulkImportForbidden, "Only Admins and SuperAdmins can export users.", 403);
 
-        var users = await GetUsersAsync(1, MaxExportRows, searchField, searchText, includeInactive, context, cancellationToken);
+        var users = await GetUsersAsync(1, MaxExportRows, searchField, searchText, includeInactive, null, null, context, cancellationToken);
         var roles = await roleService.GetRolesAsync(1, MaxExportRows, null, null, true, context, cancellationToken);
         var organizations = await organizationService.GetOrganizationsAsync(1, MaxExportRows, null, null, true, context, cancellationToken);
 
