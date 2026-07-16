@@ -13,5 +13,6 @@ namespace InnNou.Application.Requests
         public Guid? SubFamilyToken { get; set; }
         public string? SearchText { get; set; }
         public bool IncludeInactive { get; set; } = false;
+        public bool FavoritesOnly { get; set; } = false;
     }
 }

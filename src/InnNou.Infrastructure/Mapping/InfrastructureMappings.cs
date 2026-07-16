@@ -212,7 +212,10 @@ namespace InnNou.Infrastructure.Mapping
                 IsActive = e.IsActive,
                 IsDeleted = e.IsDeleted,
                 ReplacedByArticleId = e.ReplacedByArticleId,
-                ReplacedByArticleToken = e.ReplacedByArticleToken
+                ReplacedByArticleToken = e.ReplacedByArticleToken,
+                IsFavorite = e.IsFavorite,
+                IsInherited = e.IsInherited,
+                FavoriteOrganizationName = e.FavoriteOrganizationName
             });
 
             mapper.Register<ArticlePriceEntity, ArticlePriceDto>(e => new ArticlePriceDto

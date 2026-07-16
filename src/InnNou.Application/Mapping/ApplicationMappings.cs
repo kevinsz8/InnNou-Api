@@ -445,7 +445,10 @@ namespace InnNou.Application.Mapping
                 MinimumOrderQty = d.MinimumOrderQty,
                 LeadTimeDays = d.LeadTimeDays,
                 IsActive = d.IsActive,
-                ReplacedByArticleToken = d.ReplacedByArticleToken
+                ReplacedByArticleToken = d.ReplacedByArticleToken,
+                IsFavorite = d.IsFavorite,
+                IsInherited = d.IsInherited,
+                FavoriteOrganizationName = d.FavoriteOrganizationName
             });
             mapper.Register<BulkImportArticleRowErrorDto, BulkImportArticleRowError>(d => new BulkImportArticleRowError
             {

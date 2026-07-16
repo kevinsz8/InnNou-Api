@@ -36,7 +36,7 @@ public class ArticleService(
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
-    public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, string? searchText, bool includeInactive, bool favoritesOnly, IRequestContext context, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : pageSize;
@@ -72,6 +72,8 @@ public class ArticleService(
         p.Add("@SubFamilyId", subFamilyId);
         p.Add("@SearchText", searchText);
         p.Add("@IncludeInactive", includeInactive);
+        p.Add("@OrganizationId", context.OrganizationId);
+        p.Add("@FavoritesOnly", favoritesOnly);
         var rows = (await connection.QueryAsync<ArticlePageRow>(
             "sp_Article_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<ArticleDto>
@@ -88,6 +90,7 @@ public class ArticleService(
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@ArticleToken", token);
+        p.Add("@OrganizationId", context.OrganizationId);
         var row = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_GetByToken", p, commandType: CommandType.StoredProcedure);
 
@@ -805,7 +808,7 @@ public class ArticleService(
         // No supplierId/familyId/subFamilyId filter here — GetPagedAsync's own visibility rule
         // already forces a supplier-scoped caller to their own catalog; an Admin+ caller exports
         // the full catalog, matching the single-row read scope.
-        var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, searchText, includeInactive, context, cancellationToken);
+        var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, searchText, includeInactive, false, context, cancellationToken);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Articles");

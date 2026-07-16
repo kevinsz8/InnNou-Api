@@ -33,5 +33,8 @@ namespace InnNou.Domain.Dtos
         public bool IsDeleted { get; set; }
         public int? ReplacedByArticleId { get; set; }
         public Guid? ReplacedByArticleToken { get; set; }
+        public bool IsFavorite { get; set; }
+        public bool IsInherited { get; set; }
+        public string? FavoriteOrganizationName { get; set; }
     }
 }

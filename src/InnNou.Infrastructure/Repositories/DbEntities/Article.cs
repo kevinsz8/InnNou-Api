@@ -33,6 +33,9 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public bool IsDeleted { get; set; }
         public int? ReplacedByArticleId { get; set; }
         public Guid? ReplacedByArticleToken { get; set; }
+        public bool IsFavorite { get; set; }
+        public bool IsInherited { get; set; }
+        public string? FavoriteOrganizationName { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

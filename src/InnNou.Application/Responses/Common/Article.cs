@@ -26,5 +26,8 @@ namespace InnNou.Application.Responses.Common
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }
         public Guid? ReplacedByArticleToken { get; set; }
+        public bool IsFavorite { get; set; }
+        public bool IsInherited { get; set; }
+        public string? FavoriteOrganizationName { get; set; }
     }
 }

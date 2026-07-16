@@ -39,7 +39,7 @@ namespace InnNou.Application.Handlers
                 subFamilyId = subFamily.SubFamilyId;
             }
 
-            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, request.SearchText, request.IncludeInactive, context, cancellationToken);
+            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, request.SearchText, request.IncludeInactive, request.FavoritesOnly, context, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetArticlesQueryResponse
             {
