@@ -16,6 +16,7 @@ using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCateg
 using OrganizationContactEntity = InnNou.Infrastructure.Repositories.DbEntities.OrganizationContact;
 using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
 using ArticlePriceEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePrice;
+using ArticleFavoriteEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticleFavorite;
 using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
 using WarehouseEntity = InnNou.Infrastructure.Repositories.DbEntities.Warehouse;
 using WarehouseContactEntity = InnNou.Infrastructure.Repositories.DbEntities.WarehouseContact;
@@ -226,6 +227,23 @@ namespace InnNou.Infrastructure.Mapping
                 CurrencyCode = e.CurrencyCode,
                 EffectiveDate = e.EffectiveDate,
                 Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<ArticleFavoriteEntity, ArticleFavoriteDto>(e => new ArticleFavoriteDto
+            {
+                ArticleFavoriteId = e.ArticleFavoriteId,
+                ArticleFavoriteToken = e.ArticleFavoriteToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierSku = e.SupplierSku,
+                SupplierName = e.SupplierName,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
+                IsInherited = e.IsInherited,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
             });

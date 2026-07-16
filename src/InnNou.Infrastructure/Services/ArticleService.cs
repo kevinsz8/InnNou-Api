@@ -626,10 +626,12 @@ public class ArticleService(
                     result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitNotFound, Description = $"Content unit '{contentUnitCode}' was not found." });
                     continue;
                 }
+                // See CreateArticleCommandHandler's identical check for why COUNT is allowed here too.
                 if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitInvalidType, Description = "Content unit must be a WEIGHT or VOLUME unit." });
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitInvalidType, Description = "Content unit must be a WEIGHT, VOLUME, or COUNT unit." });
                     continue;
                 }
 

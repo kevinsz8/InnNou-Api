@@ -26,9 +26,14 @@ namespace InnNou.Application.Handlers
             var contentUnit = await unitOfMeasureService.GetByTokenAsync(request.ContentUnitToken, cancellationToken);
             if (contentUnit is null)
                 return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitNotFound, "Content unit of measure not found.", 404);
+            // WEIGHT/VOLUME cover measured content (500ml per bottle); COUNT covers discrete
+            // content (100 gloves per box) and services with no physical measure at all
+            // (convention: ContentUnit = PurchaseUnit, ContentQuantity = 1) — same
+            // TotalContentPerPurchaseUnit = PurchaseQuantity × ContentQuantity formula either way.
             if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase))
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT or VOLUME unit.", 400);
+                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT, VOLUME, or COUNT unit.", 400);
 
             int? baseUnitId = null;
             if (request.BaseUnitToken.HasValue)

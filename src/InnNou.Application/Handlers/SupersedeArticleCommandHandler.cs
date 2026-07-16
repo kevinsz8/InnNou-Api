@@ -29,9 +29,11 @@ namespace InnNou.Application.Handlers
             var contentUnit = await unitOfMeasureService.GetByTokenAsync(request.ContentUnitToken, cancellationToken);
             if (contentUnit is null)
                 return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitNotFound, "Content unit of measure not found.", 404);
+            // See CreateArticleCommandHandler's identical check for why COUNT is allowed here too.
             if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase))
-                return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT or VOLUME unit.", 400);
+                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
+                return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT, VOLUME, or COUNT unit.", 400);
 
             int? baseUnitId = null;
             if (request.BaseUnitToken.HasValue)

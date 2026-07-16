@@ -98,6 +98,13 @@ namespace InnNou.Application.Common
         public const string ArticlePriceBulkImportRowInvalid = "ARTICLE_PRICE_BULK_IMPORT_ROW_INVALID";
         public const string ArticlePriceBulkImportRowFailed = "ARTICLE_PRICE_BULK_IMPORT_ROW_FAILED";
 
+        // ArticleFavorite
+        public const string ArticleFavoriteNotFound = "ARTICLE_FAVORITE_NOT_FOUND";
+        public const string ArticleFavoriteCreateFailed = "ARTICLE_FAVORITE_CREATE_FAILED";
+        public const string ArticleFavoriteArticleReplaced = "ARTICLE_FAVORITE_ARTICLE_REPLACED";
+        public const string ArticleFavoriteNoOrganizationContext = "ARTICLE_FAVORITE_NO_ORGANIZATION_CONTEXT";
+        public const string ArticleFavoriteForbidden = "ARTICLE_FAVORITE_FORBIDDEN";
+
         // Family
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";
         public const string FamilyCodeExists = "FAMILY_CODE_EXISTS";

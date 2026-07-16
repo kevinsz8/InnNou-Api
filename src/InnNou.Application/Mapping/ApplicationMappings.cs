@@ -17,6 +17,7 @@ using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 using CommonOrganizationContact = InnNou.Application.Responses.Common.OrganizationContact;
 using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
+using CommonArticleFavorite = InnNou.Application.Responses.Common.ArticleFavorite;
 using CommonCurrency = InnNou.Application.Responses.Common.Currency;
 using CommonMenuItem = InnNou.Application.Responses.Common.MenuItem;
 using CommonWarehouse = InnNou.Application.Responses.Common.Warehouse;
@@ -489,6 +490,21 @@ namespace InnNou.Application.Mapping
                 SuccessCount = d.SuccessCount,
                 FailureCount = d.FailureCount,
                 Errors = mapper.MapList<BulkImportArticlePriceRowError>(d.Errors)
+            });
+
+            // ArticleFavorite
+            mapper.Register<ArticleFavoriteDto, CommonArticleFavorite>(d => new CommonArticleFavorite
+            {
+                ArticleFavoriteToken = d.ArticleFavoriteToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierSku = d.SupplierSku,
+                SupplierName = d.SupplierName,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                IsInherited = d.IsInherited,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
             });
 
             // Currency
