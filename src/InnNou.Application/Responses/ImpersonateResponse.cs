@@ -9,6 +9,7 @@
         public string Email { get; set; } = default!;
         public string? SupplierName { get; set; }
         public string? WarehouseContactName { get; set; }
+        public string? OrganizationName { get; set; }
 
         public bool IsImpersonating { get; set; }
     }

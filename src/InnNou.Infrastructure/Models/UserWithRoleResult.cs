@@ -30,4 +30,7 @@ internal sealed class UserWithRoleResult
 
     // Only populated by sp_Auth_GetUserByWarehouseContactToken (joins WarehouseContacts.ContactName); null otherwise.
     public string? WarehouseContactName { get; set; }
+
+    // Only populated by sp_Auth_GetTopUserByOrganizationToken (joins Organizations.Name); null otherwise.
+    public string? OrganizationName { get; set; }
 }

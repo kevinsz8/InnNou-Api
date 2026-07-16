@@ -228,6 +228,26 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         return result;
     }
 
+    public async Task<Login?> ImpersonateOrganizationAsync(Guid actorUserToken, Guid organizationToken, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var linkedUser = await connection.QueryFirstOrDefaultAsync<UserWithRoleResult>(
+            "sp_Auth_GetTopUserByOrganizationToken",
+            new { OrganizationToken = organizationToken },
+            commandType: CommandType.StoredProcedure);
+
+        if (linkedUser is null)
+            return null;
+
+        var result = await ImpersonateAsync(actorUserToken, linkedUser.UserToken, cancellationToken);
+
+        if (result is not null)
+            result.OrganizationName = linkedUser.OrganizationName;
+
+        return result;
+    }
+
     public async Task<Login?> StopImpersonationAsync(Guid actorUserToken, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
