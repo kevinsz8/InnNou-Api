@@ -7,11 +7,24 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetArticlesQueryHandler(IArticleService articleService, ISupplierService supplierService, IFamilyService familyService, ISubFamilyService subFamilyService, IMapper mapper, IRequestContext context)
+    public class GetArticlesQueryHandler(IArticleService articleService, ISupplierService supplierService, IFamilyService familyService, ISubFamilyService subFamilyService, IOrganizationService organizationService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetArticlesQueryRequest, ApiResponse<GetArticlesQueryResponse>>
     {
         public async Task<ApiResponse<GetArticlesQueryResponse>> Handle(GetArticlesQueryRequest request, CancellationToken cancellationToken)
         {
+            int? organizationId = null;
+            if (request.OrganizationToken.HasValue)
+            {
+                // GetOrganizationByTokenAsync already returns null for an organization outside
+                // the caller's own scope (hierarchy for Admin/Manager, exact match for Staff,
+                // unrestricted for SuperAdmin/supplier) — reusing it here is what stops this
+                // parameter from becoming a way to probe an arbitrary organization's favorites.
+                var organization = await organizationService.GetOrganizationByTokenAsync(request.OrganizationToken.Value, context, cancellationToken);
+                if (organization is null)
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.OrganizationOutsideScope, "Organization not found or outside your scope.", 403);
+                organizationId = organization.OrganizationId;
+            }
+
             int? supplierId = null;
             if (request.SupplierToken.HasValue)
             {
@@ -39,7 +52,7 @@ namespace InnNou.Application.Handlers
                 subFamilyId = subFamily.SubFamilyId;
             }
 
-            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, request.SearchText, request.IncludeInactive, request.FavoritesOnly, context, cancellationToken);
+            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, request.SearchText, request.IncludeInactive, request.FavoritesOnly, organizationId, context, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetArticlesQueryResponse
             {
