@@ -19,6 +19,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
     private const int SuperAdminRoleLevel = 100;
     private const int AdminRoleLevel = 80;
     private const int ManagerRoleLevel = 60;
+    private const int MaxPageSize = 100;
 
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
@@ -71,7 +72,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         var (scope, scopeOrganizationId) = ResolveScope(context);
         if (scope == OrganizationScope.None)

@@ -14,6 +14,8 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
 {
     private sealed class RolePageRow : Role { public int TotalCount { get; set; } }
 
+    private const int MaxPageSize = 100;
+
     public async Task<RoleDto?> GetRoleByTokenAsync(Guid roleToken, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -36,7 +38,7 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
         CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
 

@@ -20,13 +20,14 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
     // authenticated user) — bulk import introduces the first one, at AdminRoleLevel, matching
     // Category/SubCategory's identical bulk-import gate.
     private const int AdminRoleLevel = 80;
+    private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
 
     public async Task<PagedResult<FamilyDto>> GetPagedAsync(int pageNumber, int pageSize, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();

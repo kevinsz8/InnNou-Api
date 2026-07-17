@@ -23,6 +23,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     // not just visibility/ordinary-field management.
     private const int AdminRoleLevel = 80;
     private const int SuperAdminRoleLevel = 100;
+    private const int MaxPageSize = 100;
 
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
@@ -55,7 +56,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             };
 
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
 

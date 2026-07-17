@@ -24,6 +24,7 @@ public class ArticleService(
     private sealed class ArticlePageRow : Article { public int TotalCount { get; set; } }
 
     private const int AdminRoleLevel = 80;
+    private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
 
@@ -39,7 +40,7 @@ public class ArticleService(
     public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, string? searchText, bool includeInactive, bool favoritesOnly, IRequestContext context, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         int? effectiveSupplierId;
         if (context.SupplierId.HasValue)

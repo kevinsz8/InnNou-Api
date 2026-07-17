@@ -14,6 +14,28 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
 {
     private sealed class OrganizationContactPageRow : OrganizationContact { public int TotalCount { get; set; } }
 
+    private const int SuperAdminRoleLevel = 100;
+    private const int MaxPageSize = 100;
+
+    // RoleLevel >= 100 manages/reads any organization's contacts. Below that, the caller must be
+    // organization-scoped and the target must be within their own organization's hierarchy —
+    // a caller with no organization (e.g. a Supplier-scoped login) is denied, never unrestricted.
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    {
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+            return true;
+
+        if (!context.OrganizationId.HasValue)
+            return false;
+
+        var canAccess = await connection.ExecuteScalarAsync<int>(
+            "sp_Organization_IsInHierarchy",
+            new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = targetOrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        return canAccess == 1;
+    }
+
     public async Task<PagedResult<OrganizationContactDto>> GetPagedByOrganizationTokenAsync(
         Guid organizationToken,
         int pageNumber,
@@ -24,16 +46,16 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
         CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
 
         var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_GetByToken",
-            new { OrganizationToken = organizationToken, RootOrganizationId = context.RoleLevel >= 100 ? (int?)null : context.OrganizationId },
+            new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null },
             commandType: CommandType.StoredProcedure);
 
-        if (organization is null)
+        if (organization is null || !await CanManageOrganizationAsync(connection, context, organization.OrganizationId))
             return new PagedResult<OrganizationContactDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         var p = new DynamicParameters();
@@ -67,16 +89,8 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
         if (contact is null)
             return null;
 
-        if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
-        {
-            var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Organization_IsInHierarchy",
-                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = contact.OrganizationId },
-                commandType: CommandType.StoredProcedure);
-
-            if (canAccess != 1)
-                return null;
-        }
+        if (!await CanManageOrganizationAsync(connection, context, contact.OrganizationId))
+            return null;
 
         return mapper.Map<OrganizationContactDto>(contact);
     }
@@ -87,11 +101,14 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
 
         var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_GetByToken",
-            new { OrganizationToken = dto.OrganizationToken, RootOrganizationId = context.RoleLevel >= 100 ? (int?)null : context.OrganizationId },
+            new { OrganizationToken = dto.OrganizationToken, RootOrganizationId = (int?)null },
             commandType: CommandType.StoredProcedure);
 
         if (organization is null)
             return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, organization.OrganizationId))
+            throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot create contact for another organization.", 403);
 
         var p = new DynamicParameters();
         p.Add("@OrganizationContactToken", Guid.NewGuid());
@@ -126,16 +143,8 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
         if (existing is null)
             return null;
 
-        if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
-        {
-            var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Organization_IsInHierarchy",
-                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = existing.OrganizationId },
-                commandType: CommandType.StoredProcedure);
-
-            if (canAccess != 1)
-                throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot edit contact from another organization.", 403);
-        }
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+            throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot edit contact from another organization.", 403);
 
         var p = new DynamicParameters();
         p.Add("@OrganizationContactToken", dto.OrganizationContactToken);
@@ -169,16 +178,8 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
         if (existing is null)
             return false;
 
-        if (context.RoleLevel < 100 && context.OrganizationId.HasValue)
-        {
-            var canAccess = await connection.ExecuteScalarAsync<int>(
-                "sp_Organization_IsInHierarchy",
-                new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = existing.OrganizationId },
-                commandType: CommandType.StoredProcedure);
-
-            if (canAccess != 1)
-                throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot delete contact from another organization.", 403);
-        }
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+            throw new ApiException(ErrorCodes.OrganizationContactOutsideScope, "Cannot delete contact from another organization.", 403);
 
         var now = DateTime.UtcNow;
         var actor = context.ActorUserToken.ToString();

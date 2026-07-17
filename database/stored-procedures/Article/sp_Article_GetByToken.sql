@@ -63,7 +63,9 @@ BEGIN
         r.ArticleToken  AS ReplacedByArticleToken,
         CASE WHEN ef.ArticleId IS NULL THEN CAST(0 AS BIT) ELSE CAST(1 AS BIT) END AS IsFavorite,
         ISNULL(ef.IsInherited, CAST(0 AS BIT)) AS IsInherited,
-        efo.Name        AS FavoriteOrganizationName
+        efo.Name        AS FavoriteOrganizationName,
+        a.DeletedUtc,
+        a.DeletedBy
     FROM   Articles        a
     JOIN   Suppliers       s  ON  s.SupplierId       = a.SupplierId
     JOIN   UnitsOfMeasure  pu ON  pu.UnitOfMeasureId = a.PurchaseUnitId

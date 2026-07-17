@@ -20,6 +20,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
     private sealed class UserPageRow : User { public int TotalCount { get; set; } }
 
     private const int AdminRoleLevel = 80;
+    private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
 
@@ -107,7 +108,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
 

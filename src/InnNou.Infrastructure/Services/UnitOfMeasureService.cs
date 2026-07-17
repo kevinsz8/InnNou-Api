@@ -13,10 +13,12 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
 {
     private sealed class UnitOfMeasurePageRow : UnitOfMeasure { public int TotalCount { get; set; } }
 
+    private const int MaxPageSize = 100;
+
     public async Task<PagedResult<UnitOfMeasureDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();

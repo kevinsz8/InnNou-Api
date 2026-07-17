@@ -16,6 +16,8 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
 {
     private sealed class CategoryPageRow : Category { public int TotalCount { get; set; } }
 
+    private const int MaxPageSize = 100;
+
     // Category/SubCategory Create/Edit have no RoleLevel gate at all today (open to any
     // authenticated user, enforced only by .RequireAuthorization() at the endpoint) — bulk import
     // introduces the first one, at AdminRoleLevel, matching the "bulk is a higher-trust capability"
@@ -28,7 +30,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
     public async Task<PagedResult<CategoryDto>> GetPagedAsync(int pageNumber, int pageSize, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
-        var safePageSize = pageSize < 1 ? 10 : pageSize;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
