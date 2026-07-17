@@ -55,6 +55,8 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IArticleFavoriteService, ArticleFavoriteService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<IMenuService, MenuService>();
+            services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();

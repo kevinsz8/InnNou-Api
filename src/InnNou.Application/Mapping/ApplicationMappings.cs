@@ -22,6 +22,10 @@ using CommonCurrency = InnNou.Application.Responses.Common.Currency;
 using CommonMenuItem = InnNou.Application.Responses.Common.MenuItem;
 using CommonWarehouse = InnNou.Application.Responses.Common.Warehouse;
 using CommonWarehouseContact = InnNou.Application.Responses.Common.WarehouseContact;
+using CommonOrder = InnNou.Application.Responses.Common.Order;
+using CommonOrderLine = InnNou.Application.Responses.Common.OrderLine;
+using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
+using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
 
 namespace InnNou.Application.Mapping
 {
@@ -813,6 +817,78 @@ namespace InnNou.Application.Mapping
                 IsPrimary = d.IsPrimary,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
                 IsActive = d.IsActive
+            });
+
+            // OrderLine (registered before Order since it embeds a List<CommonOrderLine>)
+            mapper.Register<OrderLineDto, CommonOrderLine>(d => new CommonOrderLine
+            {
+                OrderLineToken = d.OrderLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                Quantity = d.Quantity,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseQuantity = d.PurchaseQuantity,
+                ContentUnitCode = d.ContentUnitCode,
+                ContentQuantity = d.ContentQuantity,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc
+            });
+
+            // PurchaseOrderLine (registered before PurchaseOrder since it embeds a List<CommonPurchaseOrderLine>)
+            mapper.Register<PurchaseOrderLineDto, CommonPurchaseOrderLine>(d => new CommonPurchaseOrderLine
+            {
+                PurchaseOrderLineToken = d.PurchaseOrderLineToken,
+                OrderLineToken = d.OrderLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                Quantity = d.Quantity,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseQuantity = d.PurchaseQuantity,
+                ContentUnitCode = d.ContentUnitCode,
+                ContentQuantity = d.ContentQuantity,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc
+            });
+
+            // Order
+            mapper.Register<OrderDto, CommonOrder>(d => new CommonOrder
+            {
+                OrderToken = d.OrderToken,
+                OrganizationToken = d.OrganizationToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                Status = d.Status,
+                Notes = d.Notes,
+                SubmittedUtc = d.SubmittedUtc,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                Lines = mapper.MapList<CommonOrderLine>(d.Lines)
+            });
+
+            // PurchaseOrder
+            mapper.Register<PurchaseOrderDto, CommonPurchaseOrder>(d => new CommonPurchaseOrder
+            {
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                OrderToken = d.OrderToken,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                OrganizationToken = d.OrganizationToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                Status = d.Status,
+                SentUtc = d.SentUtc,
+                CancelledUtc = d.CancelledUtc,
+                CancelledBy = d.CancelledBy,
+                CreatedUtc = d.CreatedUtc,
+                Lines = mapper.MapList<CommonPurchaseOrderLine>(d.Lines)
             });
         }
     }

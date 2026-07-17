@@ -189,6 +189,18 @@ namespace InnNou.Application.Common
         public const string WarehouseContactLoginCredentialsRequired = "WAREHOUSE_CONTACT_LOGIN_CREDENTIALS_REQUIRED";
         public const string WarehouseContactLoginEmailExists = "WAREHOUSE_CONTACT_LOGIN_EMAIL_EXISTS";
 
+        // Order
+        public const string OrderNotFound = "ORDER_NOT_FOUND";
+        public const string OrderWarehouseNotFound = "ORDER_WAREHOUSE_NOT_FOUND";
+        public const string OrderForbidden = "ORDER_FORBIDDEN";
+        public const string OrderNotDraft = "ORDER_NOT_DRAFT";
+        public const string OrderEmpty = "ORDER_EMPTY";
+
+        // PurchaseOrder
+        public const string PurchaseOrderNotFound = "PURCHASE_ORDER_NOT_FOUND";
+        public const string PurchaseOrderForbidden = "PURCHASE_ORDER_FORBIDDEN";
+        public const string PurchaseOrderNotSent = "PURCHASE_ORDER_NOT_SENT";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 

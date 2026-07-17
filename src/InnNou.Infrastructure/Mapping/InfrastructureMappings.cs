@@ -20,6 +20,10 @@ using ArticleFavoriteEntity = InnNou.Infrastructure.Repositories.DbEntities.Arti
 using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
 using WarehouseEntity = InnNou.Infrastructure.Repositories.DbEntities.Warehouse;
 using WarehouseContactEntity = InnNou.Infrastructure.Repositories.DbEntities.WarehouseContact;
+using OrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Order;
+using OrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderLine;
+using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrder;
+using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -321,6 +325,101 @@ namespace InnNou.Infrastructure.Mapping
                 HasAccessToSystem = e.HasAccessToSystem,
                 IsActive = e.IsActive,
                 IsDeleted = e.IsDeleted
+            });
+
+            mapper.Register<OrderLineEntity, OrderLineDto>(e => new OrderLineDto
+            {
+                OrderLineId = e.OrderLineId,
+                OrderLineToken = e.OrderLineToken,
+                OrderId = e.OrderId,
+                OrderToken = e.OrderToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                Quantity = e.Quantity,
+                PurchaseUnitId = e.PurchaseUnitId,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                PurchaseQuantity = e.PurchaseQuantity,
+                ContentUnitId = e.ContentUnitId,
+                ContentUnitCode = e.ContentUnitCode,
+                ContentQuantity = e.ContentQuantity,
+                UnitPrice = e.UnitPrice,
+                CurrencyCode = e.CurrencyCode,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<PurchaseOrderLineEntity, PurchaseOrderLineDto>(e => new PurchaseOrderLineDto
+            {
+                PurchaseOrderLineId = e.PurchaseOrderLineId,
+                PurchaseOrderLineToken = e.PurchaseOrderLineToken,
+                PurchaseOrderId = e.PurchaseOrderId,
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                OrderLineId = e.OrderLineId,
+                OrderLineToken = e.OrderLineToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                Quantity = e.Quantity,
+                PurchaseUnitId = e.PurchaseUnitId,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                PurchaseQuantity = e.PurchaseQuantity,
+                ContentUnitId = e.ContentUnitId,
+                ContentUnitCode = e.ContentUnitCode,
+                ContentQuantity = e.ContentQuantity,
+                UnitPrice = e.UnitPrice,
+                CurrencyCode = e.CurrencyCode,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<OrderEntity, OrderDto>(e => new OrderDto
+            {
+                OrderId = e.OrderId,
+                OrderToken = e.OrderToken,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                WarehouseId = e.WarehouseId,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                Status = e.Status,
+                Notes = e.Notes,
+                SubmittedUtc = e.SubmittedUtc,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<PurchaseOrderEntity, PurchaseOrderDto>(e => new PurchaseOrderDto
+            {
+                PurchaseOrderId = e.PurchaseOrderId,
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                OrderId = e.OrderId,
+                OrderToken = e.OrderToken,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                WarehouseId = e.WarehouseId,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                Status = e.Status,
+                SentUtc = e.SentUtc,
+                CancelledUtc = e.CancelledUtc,
+                CancelledBy = e.CancelledBy,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
             });
         }
     }

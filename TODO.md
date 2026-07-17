@@ -16,35 +16,19 @@
 
 ---
 
-## 2. Módulo Pedidos / Orders — arrancar la base
+## 2. Módulo Pedidos / Orders — implementado (backend), 2026-07-17
 
-Este es uno de los primeros procesos "core" del negocio. Todavía no hay diseño de datos ni de permisos definitivo — esto es la idea inicial tal como se discutió, para no perderla.
+**Backend completo, ver `.claude/OrdersModule.md`.** `Order`/`OrderLine`/`PurchaseOrder` (tablas, SPs, servicios, endpoints `/orders` y `/purchaseOrders`) implementados y verificados en vivo end-to-end: crear pedido → agregar líneas de 2 suppliers distintos (una resolvió correctamente el precio de contrato sembrado sobre el global) → submit → split en 2 `PurchaseOrder` → mutación post-submit rechazada con `ORDER_NOT_DRAFT` → cancelar → doble cancelación rechazada con `PURCHASE_ORDER_NOT_SENT`.
 
-### Quién puede crear un pedido
-- Usuarios de **organización hija** (Asociado — no Super Asociado) dentro de su propia organización.
-- Usuarios de **Warehouse** (shadow user de `WarehouseContact`, rol `WAREHOUSE`).
+**Falta:** el frontend (`InnNou-Web` — página `Orders.tsx` + hooks/services). Resumen de las decisiones clave del diseño (ya construidas):
 
-### El flujo es un poco engañoso (como en otros sistemas parecidos)
-En apariencia, para crear un pedido hay que:
-1. Suplantar (impersonate) a la organización hija.
-2. Al entrar a la sección de Pedidos, el sistema pide seleccionar un **Warehouse** de esa organización.
-3. Pero en el fondo, **es el Warehouse quien realmente "hace" el pedido**, no la organización en sí — el pedido queda asociado/creado por el Warehouse (mismo espíritu que ya existe hoy: un `WarehouseContact` impersonado tiene su propio shadow `User` con `OrganizationId` = el de su Warehouse padre).
+- Modelo en dos niveles: `Order` (carrito, multi-supplier, org/warehouse) → al confirmarse (`Submit`) se divide automáticamente en un `PurchaseOrder` por cada Supplier distinto entre sus líneas (1 supplier por `PurchaseOrder`, ahí sí). `PurchaseOrder` es directamente el módulo "Purchase Orders" que `.claude/ArticlesModule.md` dejaba como futuro — no es un módulo aparte.
+- La parte "tricky" de elegir/cambiar Warehouse quedó resuelta: `WarehouseToken` es siempre un parámetro explícito del request (nunca una identidad a impersonar), validado con el mismo chequeo de jerarquía que ya usa `WarehouseService`. Cambiar de warehouse dentro de la misma sesión es solo elegir otro valor en el dropdown — no hace falta re-impersonar. Un `WarehouseContact` logueado cumple la regla trivialmente (su organización ya es la del warehouse padre).
+- `OrderLine` usa el patrón FK + snapshot ya acordado (`PurchaseUnitId`/`PurchaseQuantity`/`ContentUnitId`/`ContentQuantity`/precio congelados al agregar la línea).
+- V1 usa el flujo mínimo: `PurchaseOrder` nace directo en `SENT`, sin aprobación ni recepción — eso queda para cuando se construya Goods Receipts.
+- Sigue siendo el primer paso de la familia `PurchaseOrders`/`GoodsReceipts`/`Inventory`/`HotelArticleConfig` (`OrganizationArticles`) que se borró el 2026-06-26 y no se reconstruyó — ver memoria `project_purchasing_inventory_impl`. `OrganizationArticles` en particular quedó deliberadamente diferida, ver memoria `project_organization_articles_deferred`.
 
-### La parte "tricky" a resolver más adelante
-Si quiero hacer un pedido para **otro** Warehouse (de la misma organización o de otra), hoy en día tendría que:
-- Salir y volver a impersonar el otro Warehouse (vía su `WarehouseContact`), **o**
-- De alguna manera cambiar/seleccionar el nuevo Warehouse dentro de la misma sesión, sin tener que salir y re-impersonar.
-
-Hay que decidir cuál de estos dos flujos (o ambos) va a soportar el sistema. Pendiente de diseño — no resolver todavía, solo dejar anotado.
-
-### Lo que falta definir (para cuando retomemos esto en serio)
-- Modelo de datos: `Order`/`OrderLine` (o el nombre que se decida), estados (borrador, enviado, aprobado, recibido, cancelado, etc.), relación con `Article`/`ArticlePrice`/`Warehouse`/`Supplier`/`Organization`.
-- Snapshot de las líneas: recordar la decisión ya tomada para PO/GR/Inventory — cada línea de pedido debe guardar un **FK a `ArticleId` + snapshot de los campos estructurales y de precio** (unidad de compra, cantidad, unidad de contenido, precio) en el momento de creación, nunca depender de un join en vivo a `Articles`/`ArticlePrices` para el cálculo (ver memoria `project_article_versioning_and_line_snapshot_design` / CLAUDE.md "Article structural versioning").
-- Permisos exactos: `RoleLevel`, pertenencia a organización/warehouse, quién puede ver/editar/cancelar/aprobar.
-- Flujo de aprobación si aplica — `Warehouse.RequireApproval` ya existe como capability bit, probablemente hay que usarlo acá.
-- A qué Warehouse(s) le puede llegar un pedido — relación con `Suppliers`, ¿el pedido es por Supplier o multi-supplier?
-- Frontend (`InnNou-Web`): nueva página Orders, flujo de selección de Warehouse post-impersonation, cómo resolver el caso de "quiero pedir para otro warehouse" (ver arriba).
-- `PurchaseOrders`/`GoodsReceipts`/`Inventory`/`HotelArticleConfig` (renombrado `OrganizationArticles`) siguen sin reconstruirse desde que se borraron el 2026-06-26 — Orders probablemente es el primer paso de esta familia de módulos, ver memoria `project_purchasing_inventory_impl`.
+**Próximo paso real:** implementar el schema + servicios + endpoints descritos en `.claude/OrdersModule.md` (tiene la lista de SPs y endpoints sugeridos al final del doc).
 
 ---
 

@@ -1,0 +1,400 @@
+using Dapper;
+using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
+using InnNou.Domain.Dtos;
+using InnNou.Domain.Dtos.Common;
+using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Mapping;
+using System.Data;
+
+namespace InnNou.Infrastructure.Services;
+
+public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper) : IOrderService
+{
+    private sealed class OrderPageRow : Order { public int TotalCount { get; set; } }
+
+    private const int StaffRoleLevel = 20;
+    private const int SuperAdminRoleLevel = 100;
+    private const int MaxPageSize = 100;
+
+    // RoleLevel >= 100 manages any organization. RoleLevel >= 20 (Staff) manages only within
+    // their own organization's hierarchy (root-or-descendant). Below that, or with no
+    // OrganizationId (e.g. a Supplier-scoped login), no access at all — never unrestricted.
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    {
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+            return true;
+
+        if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        var canAccess = await connection.ExecuteScalarAsync<int>(
+            "sp_Organization_IsInHierarchy",
+            new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = targetOrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        return canAccess == 1;
+    }
+
+    private static async Task<List<OrderLine>> GetLinesAsync(IDbConnection connection, int orderId)
+    {
+        var lines = await connection.QueryAsync<OrderLine>(
+            "sp_OrderLine_GetByOrderId", new { OrderId = orderId }, commandType: CommandType.StoredProcedure);
+        return lines.ToList();
+    }
+
+    public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
+
+        await using var connection = connectionFactory.CreateConnection();
+
+        int? rootOrganizationId;
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+        {
+            rootOrganizationId = null;
+        }
+        else if (context.RoleLevel >= StaffRoleLevel && context.OrganizationId.HasValue)
+        {
+            rootOrganizationId = context.OrganizationId.Value;
+        }
+        else
+        {
+            return new PagedResult<OrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+        }
+
+        int? warehouseId = null;
+        if (warehouseToken.HasValue)
+        {
+            var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+                "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
+            if (warehouse is null)
+                return new PagedResult<OrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+            warehouseId = warehouse.WarehouseId;
+        }
+
+        var p = new DynamicParameters();
+        p.Add("@RootOrganizationId", rootOrganizationId);
+        p.Add("@WarehouseId", warehouseId);
+        p.Add("@Status", status);
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
+
+        var rows = (await connection.QueryAsync<OrderPageRow>(
+            "sp_Order_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
+
+        return new PagedResult<OrderDto>
+        {
+            Items = mapper.MapList<OrderDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
+    }
+
+    public async Task<OrderDto?> GetByTokenAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null || !await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            return null;
+
+        var dto = mapper.Map<OrderDto>(order);
+        dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
+        return dto;
+    }
+
+    public async Task<OrderDto?> CreateAsync(Guid warehouseToken, string? notes, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+            "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
+
+        if (warehouse is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot create an order for a warehouse outside your organization.", 403);
+
+        var p = new DynamicParameters();
+        p.Add("@OrderToken", Guid.NewGuid());
+        p.Add("@OrganizationId", warehouse.OrganizationId);
+        p.Add("@WarehouseId", warehouse.WarehouseId);
+        p.Add("@Notes", notes);
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
+
+        var created = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_Create", p, commandType: CommandType.StoredProcedure);
+
+        return created is null ? null : mapper.Map<OrderDto>(created);
+    }
+
+    public async Task<OrderLineDto?> AddLineAsync(Guid orderToken, Guid articleToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
+
+        var article = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+
+        if (article is null)
+            throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);
+
+        // Resolve the current price for the Order's organization — same resolution the
+        // ArticlePrices "current price" read path already uses (contract-over-global, with
+        // the currency-hierarchy fallback baked into the SP itself). Exact param shape mirrors
+        // ArticlePriceService.GetCurrentAsync's own call to this SP.
+        var priceParams = new DynamicParameters();
+        priceParams.Add("@ArticleId", article.ArticleId);
+        priceParams.Add("@OrganizationId", order.OrganizationId);
+        priceParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
+        priceParams.Add("@AsOfDate", DateTime.UtcNow.Date);
+
+        var priceRow = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
+            "sp_ArticlePrice_GetCurrent", priceParams, commandType: CommandType.StoredProcedure);
+
+        var resolvedCurrencyCode = priceParams.Get<string?>("@CurrencyCode");
+        if (resolvedCurrencyCode is null)
+            throw new ApiException(ErrorCodes.ArticlePriceCurrencyRequired, "A currency code could not be determined for this organization.", 400);
+
+        if (priceRow is null)
+            throw new ApiException(ErrorCodes.ArticlePriceNotFound, "No current price found for this article.", 404);
+
+        var unitPrice = priceRow.Price;
+        var currencyCode = priceRow.CurrencyCode;
+
+        var linePararms = new DynamicParameters();
+        linePararms.Add("@OrderLineToken", Guid.NewGuid());
+        linePararms.Add("@OrderId", order.OrderId);
+        linePararms.Add("@ArticleId", article.ArticleId);
+        linePararms.Add("@Quantity", quantity);
+        linePararms.Add("@PurchaseUnitId", article.PurchaseUnitId);
+        linePararms.Add("@PurchaseQuantity", article.PurchaseQuantity);
+        linePararms.Add("@ContentUnitId", article.ContentUnitId);
+        linePararms.Add("@ContentQuantity", article.ContentQuantity);
+        linePararms.Add("@UnitPrice", unitPrice);
+        linePararms.Add("@CurrencyCode", currencyCode);
+        linePararms.Add("@Notes", (string?)null);
+        linePararms.Add("@CreatedBy", context.ActorUserToken.ToString());
+
+        var line = await connection.QueryFirstOrDefaultAsync<OrderLine>(
+            "sp_OrderLine_Upsert", linePararms, commandType: CommandType.StoredProcedure);
+
+        return line is null ? null : mapper.Map<OrderLineDto>(line);
+    }
+
+    public async Task<OrderLineDto?> EditLineAsync(Guid orderLineToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existingLine = await GetLineByTokenAsync(connection, orderLineToken);
+        if (existingLine is null)
+            return null;
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = existingLine.OrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
+
+        var updated = await connection.QueryFirstOrDefaultAsync<OrderLine>(
+            "sp_OrderLine_Edit",
+            new { OrderLineToken = orderLineToken, Quantity = quantity, LastUpdatedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        return updated is null ? null : mapper.Map<OrderLineDto>(updated);
+    }
+
+    public async Task<bool> DeleteLineAsync(Guid orderLineToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existingLine = await GetLineByTokenAsync(connection, orderLineToken);
+        if (existingLine is null)
+            return false;
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = existingLine.OrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return false;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
+
+        await connection.ExecuteAsync(
+            "sp_OrderLine_Delete", new { OrderLineToken = orderLineToken }, commandType: CommandType.StoredProcedure);
+
+        return true;
+    }
+
+    private static Task<OrderLine?> GetLineByTokenAsync(IDbConnection connection, Guid orderLineToken)
+    {
+        return connection.QueryFirstOrDefaultAsync<OrderLine>(
+            "sp_OrderLine_GetByToken", new { OrderLineToken = orderLineToken }, commandType: CommandType.StoredProcedure)!;
+    }
+
+    public async Task<OrderDto?> SubmitAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot submit an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be submitted.", 409);
+
+        var lines = await GetLinesAsync(connection, order.OrderId);
+        if (lines.Count == 0)
+            throw new ApiException(ErrorCodes.OrderEmpty, "Cannot submit an order with no lines.", 400);
+
+        var actor = context.ActorUserToken.ToString();
+
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var supplierGroup in lines.GroupBy(l => l.SupplierId))
+            {
+                var poParams = new DynamicParameters();
+                poParams.Add("@PurchaseOrderToken", Guid.NewGuid());
+                poParams.Add("@OrderId", order.OrderId);
+                poParams.Add("@SupplierId", supplierGroup.Key);
+                poParams.Add("@OrganizationId", order.OrganizationId);
+                poParams.Add("@WarehouseId", order.WarehouseId);
+                poParams.Add("@CreatedBy", actor);
+
+                var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+                    "sp_PurchaseOrder_Create", poParams, transaction, commandType: CommandType.StoredProcedure);
+
+                if (purchaseOrder is null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return null;
+                }
+
+                // One PurchaseOrderLine per OrderLine in this supplier's group — an
+                // independent snapshot copy captured at split time, not a shared row
+                // with OrderLine (see .claude/OrdersModule.md for why).
+                foreach (var line in supplierGroup)
+                {
+                    var polParams = new DynamicParameters();
+                    polParams.Add("@PurchaseOrderLineToken", Guid.NewGuid());
+                    polParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
+                    polParams.Add("@OrderLineId", line.OrderLineId);
+                    polParams.Add("@ArticleId", line.ArticleId);
+                    polParams.Add("@Quantity", line.Quantity);
+                    polParams.Add("@PurchaseUnitId", line.PurchaseUnitId);
+                    polParams.Add("@PurchaseQuantity", line.PurchaseQuantity);
+                    polParams.Add("@ContentUnitId", line.ContentUnitId);
+                    polParams.Add("@ContentQuantity", line.ContentQuantity);
+                    polParams.Add("@UnitPrice", line.UnitPrice);
+                    polParams.Add("@CurrencyCode", line.CurrencyCode);
+                    polParams.Add("@Notes", line.Notes);
+                    polParams.Add("@CreatedBy", actor);
+
+                    await connection.ExecuteAsync(
+                        "sp_PurchaseOrderLine_Create", polParams, transaction, commandType: CommandType.StoredProcedure);
+                }
+            }
+
+            var updatedOrder = await connection.QueryFirstOrDefaultAsync<Order>(
+                "sp_Order_SetStatus",
+                new { OrderToken = orderToken, Status = "SUBMITTED", ActorBy = actor },
+                transaction,
+                commandType: CommandType.StoredProcedure);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            if (updatedOrder is null)
+                return null;
+
+            var dto = mapper.Map<OrderDto>(updatedOrder);
+            dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
+            return dto;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return false;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot delete an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be deleted.", 409);
+
+        await connection.ExecuteAsync(
+            "sp_Order_Delete", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        return true;
+    }
+
+    public async Task<OrderDto?> CancelAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot cancel an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be cancelled.", 409);
+
+        var updated = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_SetStatus",
+            new { OrderToken = orderToken, Status = "CANCELLED", ActorBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        return updated is null ? null : mapper.Map<OrderDto>(updated);
+    }
+}
