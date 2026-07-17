@@ -24,6 +24,8 @@ using OrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Order;
 using OrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderLine;
 using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrder;
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
+using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
+using OrderTemplateLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplateLine;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -422,6 +424,55 @@ namespace InnNou.Infrastructure.Mapping
                 CancelledBy = e.CancelledBy,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
+            });
+
+            mapper.Register<OrderTemplateLineEntity, OrderTemplateLineDto>(e => new OrderTemplateLineDto
+            {
+                OrderTemplateLineId = e.OrderTemplateLineId,
+                OrderTemplateLineToken = e.OrderTemplateLineToken,
+                OrderTemplateId = e.OrderTemplateId,
+                OrderTemplateToken = e.OrderTemplateToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                SupplierSku = e.SupplierSku,
+                SupplierType = e.SupplierType,
+                PurchaseUnitId = e.PurchaseUnitId,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                PurchaseUnitSymbol = e.PurchaseUnitSymbol,
+                IsArticleActive = e.IsArticleActive,
+                IsArticleDeleted = e.IsArticleDeleted,
+                ReplacedByArticleToken = e.ReplacedByArticleToken,
+                Quantity = e.Quantity,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<OrderTemplateEntity, OrderTemplateDto>(e => new OrderTemplateDto
+            {
+                OrderTemplateId = e.OrderTemplateId,
+                OrderTemplateToken = e.OrderTemplateToken,
+                Name = e.Name,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                WarehouseId = e.WarehouseId,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                IsWarehouseActive = e.IsWarehouseActive,
+                OwnerUserId = e.OwnerUserId,
+                OwnerUserToken = e.OwnerUserToken,
+                OwnerFirstName = e.OwnerFirstName,
+                OwnerLastName = e.OwnerLastName,
+                OwnerEmail = e.OwnerEmail,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy,
                 LineCount = e.LineCount
             });
         }

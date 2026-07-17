@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Dapper;
 using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
@@ -17,6 +18,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
     private const int StaffRoleLevel = 20;
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
+    private const int MaxBulkImportRows = 500;
 
     // RoleLevel >= 100 manages any organization. RoleLevel >= 20 (Staff) manages only within
     // their own organization's hierarchy (root-or-descendant). Below that, or with no
@@ -446,5 +448,158 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             commandType: CommandType.StoredProcedure);
 
         return updated is null ? null : mapper.Map<OrderDto>(updated);
+    }
+
+    // Bulk-adds lines to an existing Draft order from an uploaded Excel file. Column layout
+    // matches OrderTemplateService.ExportAsync's export exactly: SupplierName, SupplierSku,
+    // ArticleName (informational only, never used to resolve), Quantity, Price, CurrencyCode,
+    // ArticleToken (hidden, primary match). Row resolution mirrors
+    // ArticleService.BulkImportArticlesAsync's precedence: ArticleToken first, falling back to
+    // (SupplierName -> SupplierId, SupplierSku). Price/CurrencyCode are only actually honored by
+    // AddLineAsync when the resolved article's SupplierType is SERVICE/MIXED and no catalog
+    // price resolves — a PRODUCT article's price always comes from the live catalog regardless
+    // of what's in the cell, so a client can never override real catalog truth. Unlike
+    // ApplyOrderTemplateAsync's per-line handling, ArticlePriceManualRequired here IS a hard row
+    // failure — there is no interactive modal possible mid-file-parse, so the Price/CurrencyCode
+    // columns exist precisely so the user fills them in before uploading.
+    public async Task<ImportOrderLinesResultDto> ImportLinesAsync(Guid orderToken, byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            throw new ApiException(ErrorCodes.OrderNotFound, "Order not found.", 404);
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
+
+        if (order.Status != "DRAFT")
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
+
+        IXLWorkbook workbook;
+        try
+        {
+            workbook = new XLWorkbook(new MemoryStream(fileBytes));
+        }
+        catch
+        {
+            throw new ApiException(ErrorCodes.OrderImportLinesInvalidFile, "The uploaded file is not a valid Excel (.xlsx) file.", 400);
+        }
+
+        using (workbook)
+        {
+            var worksheet = workbook.Worksheets.First();
+
+            var dataRows = worksheet.RowsUsed()
+                .Skip(1)
+                .Where(row => row.CellsUsed().Any(c => !string.IsNullOrWhiteSpace(c.GetString())))
+                .ToList();
+
+            if (dataRows.Count > MaxBulkImportRows)
+                throw new ApiException(ErrorCodes.OrderImportLinesTooManyRows, $"A single import file cannot contain more than {MaxBulkImportRows} rows.", 400);
+
+            var result = new ImportOrderLinesResultDto { TotalRows = dataRows.Count };
+
+            if (dataRows.Count == 0)
+                return result;
+
+            var supplierCache = new Dictionary<string, Supplier?>(StringComparer.OrdinalIgnoreCase);
+
+            // Rows are processed strictly sequentially — same convention as every other bulk
+            // import in this codebase — one row's failure never aborts the rest.
+            foreach (var row in dataRows)
+            {
+                var rowNumber = row.RowNumber();
+
+                var supplierName = row.Cell(1).GetString().Trim();
+                var supplierSku = row.Cell(2).GetString().Trim();
+                var quantityText = row.Cell(4).GetString().Trim();
+                var priceText = row.Cell(5).GetString().Trim();
+                var currencyCodeText = row.Cell(6).GetString().Trim();
+                var articleTokenText = row.Cell(7).GetString().Trim();
+
+                var rowIdentifier = !string.IsNullOrWhiteSpace(supplierSku) ? supplierSku : (string.IsNullOrWhiteSpace(articleTokenText) ? null : articleTokenText);
+
+                if (!decimal.TryParse(quantityText, out var quantity) || quantity <= 0)
+                {
+                    result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.OrderImportLinesRowInvalid, Description = "Quantity is required and must be greater than zero." });
+                    continue;
+                }
+
+                Article? article;
+                if (!string.IsNullOrWhiteSpace(articleTokenText))
+                {
+                    if (!Guid.TryParse(articleTokenText, out var articleToken))
+                    {
+                        result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.OrderImportLinesRowInvalid, Description = "ArticleToken is not a valid identifier." });
+                        continue;
+                    }
+
+                    article = await connection.QueryFirstOrDefaultAsync<Article>(
+                        "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+
+                    if (article is null)
+                    {
+                        result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article found for ArticleToken '{articleTokenText}'." });
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(supplierName) || string.IsNullOrWhiteSpace(supplierSku))
+                    {
+                        result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.OrderImportLinesRowInvalid, Description = "SupplierName and SupplierSku are required when ArticleToken is blank." });
+                        continue;
+                    }
+
+                    var supplierKey = supplierName.ToUpperInvariant();
+                    if (!supplierCache.TryGetValue(supplierKey, out var supplier))
+                    {
+                        supplier = await connection.QueryFirstOrDefaultAsync<Supplier>(
+                            "sp_Supplier_GetByNormalizedName", new { NormalizedName = supplierKey }, commandType: CommandType.StoredProcedure);
+                        supplierCache[supplierKey] = supplier;
+                    }
+
+                    if (supplier is null)
+                    {
+                        result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.SupplierNotFound, Description = $"Supplier '{supplierName}' was not found." });
+                        continue;
+                    }
+
+                    article = await connection.QueryFirstOrDefaultAsync<Article>(
+                        "sp_Article_GetBySupplierSku", new { SupplierId = supplier.SupplierId, SupplierSku = supplierSku }, commandType: CommandType.StoredProcedure);
+
+                    if (article is null)
+                    {
+                        result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleNotFound, Description = $"No article found for SupplierSku '{supplierSku}'." });
+                        continue;
+                    }
+                }
+
+                decimal? manualUnitPrice = null;
+                if (!string.IsNullOrWhiteSpace(priceText) && decimal.TryParse(priceText, out var parsedPrice) && parsedPrice > 0)
+                    manualUnitPrice = parsedPrice;
+                var manualCurrencyCode = string.IsNullOrWhiteSpace(currencyCodeText) ? null : currencyCodeText.Trim();
+
+                try
+                {
+                    await AddLineAsync(orderToken, article.ArticleToken, quantity, manualUnitPrice, manualCurrencyCode, context, cancellationToken);
+                    result.SucceededCount++;
+                }
+                catch (ApiException ex)
+                {
+                    result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
+                }
+                catch (Exception)
+                {
+                    result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.UnhandledError, Description = "An unexpected error occurred while processing this row." });
+                }
+            }
+
+            result.FailureCount = result.Errors.Count;
+            return result;
+        }
     }
 }

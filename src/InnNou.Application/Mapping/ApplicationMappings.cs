@@ -26,6 +26,9 @@ using CommonOrder = InnNou.Application.Responses.Common.Order;
 using CommonOrderLine = InnNou.Application.Responses.Common.OrderLine;
 using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
 using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
+using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
+using CommonOrderTemplateLine = InnNou.Application.Responses.Common.OrderTemplateLine;
+using CommonApplyOrderTemplateLineResult = InnNou.Application.Responses.Common.ApplyOrderTemplateLineResult;
 
 namespace InnNou.Application.Mapping
 {
@@ -894,6 +897,85 @@ namespace InnNou.Application.Mapping
                 CreatedUtc = d.CreatedUtc,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonPurchaseOrderLine>(d.Lines)
+            });
+
+            // OrderTemplateLine (registered before OrderTemplate since it embeds a List<CommonOrderTemplateLine>)
+            mapper.Register<OrderTemplateLineDto, CommonOrderTemplateLine>(d => new CommonOrderTemplateLine
+            {
+                OrderTemplateLineToken = d.OrderTemplateLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                SupplierSku = d.SupplierSku,
+                SupplierType = d.SupplierType,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseUnitSymbol = d.PurchaseUnitSymbol,
+                IsArticleActive = d.IsArticleActive,
+                IsArticleDeleted = d.IsArticleDeleted,
+                ReplacedByArticleToken = d.ReplacedByArticleToken,
+                Quantity = d.Quantity,
+                CreatedUtc = d.CreatedUtc
+            });
+
+            // OrderTemplate
+            mapper.Register<OrderTemplateDto, CommonOrderTemplate>(d => new CommonOrderTemplate
+            {
+                OrderTemplateToken = d.OrderTemplateToken,
+                OrganizationToken = d.OrganizationToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                IsWarehouseActive = d.IsWarehouseActive,
+                OwnerUserToken = d.OwnerUserToken,
+                OwnerFirstName = d.OwnerFirstName,
+                OwnerLastName = d.OwnerLastName,
+                OwnerEmail = d.OwnerEmail,
+                Name = d.Name,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonOrderTemplateLine>(d.Lines)
+            });
+
+            // ApplyOrderTemplate result (Orders module — template-to-order apply summary)
+            mapper.Register<ApplyOrderTemplateLineResultDto, CommonApplyOrderTemplateLineResult>(d => new CommonApplyOrderTemplateLineResult
+            {
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierName = d.SupplierName,
+                SupplierType = d.SupplierType,
+                Quantity = d.Quantity,
+                Outcome = d.Outcome,
+                ErrorCode = d.ErrorCode,
+                ErrorMessage = d.ErrorMessage
+            });
+            mapper.Register<ApplyOrderTemplateResultDto, ApplyOrderTemplateCommandResponse>(d => new ApplyOrderTemplateCommandResponse
+            {
+                OrderTemplateToken = d.OrderTemplateToken,
+                OrderToken = d.OrderToken,
+                TotalLines = d.TotalLines,
+                SucceededCount = d.SucceededCount,
+                NeedsManualPriceCount = d.NeedsManualPriceCount,
+                FailedCount = d.FailedCount,
+                Lines = mapper.MapList<CommonApplyOrderTemplateLineResult>(d.Lines)
+            });
+
+            // ImportOrderLines result (Orders module — Excel-into-order bulk add summary)
+            mapper.Register<ImportOrderLinesRowErrorDto, ImportOrderLinesRowError>(d => new ImportOrderLinesRowError
+            {
+                RowNumber = d.RowNumber,
+                Identifier = d.Identifier,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<ImportOrderLinesResultDto, ImportOrderLinesCommandResponse>(d => new ImportOrderLinesCommandResponse
+            {
+                TotalRows = d.TotalRows,
+                SucceededCount = d.SucceededCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<ImportOrderLinesRowError>(d.Errors)
             });
         }
     }

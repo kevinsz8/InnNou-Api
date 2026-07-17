@@ -196,6 +196,16 @@ namespace InnNou.Application.Common
         public const string OrderForbidden = "ORDER_FORBIDDEN";
         public const string OrderNotDraft = "ORDER_NOT_DRAFT";
         public const string OrderEmpty = "ORDER_EMPTY";
+        public const string OrderImportLinesInvalidFile = "ORDER_IMPORT_LINES_INVALID_FILE";
+        public const string OrderImportLinesTooManyRows = "ORDER_IMPORT_LINES_TOO_MANY_ROWS";
+        public const string OrderImportLinesRowInvalid = "ORDER_IMPORT_LINES_ROW_INVALID";
+
+        // OrderTemplate
+        public const string OrderTemplateNotFound = "ORDER_TEMPLATE_NOT_FOUND";
+        public const string OrderTemplateLineNotFound = "ORDER_TEMPLATE_LINE_NOT_FOUND";
+        public const string OrderTemplateForbidden = "ORDER_TEMPLATE_FORBIDDEN";
+        public const string OrderTemplateNoOrganizationContext = "ORDER_TEMPLATE_NO_ORGANIZATION_CONTEXT";
+        public const string OrderTemplateWarehouseNotFound = "ORDER_TEMPLATE_WAREHOUSE_NOT_FOUND";
 
         // PurchaseOrder
         public const string PurchaseOrderNotFound = "PURCHASE_ORDER_NOT_FOUND";

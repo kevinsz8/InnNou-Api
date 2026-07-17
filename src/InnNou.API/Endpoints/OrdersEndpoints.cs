@@ -22,6 +22,10 @@ public class OrdersEndpoints : ICarterModule
         group.MapPost("/cancel",     HandleCancel).Produces<ApiResponse<CancelOrderCommandResponse>>(200);
         group.MapPost("/getAll",     HandleGetAll).Produces<ApiResponse<GetOrdersQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetOrderByTokenQueryResponse>>(200);
+
+        group.MapPost("/importLines", HandleImportLines)
+            .Produces<ApiResponse<ImportOrderLinesCommandResponse>>(200)
+            .DisableAntiforgery();
     }
 
     private static async Task<IResult> HandleCreate([FromBody] CreateOrderCommandRequest request, ISender sender, CancellationToken ct)
@@ -74,6 +78,35 @@ public class OrdersEndpoints : ICarterModule
 
     private static async Task<IResult> HandleGetByToken([FromBody] GetOrderByTokenQueryRequest request, ISender sender, CancellationToken ct)
     {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleImportLines(HttpRequest httpRequest, ISender sender, CancellationToken ct)
+    {
+        // Kestrel disables synchronous I/O by default — ReadFormAsync is the async-safe way
+        // to bind multipart form data (same pattern as ArticlePricesEndpoints.HandleBulkImport).
+        var form = await httpRequest.ReadFormAsync(ct);
+        var file = form.Files["file"];
+
+        if (file is null || file.Length == 0)
+        {
+            var failure = ApiResponse<ImportOrderLinesCommandResponse>.FailureResponse(
+                ErrorCodes.OrderImportLinesInvalidFile, "No file was uploaded.", 400);
+            return Results.Json(failure, statusCode: 400);
+        }
+
+        if (!Guid.TryParse(form["orderToken"], out var orderToken))
+        {
+            var failure = ApiResponse<ImportOrderLinesCommandResponse>.FailureResponse(
+                ErrorCodes.InvalidRequest, "orderToken is required.", 400);
+            return Results.Json(failure, statusCode: 400);
+        }
+
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream, ct);
+
+        var request = new ImportOrderLinesCommandRequest { OrderToken = orderToken, FileBytes = memoryStream.ToArray(), FileName = file.FileName };
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }

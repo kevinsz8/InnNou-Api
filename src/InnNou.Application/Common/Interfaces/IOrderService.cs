@@ -14,5 +14,12 @@ namespace InnNou.Application.Common.Interfaces
         Task<OrderDto?> SubmitAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> CancelAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
+
+        // Bulk-adds lines to an existing Draft order from an uploaded Excel file — the file
+        // is expected to be the export of an OrderTemplate (see IOrderTemplateService.ExportAsync),
+        // edited by the user, but doesn't require one to exist. Reuses AddLineAsync per row,
+        // never aborting the whole file on one row's failure — same convention as
+        // ArticleService.BulkImportArticlesAsync.
+        Task<ImportOrderLinesResultDto> ImportLinesAsync(Guid orderToken, byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken);
     }
 }
