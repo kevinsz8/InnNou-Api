@@ -19,5 +19,10 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? CancelledBy { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+
+        // Only populated by sp_PurchaseOrder_GetPaged (a cheap CROSS APPLY COUNT, not per-row
+        // app-level N+1); GetByToken/Cancel leave this at 0 and PurchaseOrderService overwrites
+        // it from the real hydrated Lines.Count instead.
+        public int LineCount { get; set; }
     }
 }

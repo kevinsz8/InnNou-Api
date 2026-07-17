@@ -155,6 +155,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         var dto = mapper.Map<PurchaseOrderDto>(purchaseOrder);
         dto.Lines = mapper.MapList<PurchaseOrderLineDto>(
             await GetLinesForPurchaseOrderAsync(connection, purchaseOrder.PurchaseOrderId));
+        dto.LineCount = dto.Lines.Count;
         return dto;
     }
 
@@ -189,6 +190,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         var dto = mapper.Map<PurchaseOrderDto>(updated);
         dto.Lines = mapper.MapList<PurchaseOrderLineDto>(
             await GetLinesForPurchaseOrderAsync(connection, updated.PurchaseOrderId));
+        dto.LineCount = dto.Lines.Count;
         return dto;
     }
 }

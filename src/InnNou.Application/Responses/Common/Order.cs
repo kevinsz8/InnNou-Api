@@ -11,6 +11,7 @@ namespace InnNou.Application.Responses.Common
         public DateTime? SubmittedUtc { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+        public int LineCount { get; set; }
         public List<OrderLine> Lines { get; set; } = [];
     }
 }

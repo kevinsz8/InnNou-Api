@@ -14,6 +14,7 @@ namespace InnNou.Application.Responses.Common
         public DateTime? CancelledUtc { get; set; }
         public string? CancelledBy { get; set; }
         public DateTime CreatedUtc { get; set; }
+        public int LineCount { get; set; }
         public List<PurchaseOrderLine> Lines { get; set; } = [];
     }
 }

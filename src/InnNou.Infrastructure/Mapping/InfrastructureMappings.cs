@@ -398,7 +398,8 @@ namespace InnNou.Infrastructure.Mapping
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LastUpdatedUtc = e.LastUpdatedUtc,
-                LastUpdatedBy = e.LastUpdatedBy
+                LastUpdatedBy = e.LastUpdatedBy,
+                LineCount = e.LineCount
             });
 
             mapper.Register<PurchaseOrderEntity, PurchaseOrderDto>(e => new PurchaseOrderDto
@@ -419,7 +420,8 @@ namespace InnNou.Infrastructure.Mapping
                 CancelledUtc = e.CancelledUtc,
                 CancelledBy = e.CancelledBy,
                 CreatedUtc = e.CreatedUtc,
-                CreatedBy = e.CreatedBy
+                CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
             });
         }
     }

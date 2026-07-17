@@ -870,6 +870,7 @@ namespace InnNou.Application.Mapping
                 SubmittedUtc = d.SubmittedUtc,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonOrderLine>(d.Lines)
             });
 
@@ -888,6 +889,7 @@ namespace InnNou.Application.Mapping
                 CancelledUtc = d.CancelledUtc,
                 CancelledBy = d.CancelledBy,
                 CreatedUtc = d.CreatedUtc,
+                LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonPurchaseOrderLine>(d.Lines)
             });
         }

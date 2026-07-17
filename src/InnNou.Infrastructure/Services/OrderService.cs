@@ -106,6 +106,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         var dto = mapper.Map<OrderDto>(order);
         dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
+        dto.LineCount = dto.Lines.Count;
         return dto;
     }
 
@@ -343,6 +344,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
             var dto = mapper.Map<OrderDto>(updatedOrder);
             dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
+            dto.LineCount = dto.Lines.Count;
             return dto;
         }
         catch

@@ -17,6 +17,12 @@ namespace InnNou.Domain.Dtos
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
 
+        // Always accurate regardless of code path: sp_Order_GetPaged computes it via a cheap
+        // CROSS APPLY COUNT; every other path (GetByToken/Create/Submit/Cancel) sets it from
+        // Lines.Count after hydrating Lines. Exists so list/summary views (which never hydrate
+        // the full Lines collection, to avoid N+1) can still show an accurate line count.
+        public int LineCount { get; set; }
+
         // Populated by OrderService after a second sp_OrderLine_GetByOrderId call — never
         // resolved by the mapper directly, same reasoning ArticleDto's IsFavorite required a
         // dedicated query rather than a lazy nav property.

@@ -38,10 +38,12 @@ BEGIN
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         o.Status, o.Notes, o.SubmittedUtc,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy,
+        lc.LineCount,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.[Order] o
     JOIN dbo.Organizations org ON org.OrganizationId = o.OrganizationId
     JOIN dbo.Warehouses    w   ON w.WarehouseId      = o.WarehouseId
+    CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.OrderLine ol WHERE ol.OrderId = o.OrderId) lc
     WHERE
         (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = o.OrganizationId))
         AND (@WarehouseId IS NULL OR o.WarehouseId = @WarehouseId)

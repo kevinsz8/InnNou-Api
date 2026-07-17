@@ -43,12 +43,14 @@ BEGIN
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         po.Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
         po.CreatedUtc, po.CreatedBy,
+        lc.LineCount,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.PurchaseOrder po
     JOIN dbo.[Order] ord        ON ord.OrderId        = po.OrderId
     JOIN dbo.Suppliers s        ON s.SupplierId       = po.SupplierId
     JOIN dbo.Organizations org  ON org.OrganizationId = po.OrganizationId
     JOIN dbo.Warehouses w       ON w.WarehouseId      = po.WarehouseId
+    CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.PurchaseOrderLine pol WHERE pol.PurchaseOrderId = po.PurchaseOrderId) lc
     WHERE
         (
             (@SupplierId IS NOT NULL AND po.SupplierId = @SupplierId)
