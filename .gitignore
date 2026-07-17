@@ -106,3 +106,5 @@ Migrations/*.Designer.cs
 .claude
 .claude/*
 CLAUDE.md
+.playwright-mcp
+.playwright-mcp/*

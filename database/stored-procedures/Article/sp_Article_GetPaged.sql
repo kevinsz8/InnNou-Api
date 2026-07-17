@@ -49,6 +49,7 @@ BEGIN
         a.ArticleToken,
         a.SupplierId,
         s.Name          AS SupplierName,
+        s.SupplierType  AS SupplierType,
         a.Name,
         a.NormalizedName,
         a.Description,

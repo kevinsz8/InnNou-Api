@@ -190,6 +190,7 @@ namespace InnNou.Infrastructure.Mapping
                 ArticleToken = e.ArticleToken,
                 SupplierId = e.SupplierId,
                 SupplierName = e.SupplierName,
+                SupplierType = e.SupplierType,
                 Name = e.Name,
                 NormalizedName = e.NormalizedName,
                 Description = e.Description,

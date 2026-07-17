@@ -21,7 +21,10 @@ namespace InnNou.Application.Handlers
             if (request.Quantity <= 0)
                 return ApiResponse<AddOrderLineCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Quantity must be greater than zero.", 400);
 
-            var line = await orderService.AddLineAsync(request.OrderToken, request.ArticleToken, request.Quantity, context, cancellationToken);
+            if (request.ManualUnitPrice.HasValue && request.ManualUnitPrice.Value <= 0)
+                return ApiResponse<AddOrderLineCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "ManualUnitPrice must be greater than zero.", 400);
+
+            var line = await orderService.AddLineAsync(request.OrderToken, request.ArticleToken, request.Quantity, request.ManualUnitPrice, request.ManualCurrencyCode, context, cancellationToken);
             if (line is null)
                 return ApiResponse<AddOrderLineCommandResponse>.FailureResponse(ErrorCodes.OrderNotFound, "Order not found.", 404);
 

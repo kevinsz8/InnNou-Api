@@ -6,6 +6,7 @@ namespace InnNou.Domain.Dtos
         public Guid ArticleToken { get; set; }
         public int SupplierId { get; set; }
         public string? SupplierName { get; set; }
+        public string? SupplierType { get; set; }
         public string Name { get; set; } = default!;
         public string NormalizedName { get; set; } = default!;
         public string? Description { get; set; }

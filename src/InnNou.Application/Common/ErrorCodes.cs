@@ -92,6 +92,7 @@ namespace InnNou.Application.Common
         public const string ArticlePriceInvalidAmount = "ARTICLE_PRICE_INVALID_AMOUNT";
         public const string ArticlePriceDuplicateEffectiveDate = "ARTICLE_PRICE_DUPLICATE_EFFECTIVE_DATE";
         public const string ArticlePriceCurrencyRequired = "ARTICLE_PRICE_CURRENCY_REQUIRED";
+        public const string ArticlePriceManualRequired = "ARTICLE_PRICE_MANUAL_REQUIRED";
         public const string ArticlePriceBulkImportForbidden = "ARTICLE_PRICE_BULK_IMPORT_FORBIDDEN";
         public const string ArticlePriceBulkImportInvalidFile = "ARTICLE_PRICE_BULK_IMPORT_INVALID_FILE";
         public const string ArticlePriceBulkImportTooManyRows = "ARTICLE_PRICE_BULK_IMPORT_TOO_MANY_ROWS";

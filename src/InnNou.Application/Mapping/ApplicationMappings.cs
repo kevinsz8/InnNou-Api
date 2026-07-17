@@ -429,6 +429,7 @@ namespace InnNou.Application.Mapping
                 ArticleToken = d.ArticleToken,
                 SupplierId = d.SupplierId,
                 SupplierName = d.SupplierName,
+                SupplierType = d.SupplierType,
                 Name = d.Name,
                 Description = d.Description,
                 SupplierSku = d.SupplierSku,
@@ -870,6 +871,8 @@ namespace InnNou.Application.Mapping
                 SubmittedUtc = d.SubmittedUtc,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonOrderLine>(d.Lines)
             });

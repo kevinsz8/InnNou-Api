@@ -136,7 +136,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         return created is null ? null : mapper.Map<OrderDto>(created);
     }
 
-    public async Task<OrderLineDto?> AddLineAsync(Guid orderToken, Guid articleToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<OrderLineDto?> AddLineAsync(Guid orderToken, Guid articleToken, decimal quantity, decimal? manualUnitPrice, string? manualCurrencyCode, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -172,14 +172,42 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             "sp_ArticlePrice_GetCurrent", priceParams, commandType: CommandType.StoredProcedure);
 
         var resolvedCurrencyCode = priceParams.Get<string?>("@CurrencyCode");
-        if (resolvedCurrencyCode is null)
-            throw new ApiException(ErrorCodes.ArticlePriceCurrencyRequired, "A currency code could not be determined for this organization.", 400);
 
-        if (priceRow is null)
-            throw new ApiException(ErrorCodes.ArticlePriceNotFound, "No current price found for this article.", 404);
+        decimal unitPrice;
+        string currencyCode;
 
-        var unitPrice = priceRow.Price;
-        var currencyCode = priceRow.CurrencyCode;
+        if (priceRow is not null)
+        {
+            unitPrice = priceRow.Price;
+            currencyCode = priceRow.CurrencyCode;
+        }
+        else
+        {
+            // SERVICE/MIXED suppliers are not required to carry a catalog ArticlePrice —
+            // their price is negotiated at order time instead (see CLAUDE.md's "Supplier
+            // type" section). PRODUCT suppliers keep the hard failure: a missing price
+            // there is a real catalog data gap, not something to silently paper over.
+            var isServiceOrMixed = article.SupplierType is SupplierTypeCodes.Service or SupplierTypeCodes.Mixed;
+            if (!isServiceOrMixed)
+            {
+                if (resolvedCurrencyCode is null)
+                    throw new ApiException(ErrorCodes.ArticlePriceCurrencyRequired, "A currency code could not be determined for this organization.", 400);
+
+                throw new ApiException(ErrorCodes.ArticlePriceNotFound, "No current price found for this article.", 404);
+            }
+
+            if (!manualUnitPrice.HasValue || manualUnitPrice.Value <= 0 || string.IsNullOrWhiteSpace(manualCurrencyCode))
+                throw new ApiException(ErrorCodes.ArticlePriceManualRequired, "This article has no catalog price — provide a manual unit price and currency for this order line.", 400);
+
+            var normalizedCurrencyCode = manualCurrencyCode.Trim().ToUpperInvariant();
+            var currencyExists = await connection.ExecuteScalarAsync<bool>(
+                "sp_Currency_ExistsByCode", new { Code = normalizedCurrencyCode }, commandType: CommandType.StoredProcedure);
+            if (!currencyExists)
+                throw new ApiException(ErrorCodes.ArticlePriceInvalidCurrency, "Invalid or inactive currency code.", 400);
+
+            unitPrice = manualUnitPrice.Value;
+            currencyCode = normalizedCurrencyCode;
+        }
 
         var linePararms = new DynamicParameters();
         linePararms.Add("@OrderLineToken", Guid.NewGuid());
