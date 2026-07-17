@@ -25,6 +25,10 @@ internal sealed class UserWithRoleResult
     public int RoleLevel { get; set; }
     public bool CanImpersonate { get; set; }
 
+    // Populated by sp_Auth_GetUserByEmail/sp_Auth_GetUserByToken (joins Organizations -> OrganizationTypes
+    // off the user's own OrganizationId); null for a Supplier-scoped login with no OrganizationId.
+    public string? OrganizationTypeCode { get; set; }
+
     // Only populated by sp_Auth_GetUserBySupplierToken (joins Suppliers.Name); null otherwise.
     public string? SupplierName { get; set; }
 

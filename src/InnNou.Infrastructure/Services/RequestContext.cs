@@ -9,6 +9,7 @@ namespace InnNou.Infrastructure.Services
         public Guid ActorUserToken { get; private set; }
         public Guid EffectiveUserToken { get; private set; }
         public int? OrganizationId { get; private set; }
+        public string? OrganizationTypeCode { get; private set; }
         public int? SupplierId { get; private set; }
 
         public bool IsAuthenticated { get; private set; }
@@ -54,6 +55,10 @@ namespace InnNou.Infrastructure.Services
             var organizationClaim = user.FindFirst("organizationId")?.Value;
             if (!string.IsNullOrWhiteSpace(organizationClaim) && int.TryParse(organizationClaim, out var organizationId))
                 OrganizationId = organizationId;
+
+            var organizationTypeCodeClaim = user.FindFirst("organizationTypeCode")?.Value;
+            if (!string.IsNullOrWhiteSpace(organizationTypeCodeClaim))
+                OrganizationTypeCode = organizationTypeCodeClaim;
 
             var supplierClaim = user.FindFirst("supplierId")?.Value;
             if (!string.IsNullOrWhiteSpace(supplierClaim) && int.TryParse(supplierClaim, out var supplierId))

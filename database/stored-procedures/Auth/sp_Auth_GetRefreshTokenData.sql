@@ -33,10 +33,13 @@ BEGIN
         u.IsDeleted,
 
         r.RoleLevel,
-        r.CanImpersonate
+        r.CanImpersonate,
+        ot.Code AS OrganizationTypeCode
     FROM dbo.RefreshTokens rt
     INNER JOIN dbo.Users u ON u.UserId = rt.UserId
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
+    LEFT JOIN dbo.Organizations o ON o.OrganizationId = u.OrganizationId
+    LEFT JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
     WHERE rt.TokenHash = @TokenHash;
 END;
 GO

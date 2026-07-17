@@ -25,9 +25,12 @@ BEGIN
         u.IsDeleted,
         u.LockedUntilUtc,
         r.RoleLevel,
-        r.CanImpersonate
+        r.CanImpersonate,
+        ot.Code AS OrganizationTypeCode
     FROM dbo.Users u
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
+    LEFT JOIN dbo.Organizations o ON o.OrganizationId = u.OrganizationId
+    LEFT JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
     WHERE u.UserToken = @UserToken;
 END;
 GO

@@ -5,6 +5,7 @@ namespace InnNou.Application.Common
         Guid ActorUserToken { get; }
         Guid EffectiveUserToken { get; }
         int? OrganizationId { get; }
+        string? OrganizationTypeCode { get; }
         int? SupplierId { get; }
         int RoleLevel { get; }
         int ActorRoleLevel { get; }

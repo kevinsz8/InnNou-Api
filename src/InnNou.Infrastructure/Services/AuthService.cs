@@ -44,7 +44,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { UserId = user.UserId, LastLoginUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.OrganizationId, user.SupplierId, user.RoleLevel);
+        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.OrganizationId, user.SupplierId, user.RoleLevel, organizationTypeCode: user.OrganizationTypeCode);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -105,7 +105,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             throw;
         }
 
-        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel);
+        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel, organizationTypeCode: tokenData.OrganizationTypeCode);
 
         return new Login
         {
@@ -168,7 +168,8 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             impersonatedUserToken: target.UserToken,
             impersonatedEmail: target.Email,
             actorRoleLevel: actor.RoleLevel,
-            actorOrganizationId: actor.OrganizationId);
+            actorOrganizationId: actor.OrganizationId,
+            organizationTypeCode: target.OrganizationTypeCode);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -265,7 +266,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { ActorUserId = actor.UserId, EndedUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.OrganizationId, actor.SupplierId, actor.RoleLevel);
+        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.OrganizationId, actor.SupplierId, actor.RoleLevel, organizationTypeCode: actor.OrganizationTypeCode);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -294,7 +295,8 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         Guid? impersonatedUserToken = null,
         string? impersonatedEmail = null,
         int? actorRoleLevel = null,
-        int? actorOrganizationId = null)
+        int? actorOrganizationId = null,
+        string? organizationTypeCode = null)
     {
         var claims = new List<Claim>
         {
@@ -306,6 +308,9 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         if (organizationId.HasValue)
             claims.Add(new Claim("organizationId", organizationId.Value.ToString()));
+
+        if (!string.IsNullOrEmpty(organizationTypeCode))
+            claims.Add(new Claim("organizationTypeCode", organizationTypeCode));
 
         if (supplierId.HasValue)
             claims.Add(new Claim("supplierId", supplierId.Value.ToString()));

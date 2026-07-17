@@ -16,4 +16,8 @@ internal sealed class RefreshTokenWithUserRoleResult
     public int? OrganizationId { get; set; }
     public int? SupplierId { get; set; }
     public int RoleLevel { get; set; }
+
+    // Populated by sp_Auth_GetRefreshTokenData (joins Organizations -> OrganizationTypes off the
+    // user's own OrganizationId); null for a Supplier-scoped login with no OrganizationId.
+    public string? OrganizationTypeCode { get; set; }
 }

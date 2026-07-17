@@ -21,7 +21,9 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
     // RoleLevel >= 100 manages any organization. RoleLevel >= 20 (Staff) manages only within
     // their own organization's hierarchy (root-or-descendant). Below that, or with no
     // OrganizationId (e.g. a Supplier-scoped login), no access at all — never unrestricted.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    // This is read/write-neutral hierarchy access — used directly by GetByTokenAsync (reads),
+    // and as the base for CanManageOrganizationAsync (writes) below.
+    private static async Task<bool> CanAccessOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
@@ -35,6 +37,24 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             commandType: CommandType.StoredProcedure);
 
         return canAccess == 1;
+    }
+
+    // Same hierarchy rule as CanAccessOrganizationAsync, plus: a caller whose own organization is
+    // SUPER_ASSOCIATE (the holding/group level) is view-only for Orders regardless of role/
+    // hierarchy — purchasing happens at the ASSOCIATE (property) level; the holding org can see
+    // everything (GetPagedAsync/GetByTokenAsync are unaffected — they call
+    // CanAccessOrganizationAsync directly) but never creates/edits/submits/cancels/deletes an
+    // order itself. Used to gate every write call site (Create/AddLine/EditLine/DeleteLine/
+    // Submit/Cancel/Delete).
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    {
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+            return true;
+
+        if (context.OrganizationTypeCode == OrganizationTypeCodes.SuperAssociate)
+            return false;
+
+        return await CanAccessOrganizationAsync(connection, context, targetOrganizationId);
     }
 
     private static async Task<List<OrderLine>> GetLinesAsync(IDbConnection connection, int orderId)
@@ -101,7 +121,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         var order = await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
 
-        if (order is null || !await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (order is null || !await CanAccessOrganizationAsync(connection, context, order.OrganizationId))
             return null;
 
         var dto = mapper.Map<OrderDto>(order);
