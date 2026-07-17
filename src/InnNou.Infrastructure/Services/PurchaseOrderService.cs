@@ -61,12 +61,27 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return lines.ToList();
     }
 
-    public async Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
+
+        // Purely an additional narrowing filter layered on top of the scope resolved below —
+        // never widens what the caller could already see, same rule the RoleIds/OrganizationIds
+        // multi-value filter on GetUsers established.
+        int? orderId = null;
+        if (orderToken.HasValue)
+        {
+            var order = await connection.QueryFirstOrDefaultAsync<Order>(
+                "sp_Order_GetByToken", new { OrderToken = orderToken.Value }, commandType: CommandType.StoredProcedure);
+
+            if (order is null)
+                return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            orderId = order.OrderId;
+        }
 
         int? rootOrganizationId = null;
         int? supplierId = null;
@@ -103,6 +118,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         var p = new DynamicParameters();
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@SupplierId", supplierId);
+        p.Add("@OrderId", orderId);
         p.Add("@Status", status);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);

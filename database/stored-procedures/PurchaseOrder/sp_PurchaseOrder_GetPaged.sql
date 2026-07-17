@@ -14,6 +14,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetPaged
 (
     @RootOrganizationId INT          = NULL,
     @SupplierId         INT          = NULL,
+    @OrderId            INT          = NULL,
     @Status             VARCHAR(20)  = NULL,
     @PageNumber         INT,
     @PageSize           INT
@@ -53,6 +54,7 @@ BEGIN
             (@SupplierId IS NOT NULL AND po.SupplierId = @SupplierId)
             OR (@SupplierId IS NULL AND (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = po.OrganizationId)))
         )
+        AND (@OrderId IS NULL OR po.OrderId = @OrderId)
         AND (@Status IS NULL OR po.Status = @Status)
     ORDER BY po.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
