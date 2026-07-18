@@ -174,8 +174,15 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (order.Status != "DRAFT")
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
+        // Pass the Order's OWN organization (never null, never the acting user's role/supplier
+        // identity) so supplier visibility is checked strictly against the order's org — a
+        // private-supplier article must resolve here for its legitimate owning organization
+        // regardless of who's acting, and must never be reachable via this path for an org that
+        // can't see it (ContextRoleLevel/ContextSupplierId deliberately left unset — i.e. 0/NULL
+        // — so no acting-user identity can bypass this check; see CLAUDE.md, "Supplier
+        // global/private scoping").
         var article = await connection.QueryFirstOrDefaultAsync<Article>(
-            "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+            "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = order.OrganizationId, ContextRoleLevel = 0 }, commandType: CommandType.StoredProcedure);
 
         if (article is null)
             throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);
@@ -537,8 +544,10 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
                         continue;
                     }
 
+                    // Pass the Order's OWN organization, never the acting user's identity — see
+                    // AddLineAsync's comment above for the full reasoning.
                     article = await connection.QueryFirstOrDefaultAsync<Article>(
-                        "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+                        "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = order.OrganizationId, ContextRoleLevel = 0 }, commandType: CommandType.StoredProcedure);
 
                     if (article is null)
                     {

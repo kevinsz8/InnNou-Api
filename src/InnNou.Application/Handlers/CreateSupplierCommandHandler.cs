@@ -26,10 +26,9 @@ namespace InnNou.Application.Handlers
             if (!string.IsNullOrWhiteSpace(request.SupplierType) && !SupplierTypeCodes.IsValid(request.SupplierType))
                 return ApiResponse<CreateSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierInvalidType, "SupplierType must be Product, Service, or Mixed.", 400);
 
-            var exists = await _supplierService.SupplierExistsAsync(request.Name, cancellationToken);
-            if (exists)
-                return ApiResponse<CreateSupplierCommandResponse>.FailureResponse(ErrorCodes.SupplierAlreadyExists, "A supplier with this name already exists.");
-
+            // Name-uniqueness is scope-aware (global vs. a specific owning organization) and can
+            // only be resolved after authorization runs, so the check now lives inside
+            // SupplierService.CreateSupplierAsync itself rather than here.
             var dto = _mapper.Map<SupplierDto>(request);
             if (!string.IsNullOrWhiteSpace(dto.SupplierType))
                 dto.SupplierType = dto.SupplierType.Trim().ToUpperInvariant();

@@ -67,6 +67,12 @@ namespace InnNou.Application.Common
         public const string SupplierBulkImportTooManyRows = "SUPPLIER_BULK_IMPORT_TOO_MANY_ROWS";
         public const string SupplierBulkImportRowInvalid = "SUPPLIER_BULK_IMPORT_ROW_INVALID";
         public const string SupplierBulkImportRowFailed = "SUPPLIER_BULK_IMPORT_ROW_FAILED";
+        public const string SupplierCreateForbidden = "SUPPLIER_CREATE_FORBIDDEN";
+        public const string SupplierCreateGlobalForbidden = "SUPPLIER_CREATE_GLOBAL_FORBIDDEN";
+        public const string SupplierOrganizationTokenRequired = "SUPPLIER_ORGANIZATION_TOKEN_REQUIRED";
+        public const string SupplierOrganizationNotFound = "SUPPLIER_ORGANIZATION_NOT_FOUND";
+        public const string SupplierOwnershipChangeSuperadminOnly = "SUPPLIER_OWNERSHIP_CHANGE_SUPERADMIN_ONLY";
+        public const string SupplierPrivatizationImpact = "SUPPLIER_PRIVATIZATION_IMPACT";
 
         // Article
         public const string ArticleNotFound = "ARTICLE_NOT_FOUND";

@@ -279,8 +279,14 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
         if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot modify this template.", 403);
 
+        // Pass the Template's OWN organization, never the acting user's identity — same
+        // reasoning as OrderService.AddLineAsync/ImportLinesAsync (see CLAUDE.md, "Supplier
+        // global/private scoping"): a private-supplier article must resolve for its legitimate
+        // owning organization regardless of who's acting (including a Super Asociado editing a
+        // descendant's template), and ContextRoleLevel is deliberately left at 0 so no
+        // acting-user identity can bypass the check.
         var article = await connection.QueryFirstOrDefaultAsync<Article>(
-            "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+            "sp_Article_GetByToken", new { ArticleToken = articleToken, OrganizationId = template.OrganizationId, ContextRoleLevel = 0 }, commandType: CommandType.StoredProcedure);
 
         if (article is null)
             throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);

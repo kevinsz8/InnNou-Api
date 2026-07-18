@@ -22,5 +22,10 @@ namespace InnNou.Application.Requests
         public bool HasAccessToSystem { get; set; }
         public string? LoginEmail { get; set; }
         public string? Password { get; set; }
+
+        // Target owning organization when IsGlobal is false. Required for a SuperAdmin caller
+        // creating a private supplier; ignored for a Staff+ caller, who can only ever create a
+        // private supplier for their own organization (server-resolved, never client-supplied).
+        public Guid? OrganizationToken { get; set; }
     }
 }

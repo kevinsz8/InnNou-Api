@@ -114,7 +114,9 @@ namespace InnNou.Infrastructure.Mapping
                 SupplierType = s.SupplierType,
                 HasAccessToSystem = s.HasAccessToSystem,
                 IsActive = s.IsActive,
-                IsDeleted = s.IsDeleted
+                IsDeleted = s.IsDeleted,
+                OrganizationTokenResult = s.OrganizationTokenResult,
+                OrganizationName = s.OrganizationName
             });
 
             // Catalog entities → DTOs

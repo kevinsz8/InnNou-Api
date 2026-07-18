@@ -4,7 +4,19 @@
 
 ---
 
-## 1. Seed data de precios de Articles (para pruebas)
+## 1. Albaranes (Goods Receipts) y Facturas — pendientes, no confundir con Pedidos
+
+Investigado 2026-07-18: en España/Andorra el flujo típico de compras son 3 documentos distintos, no uno solo:
+
+- **Pedido** (orden de compra) — la solicitud enviada al proveedor: qué se quiere, cantidades, precio pactado. **Esto ya lo tenemos** — es exactamente `Order`/`PurchaseOrder` (ver sección "Módulo Pedidos / Orders" más abajo).
+- **Albarán (de entrega)** — el documento que acompaña físicamente la mercancía al llegar. Refleja lo que **realmente se recibió** (puede diferir del pedido: entregas parciales, roturas, sustituciones, backorders), normalmente firmado por quien recibe, y dispara la actualización de stock. Un pedido puede generar varios albaranes (entregas parciales en el tiempo). **No lo tenemos construido** — es el módulo **Goods Receipts**, todavía pendiente. `PurchaseOrder.Status` en V1 solo llega a `Sent`/`Cancelled`, no hay `Received`/`PartiallyReceived` (confirmado en `.claude/OrdersModule.md`, que ya reserva campos como `PurchaseOrderLine.LastUpdatedUtc`/`LastUpdatedBy` para cuando este módulo exista).
+- **Factura** — el documento fiscal/de facturación (IVA en España, IGI en Andorra, numeración secuencial obligatoria). Suele agrupar varios albaranes (p. ej. facturación mensual). **No existe en absoluto** en el código — "Facturas" en el menú lateral es solo una etiqueta placeholder sin servicio/tabla/endpoint detrás, igual que "Ventas"/"Inventario".
+
+**Anotado aquí arriba con prioridad a propósito, aunque en la práctica probablemente se implemente después de todo lo demás que ya tengo en mente** (no listado todavía en este archivo) — el objetivo de esta nota es solo dejar constancia de que Pedidos ≠ Albaranes ≠ Facturas, y que los dos últimos siguen totalmente por construir, para no dar por hecho que "recepción" o "facturación" ya están cubiertas por el módulo de Pedidos.
+
+---
+
+## 2. Seed data de precios de Articles (para pruebas)
 
 - Generar `ArticlePrices` para artículos existentes — **al menos para los Suppliers de tipo `PRODUCT`** (no `SERVICE`, ni por ahora `MIXED`), ya que el modelo de precio fijo por unidad/precio-por-catálogo no aplica bien a servicios variables (ver CLAUDE.md, sección "Supplier type" — esto sigue siendo una decisión de diseño pendiente y deliberadamente diferida).
 - Objetivo: tener data realista de precios para poder probar el flujo de Pedidos/Orders (una línea de pedido necesita poder resolver un precio vigente del artículo).
@@ -16,7 +28,7 @@
 
 ---
 
-## 2. Módulo Pedidos / Orders — implementado (backend), 2026-07-17
+## 3. Módulo Pedidos / Orders — implementado (backend), 2026-07-17
 
 **Backend completo, ver `.claude/OrdersModule.md`.** `Order`/`OrderLine`/`PurchaseOrder` (tablas, SPs, servicios, endpoints `/orders` y `/purchaseOrders`) implementados y verificados en vivo end-to-end: crear pedido → agregar líneas de 2 suppliers distintos (una resolvió correctamente el precio de contrato sembrado sobre el global) → submit → split en 2 `PurchaseOrder` → mutación post-submit rechazada con `ORDER_NOT_DRAFT` → cancelar → doble cancelación rechazada con `PURCHASE_ORDER_NOT_SENT`.
 

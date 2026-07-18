@@ -21,6 +21,12 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public bool HasAccessToSystem { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
+
+        // Populated only by SPs that join OrganizationSuppliers (sp_Supplier_GetPaged,
+        // sp_Supplier_GetByToken) — null on both for a global supplier or when the issuing SP
+        // doesn't select them (Dapper leaves unmatched properties at their default).
+        public Guid? OrganizationTokenResult { get; set; }
+        public string? OrganizationName { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

@@ -79,6 +79,11 @@ public class ArticleService(
         // Falls back to the caller's own org for every other, unchanged call site.
         p.Add("@OrganizationId", organizationId ?? context.OrganizationId);
         p.Add("@FavoritesOnly", favoritesOnly);
+        // Supplier visibility (see CLAUDE.md, "Supplier global/private scoping") — the real
+        // catalog-browse path, so the caller's actual role/supplier identity is passed through
+        // rather than bypassed.
+        p.Add("@ContextRoleLevel", context.RoleLevel);
+        p.Add("@ContextSupplierId", context.SupplierId);
         var rows = (await connection.QueryAsync<ArticlePageRow>(
             "sp_Article_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<ArticleDto>
@@ -96,6 +101,11 @@ public class ArticleService(
         var p = new DynamicParameters();
         p.Add("@ArticleToken", token);
         p.Add("@OrganizationId", context.OrganizationId);
+        // Real catalog-browse path — pass the caller's actual role/supplier identity through
+        // rather than bypassing the new supplier-visibility check (see CLAUDE.md, "Supplier
+        // global/private scoping").
+        p.Add("@ContextRoleLevel", context.RoleLevel);
+        p.Add("@ContextSupplierId", context.SupplierId);
         var row = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_GetByToken", p, commandType: CommandType.StoredProcedure);
 

@@ -23,5 +23,15 @@ namespace InnNou.Application.Requests
         public bool? HasAccessToSystem { get; set; }
         public string? LoginEmail { get; set; }
         public string? Password { get; set; }
+
+        // Reassigns the owning organization when set and IsGlobal is (or stays) false.
+        // Changing IsGlobal or this field is SuperAdmin-only regardless of who owns the
+        // supplier today — see SupplierService.EditSupplierAsync.
+        public Guid? OrganizationToken { get; set; }
+
+        // Resubmit-with-confirm flag for the privatization-impact check (see
+        // ErrorCodes.SupplierPrivatizationImpact) — set true only after the caller has seen
+        // and accepted the impact counts from a prior rejected attempt.
+        public bool ConfirmPrivatizationImpact { get; set; }
     }
 }

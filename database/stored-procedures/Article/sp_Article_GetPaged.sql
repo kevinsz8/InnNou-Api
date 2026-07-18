@@ -1,14 +1,24 @@
 CREATE OR ALTER PROCEDURE sp_Article_GetPaged
 (
-    @PageNumber      INT,
-    @PageSize        INT,
-    @SupplierId      INT           = NULL,
-    @FamilyId        INT           = NULL,
-    @SubFamilyId     INT           = NULL,
-    @SearchText      VARCHAR(200)  = NULL,
-    @IncludeInactive BIT           = 0,
-    @OrganizationId  INT           = NULL,
-    @FavoritesOnly   BIT           = 0
+    @PageNumber        INT,
+    @PageSize          INT,
+    @SupplierId        INT           = NULL,
+    @FamilyId          INT           = NULL,
+    @SubFamilyId       INT           = NULL,
+    @SearchText        VARCHAR(200)  = NULL,
+    @IncludeInactive   BIT           = 0,
+    @OrganizationId    INT           = NULL,
+    @FavoritesOnly     BIT           = 0,
+    @ContextRoleLevel  INT           = 100, -- defaults to "bypass" (SuperAdmin-equivalent) so every existing
+                                             -- internal call site (Edit/Supersede/SetActive/Delete/BulkImport/
+                                             -- ArticlePriceService's plain article lookups, none of which pass
+                                             -- this param) keeps working unchanged for a private supplier's own
+                                             -- article. Only the real catalog-browse path (ArticleService.
+                                             -- GetPagedAsync) and the Order/OrderTemplate add-line paths
+                                             -- explicitly override this — the latter pass 0 on purpose, to
+                                             -- force strict enforcement against the ORDER'S/TEMPLATE'S own
+                                             -- organization regardless of the acting user's role.
+    @ContextSupplierId INT           = NULL -- lets a supplier-scoped caller see its own (possibly private) catalog
 )
 AS
 BEGIN
@@ -33,6 +43,31 @@ BEGIN
         SELECT o.OrganizationId, o.ParentOrganizationId, oa.Depth + 1
         FROM   Organizations o
         INNER JOIN OrganizationAncestry oa ON o.OrganizationId = oa.ParentOrganizationId
+        WHERE  o.IsDeleted = 0
+          AND  o.IsActive  = 1
+    ),
+    -- Supplier-visibility walk — DESCENDING from @OrganizationId (the
+    -- viewer), same shape as sp_Organization_IsInHierarchy's own body.
+    -- Deliberately a SEPARATE CTE from OrganizationAncestry above:
+    -- favorites cascade DOWN from an ancestor's marking to descendants
+    -- (so a descendant queries UP for them, hence OrganizationAncestry's
+    -- ascending walk), while a private supplier's visibility cascades
+    -- UP from the owning descendant to its ancestors (so a viewer
+    -- queries DOWN from itself to find suppliers owned within its own
+    -- subtree). Do not conflate the two directions.
+    OrganizationDescendants AS
+    (
+        SELECT OrganizationId, ParentOrganizationId
+        FROM   Organizations
+        WHERE  OrganizationId = @OrganizationId
+          AND  IsDeleted = 0
+          AND  IsActive  = 1
+
+        UNION ALL
+
+        SELECT o.OrganizationId, o.ParentOrganizationId
+        FROM   Organizations o
+        INNER JOIN OrganizationDescendants od ON o.ParentOrganizationId = od.OrganizationId
         WHERE  o.IsDeleted = 0
           AND  o.IsActive  = 1
     ),
@@ -104,6 +139,17 @@ BEGIN
             a.Barcode        LIKE '%' + @SearchText + '%' OR
             a.Brand          LIKE '%' + @SearchText + '%')
       AND  (@FavoritesOnly = 0 OR ef.ArticleId IS NOT NULL)
+      AND  (
+            @ContextRoleLevel >= 100
+            OR (@ContextSupplierId IS NOT NULL AND a.SupplierId = @ContextSupplierId)
+            OR s.IsGlobal = 1
+            OR EXISTS (
+                SELECT 1 FROM OrganizationSuppliers os
+                JOIN OrganizationDescendants od ON od.OrganizationId = os.OrganizationId
+                WHERE os.SupplierId = a.SupplierId
+                  AND os.IsActive = 1
+            )
+          )
     ORDER BY s.Name, a.Name
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

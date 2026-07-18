@@ -18,9 +18,11 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     private const string NoAccessEmailDomain = "@no-access.innou.internal";
 
     // Harmonized with ArticleService.AdminRoleLevel: Admin+ can browse/edit ordinary supplier
-    // records. Creating/deleting a supplier and granting/revoking its system access remain
-    // superadmin-only (RoleLevel >= 100) — those are deliberately higher-trust operations,
-    // not just visibility/ordinary-field management.
+    // records. Creating a private supplier is open to Staff+ for their own organization (see
+    // CreateSupplierAsync); creating a GLOBAL supplier, deleting a supplier, granting/revoking
+    // system access, and changing an existing supplier's IsGlobal/owning-organization remain
+    // superadmin-only — those are deliberately higher-trust operations.
+    private const int StaffRoleLevel = 20;
     private const int AdminRoleLevel = 80;
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
@@ -29,6 +31,14 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     private const int MaxExportRows = 10_000;
 
     private sealed class SupplierPageRow : Supplier { public int TotalCount { get; set; } }
+
+    private sealed class PrivatizationImpact
+    {
+        public int ImpactedFavoriteOrganizationCount { get; set; }
+        public int ImpactedDraftOrderOrganizationCount { get; set; }
+        public int ImpactedTemplateOrganizationCount { get; set; }
+        public int TotalImpactedOrganizationCount { get; set; }
+    }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
@@ -46,7 +56,9 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         IRequestContext context,
         CancellationToken cancellationToken)
     {
-        if (context.RoleLevel < AdminRoleLevel && !context.SupplierId.HasValue)
+        // Below SuperAdmin, a caller needs either a SupplierId (sees its own supplier) or an
+        // OrganizationId (sees globals + its own hierarchy's private suppliers) to see anything.
+        if (context.RoleLevel < SuperAdminRoleLevel && !context.SupplierId.HasValue && !context.OrganizationId.HasValue)
             return new PagedResult<SupplierDto>
             {
                 Items = [],
@@ -60,9 +72,11 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
         await using var connection = connectionFactory.CreateConnection();
 
+        var isSuperAdmin = context.RoleLevel >= SuperAdminRoleLevel;
         var p = new DynamicParameters();
         p.Add("@ContextRoleLevel", context.RoleLevel);
-        p.Add("@ContextSupplierId", context.RoleLevel >= AdminRoleLevel ? (int?)null : context.SupplierId);
+        p.Add("@ContextSupplierId", isSuperAdmin ? (int?)null : context.SupplierId);
+        p.Add("@ContextOrganizationId", isSuperAdmin ? (int?)null : context.OrganizationId);
         p.Add("@SearchField", string.IsNullOrWhiteSpace(searchField) ? null : searchField.Trim().ToLower());
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
@@ -81,13 +95,23 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         };
     }
 
-    public async Task<bool> SupplierExistsAsync(string name, CancellationToken cancellationToken)
+    // Scope-aware uniqueness (see InnNou-Api CLAUDE.md, "Supplier global/private scoping"): a
+    // global name must be unique among other globals; a private name must be unique among
+    // globals UNION that exact owning organization's own private suppliers.
+    // excludeSupplierId lets an edit re-check exclude the row being edited itself.
+    public async Task<bool> SupplierExistsAsync(string name, bool isGlobal, int? organizationId, int? excludeSupplierId, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
         var result = await connection.ExecuteScalarAsync<int>(
             "sp_Supplier_ExistsByName",
-            new { NormalizedName = name.ToUpperInvariant() },
+            new
+            {
+                NormalizedName = name.ToUpperInvariant(),
+                IsGlobal = isGlobal,
+                OrganizationId = organizationId,
+                ExcludeSupplierId = excludeSupplierId
+            },
             commandType: CommandType.StoredProcedure);
 
         return result == 1;
@@ -105,23 +129,91 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             return null;
 
-        if (context.RoleLevel < AdminRoleLevel && context.SupplierId != existing.SupplierId)
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+            return mapper.Map<SupplierDto>(existing);
+
+        if (context.SupplierId.HasValue)
+            return context.SupplierId.Value == existing.SupplierId ? mapper.Map<SupplierDto>(existing) : null;
+
+        if (existing.IsGlobal)
+            return mapper.Map<SupplierDto>(existing);
+
+        if (!context.OrganizationId.HasValue)
             return null;
 
-        return mapper.Map<SupplierDto>(existing);
+        // Private supplier — visible if its owner is within the caller's own descending
+        // hierarchy (caller's org itself, or any descendant) — same shape as
+        // WarehouseService.CanManageReadAsync/OrderTemplateService.CanAccessTemplateAsync.
+        // existing.OrganizationTokenResult only carries the token, not the internal id — resolve
+        // the owner's internal id via the dedicated lookup instead.
+        var currentOwner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+            "sp_OrganizationSupplier_GetActiveBySupplierId",
+            new { SupplierId = existing.SupplierId },
+            commandType: CommandType.StoredProcedure);
+
+        if (currentOwner is null)
+            return null;
+
+        var canAccess = await connection.ExecuteScalarAsync<int>(
+            "sp_Organization_IsInHierarchy",
+            new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = currentOwner.OrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        return canAccess == 1 ? mapper.Map<SupplierDto>(existing) : null;
     }
 
     public async Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
-        if (context.RoleLevel < SuperAdminRoleLevel)
-            throw new ApiException(ErrorCodes.SupplierCreateSuperadminOnly, "Only super admins can create suppliers.", 403);
+        var isGlobal = dto.IsGlobal ?? false;
+
+        await using var connection = connectionFactory.CreateConnection();
+
+        int? ownerOrganizationId;
+
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+        {
+            if (isGlobal)
+            {
+                ownerOrganizationId = null;
+            }
+            else
+            {
+                if (!dto.OrganizationToken.HasValue)
+                    throw new ApiException(ErrorCodes.SupplierOrganizationTokenRequired, "An owning organization is required for a private supplier.", 400);
+
+                var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+                    "sp_Organization_GetByToken",
+                    new { OrganizationToken = dto.OrganizationToken.Value, RootOrganizationId = (int?)null },
+                    commandType: CommandType.StoredProcedure);
+
+                if (organization is null)
+                    throw new ApiException(ErrorCodes.SupplierOrganizationNotFound, "The specified owning organization was not found.", 404);
+
+                ownerOrganizationId = organization.OrganizationId;
+            }
+        }
+        else if (context.RoleLevel >= StaffRoleLevel && context.OrganizationId.HasValue)
+        {
+            if (isGlobal)
+                throw new ApiException(ErrorCodes.SupplierCreateGlobalForbidden, "Only super admins can create a global supplier.", 403);
+
+            // Server-resolved; any client-supplied OrganizationToken is ignored for this actor —
+            // Staff+ can only ever create a private supplier scoped to their own organization.
+            ownerOrganizationId = context.OrganizationId.Value;
+        }
+        else
+        {
+            throw new ApiException(ErrorCodes.SupplierCreateForbidden, "Insufficient permissions to create a supplier.", 403);
+        }
+
+        var duplicateExists = await SupplierExistsAsync(dto.Name, isGlobal, ownerOrganizationId, null, cancellationToken);
+        if (duplicateExists)
+            throw new ApiException(ErrorCodes.SupplierAlreadyExists, "A supplier with this name already exists.", 409);
 
         var hasAccess = dto.HasAccessToSystem ?? false;
 
         if (hasAccess && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
             throw new ApiException(ErrorCodes.SupplierLoginCredentialsRequired, "LoginEmail and Password are required when HasAccessToSystem is true.", 400);
-
-        await using var connection = connectionFactory.CreateConnection();
 
         if (hasAccess)
         {
@@ -165,7 +257,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     State = dto.State,
                     PostalCode = dto.PostalCode,
                     Country = dto.Country,
-                    IsGlobal = dto.IsGlobal ?? false,
+                    IsGlobal = isGlobal,
                     SupplierType = dto.SupplierType ?? SupplierTypeCodes.Product,
                     HasAccessToSystem = hasAccess,
                     IsActive = true,
@@ -209,7 +301,32 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
+            if (ownerOrganizationId.HasValue)
+            {
+                await connection.ExecuteAsync(
+                    "sp_OrganizationSupplier_Assign",
+                    new
+                    {
+                        OrganizationId = ownerOrganizationId.Value,
+                        SupplierId = created.SupplierId,
+                        CreatedUtc = DateTime.UtcNow,
+                        CreatedBy = context.ActorUserToken.ToString()
+                    },
+                    transaction,
+                    commandType: CommandType.StoredProcedure);
+            }
+
             await transaction.CommitAsync(cancellationToken);
+
+            if (ownerOrganizationId.HasValue)
+            {
+                var owner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+                    "sp_OrganizationSupplier_GetActiveBySupplierId",
+                    new { SupplierId = created.SupplierId },
+                    commandType: CommandType.StoredProcedure);
+                created.OrganizationTokenResult = owner?.OrganizationToken;
+                created.OrganizationName = owner?.OrganizationName;
+            }
 
             return mapper.Map<SupplierDto>(created);
         }
@@ -232,8 +349,85 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             return null;
 
-        if (context.RoleLevel < AdminRoleLevel && context.SupplierId != existing.SupplierId)
-            throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
+        var currentOwner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+            "sp_OrganizationSupplier_GetActiveBySupplierId",
+            new { SupplierId = existing.SupplierId },
+            commandType: CommandType.StoredProcedure);
+        int? currentOwnerOrganizationId = currentOwner?.OrganizationId;
+
+        var newIsGlobal = dto.IsGlobal ?? existing.IsGlobal;
+        var wantsGlobalChange = dto.IsGlobal.HasValue && dto.IsGlobal.Value != existing.IsGlobal;
+        // Only meaningful while staying/becoming private — a supplied OrganizationToken is
+        // ignored once IsGlobal ends up true (there is no owner to assign).
+        var wantsOwnerReassignment = !newIsGlobal && dto.OrganizationToken.HasValue;
+
+        int? newOwnerOrganizationId = currentOwnerOrganizationId;
+
+        if (wantsGlobalChange || wantsOwnerReassignment)
+        {
+            if (context.RoleLevel < SuperAdminRoleLevel)
+                throw new ApiException(ErrorCodes.SupplierOwnershipChangeSuperadminOnly, "Only super admins can change a supplier's global/private status or owning organization.", 403);
+
+            if (newIsGlobal)
+            {
+                newOwnerOrganizationId = null;
+            }
+            else
+            {
+                if (!dto.OrganizationToken.HasValue)
+                    throw new ApiException(ErrorCodes.SupplierOrganizationTokenRequired, "An owning organization is required for a private supplier.", 400);
+
+                var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+                    "sp_Organization_GetByToken",
+                    new { OrganizationToken = dto.OrganizationToken.Value, RootOrganizationId = (int?)null },
+                    commandType: CommandType.StoredProcedure);
+
+                if (organization is null)
+                    throw new ApiException(ErrorCodes.SupplierOrganizationNotFound, "The specified owning organization was not found.", 404);
+
+                newOwnerOrganizationId = organization.OrganizationId;
+            }
+
+            // Privatization-impact confirmation — only for a genuine loss scenario
+            // (Global->Private, or an A->B reassignment), never Private->Global, which only
+            // ever adds visibility for everyone and never removes anyone's existing access.
+            var isLossScenario = (existing.IsGlobal && !newIsGlobal)
+                || (!existing.IsGlobal && !newIsGlobal && currentOwnerOrganizationId != newOwnerOrganizationId);
+
+            if (isLossScenario && !dto.ConfirmPrivatizationImpact)
+            {
+                var impact = await connection.QueryFirstAsync<PrivatizationImpact>(
+                    "sp_Supplier_GetPrivatizationImpact",
+                    new { SupplierId = existing.SupplierId, NewOwnerOrganizationId = newOwnerOrganizationId },
+                    commandType: CommandType.StoredProcedure);
+
+                if (impact.TotalImpactedOrganizationCount > 0)
+                    throw new ApiException(
+                        ErrorCodes.SupplierPrivatizationImpact,
+                        $"{impact.TotalImpactedOrganizationCount} other organization(s) would lose access to this supplier's articles: " +
+                        $"{impact.ImpactedFavoriteOrganizationCount} with favorites, {impact.ImpactedDraftOrderOrganizationCount} with draft order lines, " +
+                        $"{impact.ImpactedTemplateOrganizationCount} with template lines. Resubmit with confirmPrivatizationImpact=true to proceed anyway.",
+                        409);
+            }
+        }
+        else
+        {
+            // Ordinary-field edit, no ownership/global change. Deliberate read/write asymmetry
+            // (see CLAUDE.md, "Supplier global/private scoping"): reads of a private supplier
+            // cascade to the caller's entire descending hierarchy (a Super Asociado can SEE a
+            // child Asociado's private supplier), but writes of ordinary fields require an
+            // EXACT organization match — no hierarchy cascade. A Super Asociado can view but not
+            // edit a child's private supplier's name/contact info; only SuperAdmin or that exact
+            // organization's own Staff+ can. Do not "fix" this to match Warehouse/OrderTemplate's
+            // symmetric read=write hierarchy scoping — it's intentional here.
+            var isOwnSupplierLogin = context.SupplierId.HasValue && context.SupplierId.Value == existing.SupplierId;
+            var isExactOwnerStaff = context.RoleLevel >= StaffRoleLevel
+                && currentOwnerOrganizationId.HasValue
+                && context.OrganizationId == currentOwnerOrganizationId;
+
+            if (context.RoleLevel < SuperAdminRoleLevel && !isOwnSupplierLogin && !isExactOwnerStaff)
+                throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
+        }
 
         var touchesAccess = dto.HasAccessToSystem.HasValue
             || !string.IsNullOrWhiteSpace(dto.LoginEmail)
@@ -244,6 +438,17 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
         var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
         var newHasAccess = dto.HasAccessToSystem ?? existing.HasAccessToSystem;
+
+        // Re-check uniqueness whenever anything that affects scope changes — closes a
+        // pre-existing gap where this handler never checked uniqueness on edit at all.
+        var nameChanging = !string.Equals(newName, existing.Name, StringComparison.Ordinal);
+        if (nameChanging || wantsGlobalChange || wantsOwnerReassignment)
+        {
+            var duplicateExists = await SupplierExistsAsync(
+                newName, newIsGlobal, newIsGlobal ? null : newOwnerOrganizationId, existing.SupplierId, cancellationToken);
+            if (duplicateExists)
+                throw new ApiException(ErrorCodes.SupplierAlreadyExists, "A supplier with this name already exists.", 409);
+        }
 
         var supplierUpdateParams = new
         {
@@ -260,49 +465,19 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             State = dto.State ?? existing.State,
             PostalCode = dto.PostalCode ?? existing.PostalCode,
             Country = dto.Country ?? existing.Country,
-            IsGlobal = dto.IsGlobal ?? existing.IsGlobal,
+            IsGlobal = newIsGlobal,
             SupplierType = dto.SupplierType ?? existing.SupplierType,
             HasAccessToSystem = newHasAccess,
             LastUpdatedUtc = DateTime.UtcNow,
             LastUpdatedBy = context.ActorUserToken.ToString()
         };
 
+        var ownershipChanging = newIsGlobal != existing.IsGlobal || newOwnerOrganizationId != currentOwnerOrganizationId;
+
         Supplier? updated;
 
-        if (touchesAccess)
+        if (touchesAccess || ownershipChanging)
         {
-            var shadowUser = await connection.QueryFirstOrDefaultAsync<User>(
-                "sp_User_GetBySupplierId",
-                new { SupplierId = existing.SupplierId },
-                commandType: CommandType.StoredProcedure);
-
-            if (shadowUser is null)
-                throw new InvalidOperationException("Supplier has no linked shadow user.");
-
-            var isFirstActivation = newHasAccess && !existing.HasAccessToSystem
-                && shadowUser.Email.EndsWith(NoAccessEmailDomain, StringComparison.OrdinalIgnoreCase);
-
-            if (isFirstActivation && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
-                throw new ApiException(ErrorCodes.SupplierLoginCredentialsRequired, "LoginEmail and Password are required to grant system access for the first time.", 400);
-
-            var newLoginEmail = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.Email;
-            var newUserName = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.UserName;
-            var newPasswordHash = !string.IsNullOrWhiteSpace(dto.Password)
-                ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
-                : shadowUser.PasswordHash;
-
-            if (!string.IsNullOrWhiteSpace(dto.LoginEmail)
-                && !string.Equals(dto.LoginEmail, shadowUser.Email, StringComparison.OrdinalIgnoreCase))
-            {
-                var emailExists = await connection.ExecuteScalarAsync<int>(
-                    "sp_User_ExistsByEmail",
-                    new { NormalizedEmail = dto.LoginEmail!.ToUpperInvariant() },
-                    commandType: CommandType.StoredProcedure);
-
-                if (emailExists == 1)
-                    throw new ApiException(ErrorCodes.SupplierLoginEmailExists, "A user with this login email already exists.", 409);
-            }
-
             await connection.OpenAsync(cancellationToken);
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
             try
@@ -310,22 +485,85 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
                     "sp_Supplier_Update", supplierUpdateParams, transaction, commandType: CommandType.StoredProcedure);
 
-                await connection.ExecuteAsync(
-                    "sp_User_SetSupplierAccess",
-                    new
+                if (touchesAccess)
+                {
+                    var shadowUser = await connection.QueryFirstOrDefaultAsync<User>(
+                        "sp_User_GetBySupplierId",
+                        new { SupplierId = existing.SupplierId },
+                        transaction,
+                        commandType: CommandType.StoredProcedure);
+
+                    if (shadowUser is null)
+                        throw new InvalidOperationException("Supplier has no linked shadow user.");
+
+                    var isFirstActivation = newHasAccess && !existing.HasAccessToSystem
+                        && shadowUser.Email.EndsWith(NoAccessEmailDomain, StringComparison.OrdinalIgnoreCase);
+
+                    if (isFirstActivation && (string.IsNullOrWhiteSpace(dto.LoginEmail) || string.IsNullOrWhiteSpace(dto.Password)))
+                        throw new ApiException(ErrorCodes.SupplierLoginCredentialsRequired, "LoginEmail and Password are required to grant system access for the first time.", 400);
+
+                    var newLoginEmail = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.Email;
+                    var newUserName = !string.IsNullOrWhiteSpace(dto.LoginEmail) ? dto.LoginEmail! : shadowUser.UserName;
+                    var newPasswordHash = !string.IsNullOrWhiteSpace(dto.Password)
+                        ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
+                        : shadowUser.PasswordHash;
+
+                    if (!string.IsNullOrWhiteSpace(dto.LoginEmail)
+                        && !string.Equals(dto.LoginEmail, shadowUser.Email, StringComparison.OrdinalIgnoreCase))
                     {
-                        SupplierId = existing.SupplierId,
-                        Email = newLoginEmail,
-                        NormalizedEmail = newLoginEmail.ToUpperInvariant(),
-                        UserName = newUserName,
-                        NormalizedUserName = newUserName.ToUpperInvariant(),
-                        PasswordHash = newPasswordHash,
-                        IsActive = newHasAccess,
-                        LastUpdatedUtc = DateTime.UtcNow,
-                        LastUpdatedBy = context.ActorUserToken.ToString()
-                    },
-                    transaction,
-                    commandType: CommandType.StoredProcedure);
+                        var emailExists = await connection.ExecuteScalarAsync<int>(
+                            "sp_User_ExistsByEmail",
+                            new { NormalizedEmail = dto.LoginEmail!.ToUpperInvariant() },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
+
+                        if (emailExists == 1)
+                            throw new ApiException(ErrorCodes.SupplierLoginEmailExists, "A user with this login email already exists.", 409);
+                    }
+
+                    await connection.ExecuteAsync(
+                        "sp_User_SetSupplierAccess",
+                        new
+                        {
+                            SupplierId = existing.SupplierId,
+                            Email = newLoginEmail,
+                            NormalizedEmail = newLoginEmail.ToUpperInvariant(),
+                            UserName = newUserName,
+                            NormalizedUserName = newUserName.ToUpperInvariant(),
+                            PasswordHash = newPasswordHash,
+                            IsActive = newHasAccess,
+                            LastUpdatedUtc = DateTime.UtcNow,
+                            LastUpdatedBy = context.ActorUserToken.ToString()
+                        },
+                        transaction,
+                        commandType: CommandType.StoredProcedure);
+                }
+
+                if (ownershipChanging)
+                {
+                    if (newIsGlobal)
+                    {
+                        await connection.ExecuteAsync(
+                            "sp_OrganizationSupplier_DeactivateAll",
+                            new { SupplierId = existing.SupplierId, LastUpdatedUtc = DateTime.UtcNow, LastUpdatedBy = context.ActorUserToken.ToString() },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
+                    }
+                    else if (newOwnerOrganizationId.HasValue)
+                    {
+                        await connection.ExecuteAsync(
+                            "sp_OrganizationSupplier_Assign",
+                            new
+                            {
+                                OrganizationId = newOwnerOrganizationId.Value,
+                                SupplierId = existing.SupplierId,
+                                LastUpdatedUtc = DateTime.UtcNow,
+                                LastUpdatedBy = context.ActorUserToken.ToString()
+                            },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
+                    }
+                }
 
                 await transaction.CommitAsync(cancellationToken);
             }
@@ -341,7 +579,17 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 "sp_Supplier_Update", supplierUpdateParams, commandType: CommandType.StoredProcedure);
         }
 
-        return updated is null ? null : mapper.Map<SupplierDto>(updated);
+        if (updated is null)
+            return null;
+
+        var finalOwner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+            "sp_OrganizationSupplier_GetActiveBySupplierId",
+            new { SupplierId = updated.SupplierId },
+            commandType: CommandType.StoredProcedure);
+        updated.OrganizationTokenResult = finalOwner?.OrganizationToken;
+        updated.OrganizationName = finalOwner?.OrganizationName;
+
+        return mapper.Map<SupplierDto>(updated);
     }
 
     public async Task<bool> DeleteSupplierAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
@@ -376,8 +624,12 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
     public async Task<BulkImportSupplierResultDto> BulkImportSuppliersAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken)
     {
         // Gated at SuperAdminRoleLevel (not AdminRoleLevel like Users' bulk import) because each row
-        // ultimately calls CreateSupplierAsync, which itself is superadmin-only — gating lower here
-        // would let an Admin upload a file where every single row fails with SUPPLIER_CREATE_SUPERADMIN_ONLY.
+        // ultimately calls CreateSupplierAsync. Bulk import stays out of scope for the new
+        // private-supplier ownership feature (no Owner Organization column) — a row whose IsGlobal
+        // cell is FALSE will still reach CreateSupplierAsync, which now requires SuperAdmin to
+        // supply an OrganizationToken for a private supplier; since bulk import never supplies
+        // one, that row fails per-row with SUPPLIER_ORGANIZATION_TOKEN_REQUIRED rather than
+        // silently creating an ownerless, effectively-invisible supplier.
         if (context.RoleLevel < SuperAdminRoleLevel)
             throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only super admins can bulk-import suppliers.", 403);
 
@@ -448,7 +700,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     continue;
                 }
 
-                if (await SupplierExistsAsync(name, cancellationToken))
+                if (await SupplierExistsAsync(name, true, null, null, cancellationToken))
                 {
                     result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierAlreadyExists, Description = "A supplier with this name already exists." });
                     continue;

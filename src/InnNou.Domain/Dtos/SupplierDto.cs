@@ -22,5 +22,20 @@ namespace InnNou.Domain.Dtos
         public string? Password { get; set; }
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
+
+        // Transient, write-only inputs — never round-tripped in a response mapping, same
+        // pattern as LoginEmail/Password above. OrganizationToken names the target owner when
+        // IsGlobal is false (create), or reassigns/keeps ownership (edit) — see
+        // SupplierService.CreateSupplierAsync/EditSupplierAsync. ConfirmPrivatizationImpact is
+        // the resubmit-with-confirm flag for a SuperAdmin-initiated Global->Private or
+        // owner-reassignment edit that would remove another organization's existing access.
+        public Guid? OrganizationToken { get; set; }
+        public bool ConfirmPrivatizationImpact { get; set; }
+
+        // Read-only outputs, resolved by the service (not the entity mapper — Suppliers itself
+        // has no owner column, ownership lives in OrganizationSuppliers) and stitched onto the
+        // DTO for display. Null on both = global supplier.
+        public Guid? OrganizationTokenResult { get; set; }
+        public string? OrganizationName { get; set; }
     }
 }

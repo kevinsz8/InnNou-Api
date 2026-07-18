@@ -212,7 +212,8 @@ namespace InnNou.Application.Mapping
                 SupplierType = r.SupplierType,
                 HasAccessToSystem = r.HasAccessToSystem,
                 LoginEmail = r.LoginEmail,
-                Password = r.Password
+                Password = r.Password,
+                OrganizationToken = r.OrganizationToken
             });
             mapper.Register<SupplierDto, CreateSupplierCommandResponse>(d => new CreateSupplierCommandResponse
             {
@@ -232,7 +233,9 @@ namespace InnNou.Application.Mapping
                 IsGlobal = d.IsGlobal ?? false,
                 SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                OrganizationToken = d.OrganizationTokenResult,
+                OrganizationName = d.OrganizationName
             });
             mapper.Register<EditSupplierCommandRequest, SupplierDto>(r => new SupplierDto
             {
@@ -252,7 +255,9 @@ namespace InnNou.Application.Mapping
                 SupplierType = r.SupplierType,
                 HasAccessToSystem = r.HasAccessToSystem,
                 LoginEmail = r.LoginEmail,
-                Password = r.Password
+                Password = r.Password,
+                OrganizationToken = r.OrganizationToken,
+                ConfirmPrivatizationImpact = r.ConfirmPrivatizationImpact
             });
             mapper.Register<SupplierDto, EditSupplierCommandResponse>(d => new EditSupplierCommandResponse
             {
@@ -272,7 +277,9 @@ namespace InnNou.Application.Mapping
                 IsGlobal = d.IsGlobal ?? false,
                 SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                OrganizationToken = d.OrganizationTokenResult,
+                OrganizationName = d.OrganizationName
             });
             mapper.Register<SupplierDto, CommonSupplier>(d => new CommonSupplier
             {
@@ -292,7 +299,9 @@ namespace InnNou.Application.Mapping
                 IsGlobal = d.IsGlobal ?? false,
                 SupplierType = d.SupplierType ?? SupplierTypeCodes.Product,
                 HasAccessToSystem = d.HasAccessToSystem ?? false,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                OrganizationToken = d.OrganizationTokenResult,
+                OrganizationName = d.OrganizationName
             });
             mapper.Register<BulkImportSupplierRowErrorDto, BulkImportSupplierRowError>(d => new BulkImportSupplierRowError
             {
