@@ -10,7 +10,6 @@ namespace InnNou.Application.Requests
         public string Name { get; set; } = default!;
         public string? Code { get; set; }
         public string? Description { get; set; }
-        public string? PurposeCode { get; set; }
 
         public bool IsInventoriable { get; set; } = true;
         public bool CanReceivePurchases { get; set; }
@@ -27,5 +26,6 @@ namespace InnNou.Application.Requests
         public bool RequireApproval { get; set; }
         public bool IsDefaultReceivingWarehouse { get; set; }
         public bool IsDefaultConsumptionWarehouse { get; set; }
+        public bool IsMainWarehouse { get; set; }
     }
 }

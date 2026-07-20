@@ -64,6 +64,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@RequireApproval", dto.RequireApproval);
         p.Add("@IsDefaultReceivingWarehouse", dto.IsDefaultReceivingWarehouse);
         p.Add("@IsDefaultConsumptionWarehouse", dto.IsDefaultConsumptionWarehouse);
+        p.Add("@IsMainWarehouse", dto.IsMainWarehouse);
     }
 
     public async Task<PagedResult<WarehouseDto>> GetPagedByOrganizationTokenAsync(
@@ -164,7 +165,6 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@NormalizedName", normalizedName);
         p.Add("@Code", string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim());
         p.Add("@Description", dto.Description);
-        p.Add("@PurposeCode", dto.PurposeCode);
         AddCapabilityParameters(p, dto);
         p.Add("@CreatedUtc", DateTime.UtcNow);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
@@ -204,7 +204,6 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@NormalizedName", normalizedName);
         p.Add("@Code", string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim());
         p.Add("@Description", dto.Description);
-        p.Add("@PurposeCode", dto.PurposeCode);
         AddCapabilityParameters(p, dto);
         p.Add("@LastUpdatedUtc", DateTime.UtcNow);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
@@ -288,6 +287,9 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
 
         if (ex.Message.Contains("UX_Warehouses_DefaultConsumption", StringComparison.OrdinalIgnoreCase))
             return new ApiException(ErrorCodes.WarehouseDefaultConsumptionConflict, "Another warehouse in this organization is already the default consumption warehouse.", 409);
+
+        if (ex.Message.Contains("UX_Warehouses_Main", StringComparison.OrdinalIgnoreCase))
+            return new ApiException(ErrorCodes.WarehouseMainConflict, "Another warehouse in this organization is already the main warehouse.", 409);
 
         if (ex.Message.Contains("UX_Warehouses_Code_NotDeleted", StringComparison.OrdinalIgnoreCase))
             return new ApiException(ErrorCodes.WarehouseNameExists, "A warehouse with this code already exists in the organization.", 409);

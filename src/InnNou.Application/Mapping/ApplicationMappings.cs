@@ -680,7 +680,6 @@ namespace InnNou.Application.Mapping
                 Name = r.Name,
                 Code = r.Code,
                 Description = r.Description,
-                PurposeCode = r.PurposeCode ?? string.Empty,
                 IsInventoriable = r.IsInventoriable,
                 CanReceivePurchases = r.CanReceivePurchases,
                 CanReceiveTransfers = r.CanReceiveTransfers,
@@ -695,7 +694,8 @@ namespace InnNou.Application.Mapping
                 TrackSerialNumbers = r.TrackSerialNumbers,
                 RequireApproval = r.RequireApproval,
                 IsDefaultReceivingWarehouse = r.IsDefaultReceivingWarehouse,
-                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse
+                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = r.IsMainWarehouse
             });
             mapper.Register<EditWarehouseCommandRequest, WarehouseDto>(r => new WarehouseDto
             {
@@ -703,7 +703,6 @@ namespace InnNou.Application.Mapping
                 Name = r.Name,
                 Code = r.Code,
                 Description = r.Description,
-                PurposeCode = r.PurposeCode ?? string.Empty,
                 IsInventoriable = r.IsInventoriable,
                 CanReceivePurchases = r.CanReceivePurchases,
                 CanReceiveTransfers = r.CanReceiveTransfers,
@@ -718,7 +717,8 @@ namespace InnNou.Application.Mapping
                 TrackSerialNumbers = r.TrackSerialNumbers,
                 RequireApproval = r.RequireApproval,
                 IsDefaultReceivingWarehouse = r.IsDefaultReceivingWarehouse,
-                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse
+                IsDefaultConsumptionWarehouse = r.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = r.IsMainWarehouse
             });
             mapper.Register<WarehouseDto, CreateWarehouseCommandResponse>(d => new CreateWarehouseCommandResponse
             {
@@ -728,7 +728,6 @@ namespace InnNou.Application.Mapping
                 Name = d.Name,
                 Code = d.Code,
                 Description = d.Description,
-                PurposeCode = d.PurposeCode,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -744,6 +743,7 @@ namespace InnNou.Application.Mapping
                 RequireApproval = d.RequireApproval,
                 IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
                 IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = d.IsMainWarehouse,
                 IsActive = d.IsActive
             });
             mapper.Register<WarehouseDto, EditWarehouseCommandResponse>(d => new EditWarehouseCommandResponse
@@ -754,7 +754,6 @@ namespace InnNou.Application.Mapping
                 Name = d.Name,
                 Code = d.Code,
                 Description = d.Description,
-                PurposeCode = d.PurposeCode,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -770,6 +769,7 @@ namespace InnNou.Application.Mapping
                 RequireApproval = d.RequireApproval,
                 IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
                 IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = d.IsMainWarehouse,
                 IsActive = d.IsActive
             });
             mapper.Register<WarehouseDto, CommonWarehouse>(d => new CommonWarehouse
@@ -780,7 +780,6 @@ namespace InnNou.Application.Mapping
                 Name = d.Name,
                 Code = d.Code,
                 Description = d.Description,
-                PurposeCode = d.PurposeCode,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -796,6 +795,7 @@ namespace InnNou.Application.Mapping
                 RequireApproval = d.RequireApproval,
                 IsDefaultReceivingWarehouse = d.IsDefaultReceivingWarehouse,
                 IsDefaultConsumptionWarehouse = d.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = d.IsMainWarehouse,
                 IsActive = d.IsActive
             });
 

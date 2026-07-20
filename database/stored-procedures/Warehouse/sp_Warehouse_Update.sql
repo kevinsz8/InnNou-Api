@@ -12,7 +12,6 @@ CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_Update
     @NormalizedName   VARCHAR(200),
     @Code             VARCHAR(50)  = NULL,
     @Description      VARCHAR(500) = NULL,
-    @PurposeCode      VARCHAR(30),
 
     @IsInventoriable               BIT,
     @CanReceivePurchases           BIT,
@@ -29,6 +28,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_Update
     @RequireApproval               BIT,
     @IsDefaultReceivingWarehouse   BIT,
     @IsDefaultConsumptionWarehouse BIT,
+    @IsMainWarehouse               BIT,
 
     @LastUpdatedUtc   DATETIME2,
     @LastUpdatedBy    VARCHAR(150) = NULL
@@ -43,7 +43,6 @@ BEGIN
         NormalizedName                = @NormalizedName,
         Code                          = @Code,
         Description                   = @Description,
-        PurposeCode                   = @PurposeCode,
         IsInventoriable               = @IsInventoriable,
         CanReceivePurchases           = @CanReceivePurchases,
         CanReceiveTransfers           = @CanReceiveTransfers,
@@ -59,17 +58,18 @@ BEGIN
         RequireApproval               = @RequireApproval,
         IsDefaultReceivingWarehouse   = @IsDefaultReceivingWarehouse,
         IsDefaultConsumptionWarehouse = @IsDefaultConsumptionWarehouse,
+        IsMainWarehouse               = @IsMainWarehouse,
         LastUpdatedUtc                = @LastUpdatedUtc,
         LastUpdatedBy                 = @LastUpdatedBy
     WHERE WarehouseToken = @WarehouseToken
       AND IsDeleted = 0;
 
     SELECT
-        WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description, PurposeCode,
+        WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
         CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
-        IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse,
+        IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
         IsActive, IsDeleted, CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
     FROM dbo.Warehouses
     WHERE WarehouseToken = @WarehouseToken;

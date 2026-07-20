@@ -13,7 +13,6 @@ namespace InnNou.Domain.Dtos
         public string Name { get; set; } = default!;
         public string? Code { get; set; }
         public string? Description { get; set; }
-        public string PurposeCode { get; set; } = default!;
 
         public bool IsInventoriable { get; set; }
         public bool CanReceivePurchases { get; set; }
@@ -30,6 +29,7 @@ namespace InnNou.Domain.Dtos
         public bool RequireApproval { get; set; }
         public bool IsDefaultReceivingWarehouse { get; set; }
         public bool IsDefaultConsumptionWarehouse { get; set; }
+        public bool IsMainWarehouse { get; set; }
 
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }

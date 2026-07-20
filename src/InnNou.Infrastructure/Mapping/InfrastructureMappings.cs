@@ -346,7 +346,6 @@ namespace InnNou.Infrastructure.Mapping
                 Name = e.Name,
                 Code = e.Code,
                 Description = e.Description,
-                PurposeCode = e.PurposeCode,
                 IsInventoriable = e.IsInventoriable,
                 CanReceivePurchases = e.CanReceivePurchases,
                 CanReceiveTransfers = e.CanReceiveTransfers,
@@ -362,6 +361,7 @@ namespace InnNou.Infrastructure.Mapping
                 RequireApproval = e.RequireApproval,
                 IsDefaultReceivingWarehouse = e.IsDefaultReceivingWarehouse,
                 IsDefaultConsumptionWarehouse = e.IsDefaultConsumptionWarehouse,
+                IsMainWarehouse = e.IsMainWarehouse,
                 IsActive = e.IsActive,
                 IsDeleted = e.IsDeleted
             });

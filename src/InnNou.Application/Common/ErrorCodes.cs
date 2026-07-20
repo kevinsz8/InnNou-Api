@@ -191,9 +191,9 @@ namespace InnNou.Application.Common
         public const string WarehouseNameExists = "WAREHOUSE_NAME_EXISTS";
         public const string WarehouseOutsideScope = "WAREHOUSE_OUTSIDE_SCOPE";
         public const string WarehouseForbidden = "WAREHOUSE_FORBIDDEN";
-        public const string WarehouseInvalidPurpose = "WAREHOUSE_INVALID_PURPOSE";
         public const string WarehouseDefaultReceivingConflict = "WAREHOUSE_DEFAULT_RECEIVING_CONFLICT";
         public const string WarehouseDefaultConsumptionConflict = "WAREHOUSE_DEFAULT_CONSUMPTION_CONFLICT";
+        public const string WarehouseMainConflict = "WAREHOUSE_MAIN_CONFLICT";
 
         // WarehouseContact
         public const string WarehouseContactNotFound = "WAREHOUSE_CONTACT_NOT_FOUND";

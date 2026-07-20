@@ -19,11 +19,7 @@ namespace InnNou.Application.Handlers
             if (string.IsNullOrWhiteSpace(request.Name))
                 return ApiResponse<EditWarehouseCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Name is required.", 400);
 
-            if (!string.IsNullOrWhiteSpace(request.PurposeCode) && !WarehousePurposeCodes.IsValid(request.PurposeCode))
-                return ApiResponse<EditWarehouseCommandResponse>.FailureResponse(ErrorCodes.WarehouseInvalidPurpose, "PurposeCode is not one of the supported values.", 400);
-
             var dto = mapper.Map<WarehouseDto>(request);
-            dto.PurposeCode = string.IsNullOrWhiteSpace(request.PurposeCode) ? WarehousePurposeCodes.General : request.PurposeCode.Trim().ToUpperInvariant();
 
             var result = await warehouseService.EditAsync(dto, context, cancellationToken);
             if (result is null)

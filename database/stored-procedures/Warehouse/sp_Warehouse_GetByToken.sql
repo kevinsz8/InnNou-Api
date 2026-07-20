@@ -14,11 +14,11 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description, PurposeCode,
+        WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
         CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
-        IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse,
+        IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
         IsActive, IsDeleted, CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
     FROM dbo.Warehouses
     WHERE WarehouseToken = @WarehouseToken
