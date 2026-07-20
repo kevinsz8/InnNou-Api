@@ -45,6 +45,8 @@ namespace InnNou.Application.Common
         public const string OrganizationOutsideScope = "ORGANIZATION_OUTSIDE_SCOPE";
         public const string OrganizationParentOutsideScope = "ORGANIZATION_PARENT_OUTSIDE_SCOPE";
         public const string OrganizationInvalidCurrency = "ORGANIZATION_INVALID_CURRENCY";
+        public const string OrganizationInvalidZone = "ORGANIZATION_INVALID_ZONE";
+        public const string OrganizationZoneRequiresAssociateType = "ORGANIZATION_ZONE_REQUIRES_ASSOCIATE_TYPE";
         public const string OrganizationBulkImportForbidden = "ORGANIZATION_BULK_IMPORT_FORBIDDEN";
         public const string OrganizationBulkImportInvalidFile = "ORGANIZATION_BULK_IMPORT_INVALID_FILE";
         public const string OrganizationBulkImportTooManyRows = "ORGANIZATION_BULK_IMPORT_TOO_MANY_ROWS";
@@ -83,6 +85,7 @@ namespace InnNou.Application.Common
         public const string ArticleStructuralChangeNotAllowed = "ARTICLE_STRUCTURAL_CHANGE_NOT_ALLOWED";
         public const string NoStructuralChange = "NO_STRUCTURAL_CHANGE";
         public const string ArticleSupplierForbidden = "ARTICLE_SUPPLIER_FORBIDDEN";
+        public const string ArticleSupplierZoneNotCovered = "ARTICLE_SUPPLIER_ZONE_NOT_COVERED";
         public const string ArticleBulkImportForbidden = "ARTICLE_BULK_IMPORT_FORBIDDEN";
         public const string ArticleBulkImportInvalidFile = "ARTICLE_BULK_IMPORT_INVALID_FILE";
         public const string ArticleBulkImportTooManyRows = "ARTICLE_BULK_IMPORT_TOO_MANY_ROWS";
@@ -141,6 +144,9 @@ namespace InnNou.Application.Common
         public const string CategoryBulkImportTooManyRows = "CATEGORY_BULK_IMPORT_TOO_MANY_ROWS";
         public const string CategoryBulkImportRowInvalid = "CATEGORY_BULK_IMPORT_ROW_INVALID";
         public const string CategoryBulkImportRowFailed = "CATEGORY_BULK_IMPORT_ROW_FAILED";
+        public const string CategoryCreateForbidden = "CATEGORY_CREATE_FORBIDDEN";
+        public const string CategoryOutsideScope = "CATEGORY_OUTSIDE_SCOPE";
+        public const string CategoryOrganizationNotFound = "CATEGORY_ORGANIZATION_NOT_FOUND";
 
         // SubCategory
         public const string SubCategoryNotFound = "SUB_CATEGORY_NOT_FOUND";
@@ -151,6 +157,7 @@ namespace InnNou.Application.Common
         public const string SubCategoryBulkImportTooManyRows = "SUB_CATEGORY_BULK_IMPORT_TOO_MANY_ROWS";
         public const string SubCategoryBulkImportRowInvalid = "SUB_CATEGORY_BULK_IMPORT_ROW_INVALID";
         public const string SubCategoryBulkImportRowFailed = "SUB_CATEGORY_BULK_IMPORT_ROW_FAILED";
+        public const string SubCategoryOutsideScope = "SUB_CATEGORY_OUTSIDE_SCOPE";
 
         // UnitType
         public const string UnitTypeNotFound = "UNIT_TYPE_NOT_FOUND";
@@ -220,6 +227,21 @@ namespace InnNou.Application.Common
 
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
+
+        // Country
+        public const string CountryNotFound = "COUNTRY_NOT_FOUND";
+
+        // Zone
+        public const string ZoneNotFound = "ZONE_NOT_FOUND";
+        public const string ZoneCodeExists = "ZONE_CODE_EXISTS";
+        public const string ZoneForbidden = "ZONE_FORBIDDEN";
+        public const string ZoneCreateFailed = "ZONE_CREATE_FAILED";
+
+        // SupplierDeliveryZone
+        public const string SupplierDeliveryZoneNoSupplierContext = "SUPPLIER_DELIVERY_ZONE_NO_SUPPLIER_CONTEXT";
+        public const string SupplierDeliveryZoneForbidden = "SUPPLIER_DELIVERY_ZONE_FORBIDDEN";
+        public const string SupplierDeliveryZoneInvalidDayOfWeek = "SUPPLIER_DELIVERY_ZONE_INVALID_DAY_OF_WEEK";
+        public const string SupplierDeliveryZoneNotFound = "SUPPLIER_DELIVERY_ZONE_NOT_FOUND";
 
         // Generic / cross-cutting
         public const string UnhandledError = "UNHANDLED_ERROR";

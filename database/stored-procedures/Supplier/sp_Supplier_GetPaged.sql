@@ -116,6 +116,31 @@ BEGIN
         )
         AND
         (
+            -- Zone delivery-coverage filter (additional AND narrowing the visibility OR-block
+            -- above, never widening it) — only applies when the caller is a zoned ASSOCIATE-type
+            -- organization; a supplier with zero coverage rows for that zone is excluded. NULL-safe
+            -- with no special case: @ContextOrganizationId is NULL for SuperAdmin and for a
+            -- supplier-scoped login (its shadow user has no OrganizationId), so
+            -- co.OrganizationId = @ContextOrganizationId matches nothing and this block no-ops.
+            @ContextRoleLevel >= 100
+            OR NOT EXISTS (
+                SELECT 1
+                FROM dbo.Organizations co
+                JOIN dbo.OrganizationTypes cot ON cot.OrganizationTypeId = co.OrganizationTypeId
+                WHERE co.OrganizationId = @ContextOrganizationId
+                  AND co.ZoneId IS NOT NULL
+                  AND cot.Code = 'ASSOCIATE'
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM dbo.SupplierDeliveryZones sdz
+                JOIN dbo.Organizations co2 ON co2.OrganizationId = @ContextOrganizationId
+                WHERE sdz.SupplierId = s.SupplierId
+                  AND sdz.ZoneId = co2.ZoneId
+            )
+        )
+        AND
+        (
             @SearchText IS NULL
             OR (@SearchField = 'name'    AND LOWER(s.Name)    LIKE '%' + LOWER(@SearchText) + '%')
             OR (@SearchField = 'email'   AND LOWER(s.Email)   LIKE '%' + LOWER(@SearchText) + '%')

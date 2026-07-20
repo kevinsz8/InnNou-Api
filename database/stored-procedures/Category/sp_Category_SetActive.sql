@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 CREATE OR ALTER PROCEDURE sp_Category_SetActive
     @CategoryToken uniqueidentifier,
     @IsActive      bit,
@@ -20,20 +24,25 @@ BEGIN
 
     UPDATE Categories
     SET    IsActive       = @IsActive,
-           LastUpdatedUtc  = SYSUTCDATETIME(),
-           LastUpdatedBy   = @LastUpdatedBy
+           LastUpdatedUtc = SYSUTCDATETIME(),
+           LastUpdatedBy  = @LastUpdatedBy
     WHERE  CategoryToken = @CategoryToken;
 
     SELECT
-        CategoryId,
-        CategoryToken,
-        Code,
-        IsSystem,
-        IsActive,
-        CreatedUtc,
-        CreatedBy,
-        LastUpdatedUtc,
-        LastUpdatedBy
-    FROM Categories
-    WHERE CategoryToken = @CategoryToken;
+        c.CategoryId,
+        c.CategoryToken,
+        c.Code,
+        c.OrganizationId,
+        c.IsSystem,
+        c.IsActive,
+        c.CreatedUtc,
+        c.CreatedBy,
+        c.LastUpdatedUtc,
+        c.LastUpdatedBy,
+        o.OrganizationToken AS OrganizationTokenResult,
+        o.Name AS OrganizationName
+    FROM Categories c
+    LEFT JOIN Organizations o ON o.OrganizationId = c.OrganizationId
+    WHERE c.CategoryToken = @CategoryToken;
 END;
+GO

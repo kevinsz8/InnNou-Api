@@ -26,6 +26,9 @@ using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Purcha
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
 using OrderTemplateLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplateLine;
+using CountryEntity = InnNou.Infrastructure.Repositories.DbEntities.Country;
+using ZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.Zone;
+using SupplierDeliveryZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierDeliveryZone;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -79,8 +82,52 @@ namespace InnNou.Infrastructure.Mapping
                 TimeZone = o.TimeZone,
                 CurrencyCode = o.CurrencyCode,
                 LanguageCode = o.LanguageCode,
+                ZoneId = o.ZoneId,
+                ZoneToken = o.ZoneToken,
+                ZoneCode = o.ZoneCode,
+                ZoneName = o.ZoneName,
+                CountryCode = o.CountryCode,
+                CountryName = o.CountryName,
                 IsActive = o.IsActive,
                 IsDeleted = o.IsDeleted
+            });
+
+            mapper.Register<CountryEntity, CountryDto>(c => new CountryDto
+            {
+                CountryId = c.CountryId,
+                Code = c.Code,
+                Name = c.Name,
+                IsActive = c.IsActive
+            });
+
+            mapper.Register<ZoneEntity, ZoneDto>(z => new ZoneDto
+            {
+                ZoneId = z.ZoneId,
+                ZoneToken = z.ZoneToken,
+                CountryId = z.CountryId,
+                CountryCode = z.CountryCode,
+                CountryName = z.CountryName,
+                Code = z.Code,
+                Name = z.Name,
+                IsActive = z.IsActive
+            });
+
+            mapper.Register<SupplierDeliveryZoneEntity, SupplierDeliveryZoneDto>(s => new SupplierDeliveryZoneDto
+            {
+                SupplierDeliveryZoneId = s.SupplierDeliveryZoneId,
+                SupplierDeliveryZoneToken = s.SupplierDeliveryZoneToken,
+                SupplierId = s.SupplierId,
+                SupplierToken = s.SupplierToken,
+                SupplierName = s.SupplierName,
+                ZoneId = s.ZoneId,
+                ZoneToken = s.ZoneToken,
+                ZoneCode = s.ZoneCode,
+                ZoneName = s.ZoneName,
+                CountryCode = s.CountryCode,
+                CountryName = s.CountryName,
+                DayOfWeek = s.DayOfWeek,
+                CreatedUtc = s.CreatedUtc,
+                CreatedBy = s.CreatedBy
             });
 
             mapper.Register<RoleEntity, RoleDto>(r => new RoleDto
@@ -176,7 +223,10 @@ namespace InnNou.Infrastructure.Mapping
                 CategoryToken = e.CategoryToken,
                 Code = e.Code,
                 IsSystem = e.IsSystem,
-                IsActive = e.IsActive
+                IsActive = e.IsActive,
+                OrganizationId = e.OrganizationId,
+                OrganizationTokenResult = e.OrganizationTokenResult,
+                OrganizationName = e.OrganizationName
             });
             mapper.Register<SubCategoryEntity, SubCategoryDto>(e => new SubCategoryDto
             {
@@ -185,7 +235,10 @@ namespace InnNou.Infrastructure.Mapping
                 CategoryId = e.CategoryId,
                 Code = e.Code,
                 IsSystem = e.IsSystem,
-                IsActive = e.IsActive
+                IsActive = e.IsActive,
+                OrganizationId = e.OrganizationId,
+                OrganizationTokenResult = e.OrganizationTokenResult,
+                OrganizationName = e.OrganizationName
             });
 
             mapper.Register<ArticleEntity, ArticleDto>(e => new ArticleDto

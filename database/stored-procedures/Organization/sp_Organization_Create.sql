@@ -21,6 +21,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Organization_Create
     @TimeZone             VARCHAR(100)  = NULL,
     @CurrencyCode         VARCHAR(10)   = NULL,
     @LanguageCode         VARCHAR(10)   = NULL,
+    @ZoneId               INT           = NULL,
     @IsActive             BIT,
     @IsDeleted            BIT,
     @CreatedUtc           DATETIME2(7),
@@ -41,13 +42,13 @@ BEGIN
     INSERT INTO dbo.Organizations
     (
         OrganizationToken, Name, NormalizedName, LegalName, Code,
-        ParentOrganizationId, OrganizationTypeId, TimeZone, CurrencyCode, LanguageCode,
+        ParentOrganizationId, OrganizationTypeId, TimeZone, CurrencyCode, LanguageCode, ZoneId,
         IsActive, IsDeleted, CreatedUtc, CreatedBy
     )
     VALUES
     (
         @OrganizationToken, @Name, @NormalizedName, @LegalName, @Code,
-        @ParentOrganizationId, @ResolvedOrganizationTypeId, @TimeZone, @CurrencyCode, @LanguageCode,
+        @ParentOrganizationId, @ResolvedOrganizationTypeId, @TimeZone, @CurrencyCode, @LanguageCode, @ZoneId,
         @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
     );
 
@@ -55,10 +56,13 @@ BEGIN
         o.OrganizationId, o.OrganizationToken, o.Name, o.NormalizedName, o.LegalName, o.Code,
         o.ParentOrganizationId, o.OrganizationTypeId, ot.Code AS OrganizationTypeCode,
         o.TimeZone, o.CurrencyCode, o.LanguageCode,
+        o.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
         o.IsActive, o.IsDeleted, o.CreatedUtc, o.CreatedBy,
         o.LastUpdatedUtc, o.LastUpdatedBy, o.DeletedUtc, o.DeletedBy
     FROM dbo.Organizations o
     JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
+    LEFT JOIN dbo.Zones z ON z.ZoneId = o.ZoneId
+    LEFT JOIN dbo.Countries zc ON zc.CountryId = z.CountryId
     WHERE o.OrganizationToken = @OrganizationToken;
 END;
 GO

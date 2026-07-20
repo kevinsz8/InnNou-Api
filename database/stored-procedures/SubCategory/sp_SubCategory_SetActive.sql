@@ -20,21 +20,27 @@ BEGIN
 
     UPDATE SubCategories
     SET    IsActive       = @IsActive,
-           LastUpdatedUtc  = SYSUTCDATETIME(),
-           LastUpdatedBy   = @LastUpdatedBy
+           LastUpdatedUtc = SYSUTCDATETIME(),
+           LastUpdatedBy  = @LastUpdatedBy
     WHERE  SubCategoryToken = @SubCategoryToken;
 
     SELECT
-        SubCategoryId,
-        SubCategoryToken,
-        CategoryId,
-        Code,
-        IsSystem,
-        IsActive,
-        CreatedUtc,
-        CreatedBy,
-        LastUpdatedUtc,
-        LastUpdatedBy
-    FROM SubCategories
-    WHERE SubCategoryToken = @SubCategoryToken;
+        sc.SubCategoryId,
+        sc.SubCategoryToken,
+        sc.CategoryId,
+        sc.Code,
+        sc.IsSystem,
+        sc.IsActive,
+        sc.CreatedUtc,
+        sc.CreatedBy,
+        sc.LastUpdatedUtc,
+        sc.LastUpdatedBy,
+        c.OrganizationId,
+        o.OrganizationToken AS OrganizationTokenResult,
+        o.Name AS OrganizationName
+    FROM SubCategories sc
+    JOIN Categories c ON c.CategoryId = sc.CategoryId
+    LEFT JOIN Organizations o ON o.OrganizationId = c.OrganizationId
+    WHERE sc.SubCategoryToken = @SubCategoryToken;
 END;
+GO

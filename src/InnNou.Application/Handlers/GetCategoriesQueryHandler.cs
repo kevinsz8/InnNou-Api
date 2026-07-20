@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetCategoriesQueryHandler(ICategoryService categoryService, IMapper mapper)
+    public class GetCategoriesQueryHandler(ICategoryService categoryService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetCategoriesQueryRequest, ApiResponse<GetCategoriesQueryResponse>>
     {
         public async Task<ApiResponse<GetCategoriesQueryResponse>> Handle(GetCategoriesQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await categoryService.GetPagedAsync(request.PageNumber, request.PageSize, request.SearchText, request.IncludeInactive, cancellationToken);
+            var result = await categoryService.GetPagedAsync(request.PageNumber, request.PageSize, request.SearchText, request.IncludeInactive, context, cancellationToken: cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetCategoriesQueryResponse
             {

@@ -1,3 +1,7 @@
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
 CREATE OR ALTER PROCEDURE sp_Category_Update
     @CategoryToken uniqueidentifier,
     @Code          varchar(100),
@@ -18,28 +22,41 @@ BEGIN
         RETURN;
     END
 
-    IF EXISTS (SELECT 1 FROM Categories WHERE Code = @Code AND CategoryToken <> @CategoryToken)
+    DECLARE @ExistingOrganizationId INT;
+    SELECT @ExistingOrganizationId = OrganizationId FROM Categories WHERE CategoryToken = @CategoryToken;
+
+    IF EXISTS (
+        SELECT 1 FROM Categories
+        WHERE Code = @Code
+          AND CategoryToken <> @CategoryToken
+          AND ((@ExistingOrganizationId IS NULL AND OrganizationId IS NULL) OR OrganizationId = @ExistingOrganizationId)
+    )
     BEGIN
         RAISERROR('CATEGORY_CODE_EXISTS', 16, 1);
         RETURN;
     END
 
     UPDATE Categories
-    SET    Code          = @Code,
+    SET    Code           = @Code,
            LastUpdatedUtc = SYSUTCDATETIME(),
            LastUpdatedBy  = @LastUpdatedBy
     WHERE  CategoryToken = @CategoryToken;
 
     SELECT
-        CategoryId,
-        CategoryToken,
-        Code,
-        IsSystem,
-        IsActive,
-        CreatedUtc,
-        CreatedBy,
-        LastUpdatedUtc,
-        LastUpdatedBy
-    FROM Categories
-    WHERE CategoryToken = @CategoryToken;
+        c.CategoryId,
+        c.CategoryToken,
+        c.Code,
+        c.OrganizationId,
+        c.IsSystem,
+        c.IsActive,
+        c.CreatedUtc,
+        c.CreatedBy,
+        c.LastUpdatedUtc,
+        c.LastUpdatedBy,
+        o.OrganizationToken AS OrganizationTokenResult,
+        o.Name AS OrganizationName
+    FROM Categories c
+    LEFT JOIN Organizations o ON o.OrganizationId = c.OrganizationId
+    WHERE c.CategoryToken = @CategoryToken;
 END;
+GO

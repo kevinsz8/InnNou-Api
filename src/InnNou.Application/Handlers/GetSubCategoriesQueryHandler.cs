@@ -7,7 +7,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetSubCategoriesQueryHandler(ISubCategoryService subCategoryService, ICategoryService categoryService, IMapper mapper)
+    public class GetSubCategoriesQueryHandler(ISubCategoryService subCategoryService, ICategoryService categoryService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetSubCategoriesQueryRequest, ApiResponse<GetSubCategoriesQueryResponse>>
     {
         public async Task<ApiResponse<GetSubCategoriesQueryResponse>> Handle(GetSubCategoriesQueryRequest request, CancellationToken cancellationToken)
@@ -15,13 +15,13 @@ namespace InnNou.Application.Handlers
             int? categoryId = null;
             if (request.CategoryToken.HasValue)
             {
-                var category = await categoryService.GetByTokenAsync(request.CategoryToken.Value, cancellationToken);
+                var category = await categoryService.GetByTokenAsync(request.CategoryToken.Value, context, cancellationToken);
                 if (category is null)
                     return ApiResponse<GetSubCategoriesQueryResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
                 categoryId = category.CategoryId;
             }
 
-            var result = await subCategoryService.GetPagedAsync(request.PageNumber, request.PageSize, categoryId, request.SearchText, request.IncludeInactive, cancellationToken);
+            var result = await subCategoryService.GetPagedAsync(request.PageNumber, request.PageSize, categoryId, request.SearchText, request.IncludeInactive, context, cancellationToken: cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetSubCategoriesQueryResponse
             {

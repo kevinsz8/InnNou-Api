@@ -29,6 +29,9 @@ using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrde
 using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
 using CommonOrderTemplateLine = InnNou.Application.Responses.Common.OrderTemplateLine;
 using CommonApplyOrderTemplateLineResult = InnNou.Application.Responses.Common.ApplyOrderTemplateLineResult;
+using CommonCountry = InnNou.Application.Responses.Common.Country;
+using CommonZone = InnNou.Application.Responses.Common.Zone;
+using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
 {
@@ -126,6 +129,11 @@ namespace InnNou.Application.Mapping
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
+                ZoneToken = d.ZoneToken,
+                ZoneCode = d.ZoneCode,
+                ZoneName = d.ZoneName,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName,
                 IsActive = d.IsActive
             });
             mapper.Register<EditOrganizationCommandRequest, OrganizationDto>(r => new OrganizationDto
@@ -153,6 +161,11 @@ namespace InnNou.Application.Mapping
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
+                ZoneToken = d.ZoneToken,
+                ZoneCode = d.ZoneCode,
+                ZoneName = d.ZoneName,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName,
                 IsActive = d.IsActive
             });
             mapper.Register<OrganizationDto, CommonOrganization>(d => new CommonOrganization
@@ -166,7 +179,42 @@ namespace InnNou.Application.Mapping
                 TimeZone = d.TimeZone,
                 CurrencyCode = d.CurrencyCode,
                 LanguageCode = d.LanguageCode,
+                ZoneToken = d.ZoneToken,
+                ZoneCode = d.ZoneCode,
+                ZoneName = d.ZoneName,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName,
                 IsActive = d.IsActive
+            });
+
+            // Country / Zone / SupplierDeliveryZone
+            mapper.Register<CountryDto, CommonCountry>(d => new CommonCountry
+            {
+                Code = d.Code,
+                Name = d.Name,
+                IsActive = d.IsActive
+            });
+            mapper.Register<ZoneDto, CommonZone>(d => new CommonZone
+            {
+                ZoneToken = d.ZoneToken,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName,
+                Code = d.Code,
+                Name = d.Name,
+                IsActive = d.IsActive
+            });
+            mapper.Register<SupplierDeliveryZoneDto, CommonSupplierDeliveryZone>(d => new CommonSupplierDeliveryZone
+            {
+                SupplierDeliveryZoneToken = d.SupplierDeliveryZoneToken,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                ZoneToken = d.ZoneToken,
+                ZoneCode = d.ZoneCode,
+                ZoneName = d.ZoneName,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName,
+                DayOfWeek = d.DayOfWeek,
+                CreatedUtc = d.CreatedUtc
             });
             mapper.Register<BulkImportOrganizationRowErrorDto, BulkImportOrganizationRowError>(d => new BulkImportOrganizationRowError
             {
@@ -396,7 +444,9 @@ namespace InnNou.Application.Mapping
                 CategoryToken = d.CategoryToken,
                 Code = d.Code,
                 IsSystem = d.IsSystem,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                OrganizationToken = d.OrganizationTokenResult,
+                OrganizationName = d.OrganizationName
             });
             mapper.Register<SubCategoryDto, CommonSubCategory>(d => new CommonSubCategory
             {
@@ -404,7 +454,9 @@ namespace InnNou.Application.Mapping
                 CategoryId = d.CategoryId,
                 Code = d.Code,
                 IsSystem = d.IsSystem,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                OrganizationToken = d.OrganizationTokenResult,
+                OrganizationName = d.OrganizationName
             });
             mapper.Register<BulkImportCategoryRowErrorDto, BulkImportCategoryRowError>(d => new BulkImportCategoryRowError
             {

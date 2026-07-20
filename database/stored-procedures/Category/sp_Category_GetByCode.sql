@@ -19,6 +19,7 @@ BEGIN
         IsActive
     FROM Categories
     WHERE Code = @Code
+      AND OrganizationId IS NULL
       AND IsActive = 1;
 END;
 GO

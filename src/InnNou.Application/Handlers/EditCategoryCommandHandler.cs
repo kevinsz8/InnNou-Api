@@ -8,13 +8,13 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class EditCategoryCommandHandler(ICategoryService categoryService, IMapper mapper)
+    public class EditCategoryCommandHandler(ICategoryService categoryService, IMapper mapper, IRequestContext context)
         : IRequestHandler<EditCategoryCommandRequest, ApiResponse<EditCategoryCommandResponse>>
     {
         public async Task<ApiResponse<EditCategoryCommandResponse>> Handle(EditCategoryCommandRequest request, CancellationToken cancellationToken)
         {
             var dto = new CategoryDto { CategoryToken = request.CategoryToken, Code = request.Code };
-            var result = await categoryService.EditAsync(dto, cancellationToken);
+            var result = await categoryService.EditAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<EditCategoryCommandResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
 

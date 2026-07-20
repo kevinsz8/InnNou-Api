@@ -16,12 +16,27 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
 {
     private sealed class SubCategoryPageRow : SubCategory { public int TotalCount { get; set; } }
 
+    private const int StaffRoleLevel = 20;
     private const int AdminRoleLevel = 80;
+    private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
 
-    public async Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId = null, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default)
+    private static void EnsureCanWriteSubCategory(IRequestContext context, int? categoryOrganizationId)
+    {
+        if (context.RoleLevel >= SuperAdminRoleLevel) return;
+
+        var isOwnSuperAssociate = context.OrganizationTypeCode == OrganizationTypeCodes.SuperAssociate
+            && context.RoleLevel >= StaffRoleLevel
+            && context.OrganizationId.HasValue
+            && categoryOrganizationId == context.OrganizationId.Value;
+
+        if (!isOwnSuperAssociate)
+            throw new ApiException(ErrorCodes.SubCategoryOutsideScope, "Cannot create or edit a sub-category outside your organization's scope.", 403);
+    }
+
+    public async Task<PagedResult<SubCategoryDto>> GetPagedAsync(int pageNumber, int pageSize, int? categoryId, string? searchText, bool includeInactive, IRequestContext context, bool unrestricted = false, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -33,6 +48,8 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         p.Add("@CategoryId", categoryId);
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@IncludeInactive", includeInactive);
+        p.Add("@ContextRoleLevel", unrestricted ? SuperAdminRoleLevel : context.RoleLevel);
+        p.Add("@ContextOrganizationId", unrestricted ? null : context.OrganizationId);
         var rows = (await connection.QueryAsync<SubCategoryPageRow>(
             "sp_SubCategory_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
         return new PagedResult<SubCategoryDto>
@@ -44,11 +61,13 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         };
     }
 
-    public async Task<SubCategoryDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default)
+    public async Task<SubCategoryDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@SubCategoryToken", token);
+        p.Add("@ContextRoleLevel", context.RoleLevel);
+        p.Add("@ContextOrganizationId", context.OrganizationId);
         var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
             "sp_SubCategory_GetByToken", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubCategoryDto>(row);
@@ -64,38 +83,64 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
             "sp_SubCategory_ExistsByCode", p, commandType: CommandType.StoredProcedure);
     }
 
-    public async Task<SubCategoryDto?> CreateAsync(SubCategoryDto dto, CancellationToken cancellationToken = default)
+    public async Task<SubCategoryDto?> CreateAsync(SubCategoryDto dto, IRequestContext context, bool bypassAuthorization = false, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
+
+        if (!bypassAuthorization)
+        {
+            var parentCategory = await connection.QueryFirstOrDefaultAsync<Category>(
+                "sp_Category_GetById", new { dto.CategoryId }, commandType: CommandType.StoredProcedure);
+            EnsureCanWriteSubCategory(context, parentCategory?.OrganizationId);
+        }
+
         var p = new DynamicParameters();
         p.Add("@SubCategoryToken", Guid.NewGuid());
         p.Add("@CategoryId", dto.CategoryId);
         p.Add("@Code", dto.Code);
-        p.Add("@CreatedBy", "API");
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
             "sp_SubCategory_Create", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubCategoryDto>(row);
     }
 
-    public async Task<SubCategoryDto?> EditAsync(SubCategoryDto dto, CancellationToken cancellationToken = default)
+    public async Task<SubCategoryDto?> EditAsync(SubCategoryDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
+
+        // Unrestricted fetch (relying on the SP's @ContextRoleLevel = 100 default) —
+        // already carries the joined OrganizationId for free, no second query needed.
+        var existing = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+            "sp_SubCategory_GetByToken", new { SubCategoryToken = dto.SubCategoryToken }, commandType: CommandType.StoredProcedure);
+        if (existing is null)
+            return null;
+
+        EnsureCanWriteSubCategory(context, existing.OrganizationId);
+
         var p = new DynamicParameters();
         p.Add("@SubCategoryToken", dto.SubCategoryToken);
         p.Add("@Code", dto.Code);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
             "sp_SubCategory_Update", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubCategoryDto>(row);
     }
 
-    public async Task<SubCategoryDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<SubCategoryDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+            "sp_SubCategory_GetByToken", new { SubCategoryToken = token }, commandType: CommandType.StoredProcedure);
+        if (existing is null)
+            return null;
+
+        EnsureCanWriteSubCategory(context, existing.OrganizationId);
+
         var p = new DynamicParameters();
         p.Add("@SubCategoryToken", token);
         p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
             "sp_SubCategory_SetActive", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubCategoryDto>(row);
@@ -158,6 +203,8 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
                     continue;
                 }
 
+                // sp_Category_GetByCode only ever resolves a global (OrganizationId IS NULL)
+                // parent category — consistent with bulk import staying global-only.
                 var categoryKey = categoryCode.ToUpperInvariant();
                 if (!categoryCache.TryGetValue(categoryKey, out var category))
                 {
@@ -179,7 +226,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
 
                 try
                 {
-                    var created = await CreateAsync(new SubCategoryDto { CategoryId = category.CategoryId, Code = code }, cancellationToken);
+                    var created = await CreateAsync(new SubCategoryDto { CategoryId = category.CategoryId, Code = code }, context, bypassAuthorization: true, cancellationToken);
                     if (created is null)
                     {
                         result.Errors.Add(new BulkImportSubCategoryRowErrorDto { RowNumber = rowNumber, SubCategoryCode = code, Code = ErrorCodes.SubCategoryCreateFailed, Description = "Sub-category creation failed." });
@@ -208,8 +255,8 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubCategoryBulkImportForbidden, "Only Admins and SuperAdmins can export sub-categories.", 403);
 
-        var subCategories = await GetPagedAsync(1, MaxExportRows, null, searchText, includeInactive, cancellationToken);
-        var categories = await categoryService.GetPagedAsync(1, MaxExportRows, null, true, cancellationToken);
+        var subCategories = await GetPagedAsync(1, MaxExportRows, null, searchText, includeInactive, context, unrestricted: true, cancellationToken);
+        var categories = await categoryService.GetPagedAsync(1, MaxExportRows, null, true, context, unrestricted: true, cancellationToken);
         var categoryCodesById = categories.Items.ToDictionary(c => c.CategoryId, c => c.Code);
 
         using var workbook = new XLWorkbook();
@@ -242,7 +289,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SubCategoryBulkImportForbidden, "Only Admins and SuperAdmins can download the import template.", 403);
 
-        var categories = await categoryService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
+        var categories = await categoryService.GetPagedAsync(1, MaxExportRows, null, false, context, unrestricted: true, cancellationToken);
 
         using var workbook = new XLWorkbook();
 

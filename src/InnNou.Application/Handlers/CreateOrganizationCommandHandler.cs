@@ -12,13 +12,15 @@ namespace InnNou.Application.Handlers
     {
         private readonly IOrganizationService _organizationService;
         private readonly ICurrencyService _currencyService;
+        private readonly IZoneService _zoneService;
         private readonly IMapper _mapper;
         private readonly IRequestContext _context;
 
-        public CreateOrganizationCommandHandler(IOrganizationService organizationService, ICurrencyService currencyService, IMapper mapper, IRequestContext context)
+        public CreateOrganizationCommandHandler(IOrganizationService organizationService, ICurrencyService currencyService, IZoneService zoneService, IMapper mapper, IRequestContext context)
         {
             _organizationService = organizationService;
             _currencyService = currencyService;
+            _zoneService = zoneService;
             _mapper = mapper;
             _context = context;
         }
@@ -41,6 +43,15 @@ namespace InnNou.Application.Handlers
             }
 
             var dto = _mapper.Map<OrganizationDto>(request);
+
+            if (request.ZoneToken.HasValue)
+            {
+                var zone = await _zoneService.GetByTokenAsync(request.ZoneToken.Value, cancellationToken);
+                if (zone is null || !zone.IsActive)
+                    return ApiResponse<CreateOrganizationCommandResponse>.FailureResponse(ErrorCodes.OrganizationInvalidZone, "Zone must be a recognized, active zone.", 400);
+                dto.ZoneId = zone.ZoneId;
+            }
+
             var created = await _organizationService.CreateOrganizationAsync(dto, _context, cancellationToken);
 
             if (created is null)

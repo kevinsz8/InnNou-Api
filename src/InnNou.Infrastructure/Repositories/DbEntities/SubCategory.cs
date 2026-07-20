@@ -12,5 +12,8 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
+        public int? OrganizationId { get; set; }
+        public Guid? OrganizationTokenResult { get; set; }
+        public string? OrganizationName { get; set; }
     }
 }

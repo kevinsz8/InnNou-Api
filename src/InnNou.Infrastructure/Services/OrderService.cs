@@ -187,6 +187,20 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (article is null)
             throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);
 
+        // Zone delivery-coverage gate — keyed off the ORDER'S OWN organization, never the
+        // acting/impersonating user's (same rule as the article-visibility fetch above). Null
+        // OrganizationZoneId ("not yet assigned") or a non-ASSOCIATE org means "not enforced
+        // yet" — never a block. Day-of-week is deliberately not considered — coverage on any
+        // day is enough to be available for ordering.
+        var coverage = await connection.QueryFirstOrDefaultAsync<SupplierDeliveryZoneCoverage>(
+            "sp_SupplierDeliveryZone_CheckCoverage",
+            new { SupplierId = article.SupplierId, OrganizationId = order.OrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        if (coverage is not null && coverage.EnforcementActive && !coverage.HasCoverage)
+            throw new ApiException(ErrorCodes.ArticleSupplierZoneNotCovered,
+                "This supplier does not deliver to the order's zone.", 409);
+
         // Resolve the current price for the Order's organization — same resolution the
         // ArticlePrices "current price" read path already uses (contract-over-global, with
         // the currency-hierarchy fallback baked into the SP itself). Exact param shape mirrors
@@ -610,5 +624,12 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             result.FailureCount = result.Errors.Count;
             return result;
         }
+    }
+
+    private sealed class SupplierDeliveryZoneCoverage
+    {
+        public int? OrganizationZoneId { get; set; }
+        public bool EnforcementActive { get; set; }
+        public bool HasCoverage { get; set; }
     }
 }

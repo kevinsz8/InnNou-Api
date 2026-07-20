@@ -11,6 +11,11 @@ namespace InnNou.Application.Responses.Common
         public string? TimeZone { get; set; }
         public string? CurrencyCode { get; set; }
         public string? LanguageCode { get; set; }
+        public Guid? ZoneToken { get; set; }
+        public string? ZoneCode { get; set; }
+        public string? ZoneName { get; set; }
+        public string? CountryCode { get; set; }
+        public string? CountryName { get; set; }
         public bool IsActive { get; set; }
     }
 }

@@ -46,6 +46,12 @@ BEGIN
         o.TimeZone,
         o.CurrencyCode,
         o.LanguageCode,
+        o.ZoneId,
+        z.ZoneToken,
+        z.Code AS ZoneCode,
+        z.Name AS ZoneName,
+        zc.Code AS CountryCode,
+        zc.Name AS CountryName,
         o.IsActive,
         o.IsDeleted,
         o.CreatedUtc,
@@ -56,6 +62,8 @@ BEGIN
         o.DeletedBy
     FROM dbo.Organizations o
     JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
+    LEFT JOIN dbo.Zones z ON z.ZoneId = o.ZoneId
+    LEFT JOIN dbo.Countries zc ON zc.CountryId = z.CountryId
     WHERE o.OrganizationToken = @OrganizationToken
       AND o.IsDeleted = 0
       AND

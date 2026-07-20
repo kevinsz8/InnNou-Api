@@ -1,9 +1,12 @@
 CREATE OR ALTER PROCEDURE sp_Category_ExistsByCode
-    @Code NVARCHAR(50)
+    @Code           NVARCHAR(50),
+    @OrganizationId INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     SELECT CAST(CASE WHEN EXISTS (
-        SELECT 1 FROM Categories WHERE Code = @Code
+        SELECT 1 FROM Categories
+        WHERE Code = @Code
+          AND ((@OrganizationId IS NULL AND OrganizationId IS NULL) OR OrganizationId = @OrganizationId)
     ) THEN 1 ELSE 0 END AS BIT);
 END

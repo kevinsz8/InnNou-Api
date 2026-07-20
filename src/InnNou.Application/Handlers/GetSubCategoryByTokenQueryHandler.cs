@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetSubCategoryByTokenQueryHandler(ISubCategoryService subCategoryService, IMapper mapper)
+    public class GetSubCategoryByTokenQueryHandler(ISubCategoryService subCategoryService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetSubCategoryByTokenQueryRequest, ApiResponse<GetSubCategoryByTokenQueryResponse>>
     {
         public async Task<ApiResponse<GetSubCategoryByTokenQueryResponse>> Handle(GetSubCategoryByTokenQueryRequest request, CancellationToken cancellationToken)
         {
-            var dto = await subCategoryService.GetByTokenAsync(request.SubCategoryToken, cancellationToken);
+            var dto = await subCategoryService.GetByTokenAsync(request.SubCategoryToken, context, cancellationToken);
             if (dto is null)
                 return ApiResponse<GetSubCategoryByTokenQueryResponse>.FailureResponse(ErrorCodes.SubCategoryNotFound, "Sub-category not found.", 404);
 

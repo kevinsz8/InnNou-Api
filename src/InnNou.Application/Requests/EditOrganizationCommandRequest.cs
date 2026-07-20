@@ -15,5 +15,10 @@ namespace InnNou.Application.Requests
         public string? TimeZone { get; set; }
         public string? CurrencyCode { get; set; }
         public string? LanguageCode { get; set; }
+
+        // Only valid for an Associate-type organization (enforced in OrganizationService) —
+        // Super Asociado orgs are never zoned. Can be set, not cleared (same "supplied value
+        // wins, otherwise unchanged" limitation every other nullable field on this entity has).
+        public Guid? ZoneToken { get; set; }
     }
 }

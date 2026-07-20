@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetCategoryByTokenQueryHandler(ICategoryService categoryService, IMapper mapper)
+    public class GetCategoryByTokenQueryHandler(ICategoryService categoryService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetCategoryByTokenQueryRequest, ApiResponse<GetCategoryByTokenQueryResponse>>
     {
         public async Task<ApiResponse<GetCategoryByTokenQueryResponse>> Handle(GetCategoryByTokenQueryRequest request, CancellationToken cancellationToken)
         {
-            var dto = await categoryService.GetByTokenAsync(request.CategoryToken, cancellationToken);
+            var dto = await categoryService.GetByTokenAsync(request.CategoryToken, context, cancellationToken);
             if (dto is null)
                 return ApiResponse<GetCategoryByTokenQueryResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
 

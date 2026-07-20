@@ -14,6 +14,18 @@ namespace InnNou.Domain.Dtos
         public string? TimeZone { get; set; }
         public string? CurrencyCode { get; set; }
         public string? LanguageCode { get; set; }
+
+        // Only ever set for ASSOCIATE-type organizations (app-layer enforced in
+        // OrganizationService) — Super Asociado orgs are never zoned. ZoneCode/ZoneName/
+        // CountryCode/CountryName are read-only, denormalized on read, never round-tripped
+        // on write — same convention as SupplierDto.OrganizationName.
+        public int? ZoneId { get; set; }
+        public Guid? ZoneToken { get; set; }
+        public string? ZoneCode { get; set; }
+        public string? ZoneName { get; set; }
+        public string? CountryCode { get; set; }
+        public string? CountryName { get; set; }
+
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
     }

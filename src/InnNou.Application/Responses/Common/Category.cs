@@ -6,5 +6,7 @@ namespace InnNou.Application.Responses.Common
         public string Code { get; set; } = default!;
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
+        public Guid? OrganizationToken { get; set; }
+        public string? OrganizationName { get; set; }
     }
 }

@@ -62,6 +62,28 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         };
     }
 
+    // Resolves the OrganizationTypeCode that will actually apply after this write, without
+    // assuming the caller supplied @OrganizationTypeId explicitly — mirrors sp_Organization_Create's
+    // own derivation (no parent -> SUPER_ASSOCIATE, has a parent -> ASSOCIATE) so the "only
+    // Associate-type orgs may have a ZoneId" check stays correct whether or not the type is being
+    // set explicitly. A DB round trip is only needed when the caller DID supply an explicit,
+    // non-zero OrganizationTypeId — the common (omitted) case never needs one.
+    private async Task<string?> ResolveEffectiveOrganizationTypeCodeAsync(
+        IDbConnection connection, int? explicitOrganizationTypeId, int? parentOrganizationId, string? fallbackCode)
+    {
+        if (explicitOrganizationTypeId is int typeId && typeId != 0)
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<OrganizationType>(
+                "sp_OrganizationType_GetById", new { OrganizationTypeId = typeId },
+                commandType: CommandType.StoredProcedure);
+            return row?.Code;
+        }
+
+        return fallbackCode ?? (parentOrganizationId is null
+            ? OrganizationTypeCodes.SuperAssociate
+            : OrganizationTypeCodes.Associate);
+    }
+
     public async Task<PagedResult<OrganizationDto>> GetOrganizationsAsync(
         int pageNumber,
         int pageSize,
@@ -162,6 +184,14 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         if (!allowed)
             throw new ApiException(ErrorCodes.OrganizationParentOutsideScope, "Not allowed to create an organization under this parent.", 403);
 
+        if (dto.ZoneId.HasValue)
+        {
+            var effectiveTypeCode = await ResolveEffectiveOrganizationTypeCodeAsync(
+                connection, dto.OrganizationTypeId == 0 ? (int?)null : dto.OrganizationTypeId, dto.ParentOrganizationId, fallbackCode: null);
+            if (effectiveTypeCode != OrganizationTypeCodes.Associate)
+                throw new ApiException(ErrorCodes.OrganizationZoneRequiresAssociateType, "A zone can only be assigned to an Associate-type organization.", 400);
+        }
+
         var created = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_Create",
             new
@@ -176,6 +206,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
                 TimeZone = dto.TimeZone,
                 CurrencyCode = dto.CurrencyCode,
                 LanguageCode = dto.LanguageCode,
+                ZoneId = dto.ZoneId,
                 IsActive = true,
                 IsDeleted = false,
                 CreatedUtc = DateTime.UtcNow,
@@ -211,6 +242,30 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
 
         var newName = !string.IsNullOrWhiteSpace(dto.Name) ? dto.Name : existing.Name;
 
+        // Resolved unconditionally (not just when a new ZoneId is supplied) because it also
+        // decides whether an EXISTING zone must be force-cleared below — a Super Asociado must
+        // never carry a stale ZoneId left over from before a type change.
+        var effectiveTypeCode = dto.OrganizationTypeId != 0
+            ? await ResolveEffectiveOrganizationTypeCodeAsync(connection, dto.OrganizationTypeId, newParentOrganizationId, fallbackCode: existing.OrganizationTypeCode)
+            : existing.OrganizationTypeCode;
+
+        int? finalZoneId;
+        if (dto.ZoneId.HasValue)
+        {
+            if (effectiveTypeCode != OrganizationTypeCodes.Associate)
+                throw new ApiException(ErrorCodes.OrganizationZoneRequiresAssociateType, "A zone can only be assigned to an Associate-type organization.", 400);
+            finalZoneId = dto.ZoneId;
+        }
+        else
+        {
+            // No explicit zone in this edit — keep the existing one only while the org is
+            // (still) Associate; force-clear it the moment the type changes away from
+            // Associate, since sp_Organization_Update no longer does an ISNULL-style "leave
+            // unchanged when NULL" for this column (that would have made "clear the zone"
+            // indistinguishable from "didn't mention it" — the exact bug this replaces).
+            finalZoneId = effectiveTypeCode == OrganizationTypeCodes.Associate ? existing.ZoneId : null;
+        }
+
         var updated = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_Update",
             new
@@ -225,6 +280,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
                 TimeZone = dto.TimeZone ?? existing.TimeZone,
                 CurrencyCode = dto.CurrencyCode ?? existing.CurrencyCode,
                 LanguageCode = dto.LanguageCode ?? existing.LanguageCode,
+                ZoneId = finalZoneId,
                 LastUpdatedUtc = DateTime.UtcNow,
                 LastUpdatedBy = context.ActorUserToken.ToString()
             },
