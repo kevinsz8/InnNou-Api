@@ -20,14 +20,15 @@ namespace InnNou.Domain.Dtos
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
-        public decimal PurchaseQuantity { get; set; }
-        public int ContentUnitId { get; set; }
-        public string? ContentUnitCode { get; set; }
-        public string? ContentUnitSymbol { get; set; }
-        public decimal? ContentQuantity { get; set; }
-        public int? BaseUnitId { get; set; }
-        public string? BaseUnitCode { get; set; }
-        public string? BaseUnitSymbol { get; set; }
+
+        // The packaging chain: N ordered levels (SequenceOrder 1 = closest to
+        // PurchaseUnitId), exactly one flagged IsDefinedUnit = true — always the
+        // last (highest SequenceOrder) level. Populated by GetByTokenAsync via a
+        // second query (same pattern as OrderTemplateDto.Lines); left empty by
+        // GetPagedAsync to avoid N+1 on list views. Structurally immutable once
+        // created — changing it requires Supersede, same as PurchaseUnitId.
+        public List<ArticlePackagingLevelDto> PackagingLevels { get; set; } = [];
+
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }

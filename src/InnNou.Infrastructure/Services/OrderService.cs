@@ -187,6 +187,17 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (article is null)
             throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);
 
+        // OrderLine no longer duplicates the Article's full packaging chain (that's now N rows
+        // in ArticlePackagingLevels, immutable via Supersede same as PurchaseUnitId) — it keeps
+        // only a display-friendly total: the Unidad Definida's unit, plus the TOTAL factor from
+        // the purchase unit down to it (product of every level's QuantityInParentUnit). This
+        // degrades gracefully for any chain depth (1, 2, 3+ levels) without OrderLine needing to
+        // know how many levels exist.
+        var packagingLevels = (await connection.QueryAsync<ArticlePackagingLevel>(
+            "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = article.ArticleId }, commandType: CommandType.StoredProcedure)).ToList();
+        var definedLevel = packagingLevels.FirstOrDefault(l => l.IsDefinedUnit);
+        var totalContentQuantity = packagingLevels.Aggregate(1m, (total, level) => total * level.QuantityInParentUnit);
+
         // Zone delivery-coverage gate — keyed off the ORDER'S OWN organization, never the
         // acting/impersonating user's (same rule as the article-visibility fetch above). Null
         // OrganizationZoneId ("not yet assigned") or a non-ASSOCIATE org means "not enforced
@@ -258,9 +269,9 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         linePararms.Add("@ArticleId", article.ArticleId);
         linePararms.Add("@Quantity", quantity);
         linePararms.Add("@PurchaseUnitId", article.PurchaseUnitId);
-        linePararms.Add("@PurchaseQuantity", article.PurchaseQuantity);
-        linePararms.Add("@ContentUnitId", article.ContentUnitId);
-        linePararms.Add("@ContentQuantity", article.ContentQuantity);
+        linePararms.Add("@PurchaseQuantity", 1m);
+        linePararms.Add("@ContentUnitId", definedLevel?.UnitOfMeasureId ?? article.PurchaseUnitId);
+        linePararms.Add("@ContentQuantity", totalContentQuantity);
         linePararms.Add("@UnitPrice", unitPrice);
         linePararms.Add("@CurrencyCode", currencyCode);
         linePararms.Add("@Notes", (string?)null);

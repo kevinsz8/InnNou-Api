@@ -17,12 +17,7 @@ namespace InnNou.Application.Responses.Common
         public string? SubFamilyCode { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
-        public decimal PurchaseQuantity { get; set; }
-        public string? ContentUnitCode { get; set; }
-        public string? ContentUnitSymbol { get; set; }
-        public decimal? ContentQuantity { get; set; }
-        public string? BaseUnitCode { get; set; }
-        public string? BaseUnitSymbol { get; set; }
+        public List<ArticlePackagingLevel> PackagingLevels { get; set; } = [];
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }

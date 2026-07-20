@@ -16,6 +16,7 @@ using CommonCategory = InnNou.Application.Responses.Common.Category;
 using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 using CommonOrganizationContact = InnNou.Application.Responses.Common.OrganizationContact;
 using CommonArticle = InnNou.Application.Responses.Common.Article;
+using CommonArticlePackagingLevel = InnNou.Application.Responses.Common.ArticlePackagingLevel;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonArticleFavorite = InnNou.Application.Responses.Common.ArticleFavorite;
 using CommonCurrency = InnNou.Application.Responses.Common.Currency;
@@ -505,12 +506,7 @@ namespace InnNou.Application.Mapping
                 SubFamilyCode = d.SubFamilyCode,
                 PurchaseUnitCode = d.PurchaseUnitCode,
                 PurchaseUnitSymbol = d.PurchaseUnitSymbol,
-                PurchaseQuantity = d.PurchaseQuantity,
-                ContentUnitCode = d.ContentUnitCode,
-                ContentUnitSymbol = d.ContentUnitSymbol,
-                ContentQuantity = d.ContentQuantity,
-                BaseUnitCode = d.BaseUnitCode,
-                BaseUnitSymbol = d.BaseUnitSymbol,
+                PackagingLevels = mapper.MapList<CommonArticlePackagingLevel>(d.PackagingLevels),
                 MinimumOrderQty = d.MinimumOrderQty,
                 LeadTimeDays = d.LeadTimeDays,
                 IsActive = d.IsActive,
@@ -518,6 +514,15 @@ namespace InnNou.Application.Mapping
                 IsFavorite = d.IsFavorite,
                 IsInherited = d.IsInherited,
                 FavoriteOrganizationName = d.FavoriteOrganizationName
+            });
+            mapper.Register<ArticlePackagingLevelDto, CommonArticlePackagingLevel>(d => new CommonArticlePackagingLevel
+            {
+                ArticlePackagingLevelToken = d.ArticlePackagingLevelToken,
+                SequenceOrder = d.SequenceOrder,
+                UnitOfMeasureCode = d.UnitOfMeasureCode,
+                UnitOfMeasureSymbol = d.UnitOfMeasureSymbol,
+                QuantityInParentUnit = d.QuantityInParentUnit,
+                IsDefinedUnit = d.IsDefinedUnit
             });
             mapper.Register<BulkImportArticleRowErrorDto, BulkImportArticleRowError>(d => new BulkImportArticleRowError
             {

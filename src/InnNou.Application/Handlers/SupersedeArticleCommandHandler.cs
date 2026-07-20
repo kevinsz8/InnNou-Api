@@ -26,32 +26,13 @@ namespace InnNou.Application.Handlers
             if (!string.Equals(purchaseUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
                 return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.PurchaseUnitInvalidType, "Purchase unit must be a COUNT unit (e.g. BOX, PACK, BAG).", 400);
 
-            var contentUnit = await unitOfMeasureService.GetByTokenAsync(request.ContentUnitToken, cancellationToken);
-            if (contentUnit is null)
-                return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitNotFound, "Content unit of measure not found.", 404);
-            // See CreateArticleCommandHandler's identical check for why COUNT is allowed here too.
-            if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
-                return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT, VOLUME, or COUNT unit.", 400);
-
-            int? baseUnitId = null;
-            if (request.BaseUnitToken.HasValue)
-            {
-                var baseUnit = await unitOfMeasureService.GetByTokenAsync(request.BaseUnitToken.Value, cancellationToken);
-                if (baseUnit is null)
-                    return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.BaseUnitNotFound, "Base unit of measure not found.", 404);
-                if (baseUnit.UnitTypeId != contentUnit.UnitTypeId)
-                    return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(ErrorCodes.BaseUnitTypeMismatch, "Base unit must be the same UnitType as the content unit (e.g. both WEIGHT or both VOLUME).", 400);
-                baseUnitId = baseUnit.UnitOfMeasureId;
-            }
+            var levelsResult = await ArticlePackagingLevelValidation.ResolveAsync(request.PackagingLevels, unitOfMeasureService, cancellationToken);
+            if (levelsResult.Error is not null)
+                return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(levelsResult.Error.Code, levelsResult.Error.Description, levelsResult.Error.StatusCode);
 
             var isStructuralChange =
                 purchaseUnit.UnitOfMeasureId != existing.PurchaseUnitId ||
-                request.PurchaseQuantity != existing.PurchaseQuantity ||
-                contentUnit.UnitOfMeasureId != existing.ContentUnitId ||
-                request.ContentQuantity != existing.ContentQuantity ||
-                baseUnitId != existing.BaseUnitId;
+                !ArticlePackagingLevelValidation.AreEqual(levelsResult.Levels, existing.PackagingLevels);
 
             if (!isStructuralChange)
                 return ApiResponse<SupersedeArticleCommandResponse>.FailureResponse(
@@ -95,10 +76,7 @@ namespace InnNou.Application.Handlers
                 FamilyId = familyId,
                 SubFamilyId = subFamilyId,
                 PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
-                PurchaseQuantity = request.PurchaseQuantity,
-                ContentUnitId = contentUnit.UnitOfMeasureId,
-                ContentQuantity = request.ContentQuantity,
-                BaseUnitId = baseUnitId,
+                PackagingLevels = levelsResult.Levels,
                 MinimumOrderQty = request.MinimumOrderQty,
                 LeadTimeDays = request.LeadTimeDays
             };

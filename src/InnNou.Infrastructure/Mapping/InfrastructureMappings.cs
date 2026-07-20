@@ -15,6 +15,7 @@ using CategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.Category;
 using SubCategoryEntity = InnNou.Infrastructure.Repositories.DbEntities.SubCategory;
 using OrganizationContactEntity = InnNou.Infrastructure.Repositories.DbEntities.OrganizationContact;
 using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
+using ArticlePackagingLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePackagingLevel;
 using ArticlePriceEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePrice;
 using ArticleFavoriteEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticleFavorite;
 using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
@@ -261,14 +262,6 @@ namespace InnNou.Infrastructure.Mapping
                 PurchaseUnitId = e.PurchaseUnitId,
                 PurchaseUnitCode = e.PurchaseUnitCode,
                 PurchaseUnitSymbol = e.PurchaseUnitSymbol,
-                PurchaseQuantity = e.PurchaseQuantity,
-                ContentUnitId = e.ContentUnitId,
-                ContentUnitCode = e.ContentUnitCode,
-                ContentUnitSymbol = e.ContentUnitSymbol,
-                ContentQuantity = e.ContentQuantity,
-                BaseUnitId = e.BaseUnitId,
-                BaseUnitCode = e.BaseUnitCode,
-                BaseUnitSymbol = e.BaseUnitSymbol,
                 MinimumOrderQty = e.MinimumOrderQty,
                 LeadTimeDays = e.LeadTimeDays,
                 IsActive = e.IsActive,
@@ -278,6 +271,17 @@ namespace InnNou.Infrastructure.Mapping
                 IsFavorite = e.IsFavorite,
                 IsInherited = e.IsInherited,
                 FavoriteOrganizationName = e.FavoriteOrganizationName
+            });
+
+            mapper.Register<ArticlePackagingLevelEntity, ArticlePackagingLevelDto>(e => new ArticlePackagingLevelDto
+            {
+                ArticlePackagingLevelToken = e.ArticlePackagingLevelToken,
+                SequenceOrder = e.SequenceOrder,
+                UnitOfMeasureId = e.UnitOfMeasureId,
+                UnitOfMeasureCode = e.UnitOfMeasureCode,
+                UnitOfMeasureSymbol = e.UnitOfMeasureSymbol,
+                QuantityInParentUnit = e.QuantityInParentUnit,
+                IsDefinedUnit = e.IsDefinedUnit
             });
 
             mapper.Register<ArticlePriceEntity, ArticlePriceDto>(e => new ArticlePriceDto

@@ -122,7 +122,18 @@ public class ArticleService(
             return null;
         }
 
-        return mapper.Map<ArticleDto>(row);
+        var dto = mapper.Map<ArticleDto>(row);
+        dto.PackagingLevels = await LoadPackagingLevelsAsync(connection, row.ArticleId);
+        return dto;
+    }
+
+    // Detail reads only (GetByTokenAsync, and internally after Create/Edit/Supersede) — never
+    // called from GetPagedAsync, to avoid an N+1 query per row on list views.
+    private async Task<List<ArticlePackagingLevelDto>> LoadPackagingLevelsAsync(IDbConnection connection, int articleId)
+    {
+        var rows = await connection.QueryAsync<ArticlePackagingLevel>(
+            "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = articleId }, commandType: CommandType.StoredProcedure);
+        return mapper.MapList<ArticlePackagingLevelDto>(rows.ToList());
     }
 
     public async Task<bool> ExistsBySupplierSkuAsync(int supplierId, string supplierSku, Guid? excludeToken, CancellationToken cancellationToken = default)
@@ -142,27 +153,66 @@ public class ArticleService(
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to create articles for this supplier.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
-        var p = new DynamicParameters();
-        p.Add("@ArticleToken", Guid.NewGuid());
-        p.Add("@SupplierId", dto.SupplierId);
-        p.Add("@Name", dto.Name);
-        p.Add("@Description", dto.Description);
-        p.Add("@SupplierSku", dto.SupplierSku);
-        p.Add("@Barcode", dto.Barcode);
-        p.Add("@Brand", dto.Brand);
-        p.Add("@FamilyId", dto.FamilyId);
-        p.Add("@SubFamilyId", dto.SubFamilyId);
-        p.Add("@PurchaseUnitId", dto.PurchaseUnitId);
-        p.Add("@PurchaseQuantity", dto.PurchaseQuantity);
-        p.Add("@ContentUnitId", dto.ContentUnitId);
-        p.Add("@ContentQuantity", dto.ContentQuantity);
-        p.Add("@BaseUnitId", dto.BaseUnitId);
-        p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
-        p.Add("@LeadTimeDays", dto.LeadTimeDays);
-        p.Add("@CreatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Article>(
-            "sp_Article_Create", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<ArticleDto>(row);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var p = new DynamicParameters();
+            p.Add("@ArticleToken", Guid.NewGuid());
+            p.Add("@SupplierId", dto.SupplierId);
+            p.Add("@Name", dto.Name);
+            p.Add("@Description", dto.Description);
+            p.Add("@SupplierSku", dto.SupplierSku);
+            p.Add("@Barcode", dto.Barcode);
+            p.Add("@Brand", dto.Brand);
+            p.Add("@FamilyId", dto.FamilyId);
+            p.Add("@SubFamilyId", dto.SubFamilyId);
+            p.Add("@PurchaseUnitId", dto.PurchaseUnitId);
+            p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
+            p.Add("@LeadTimeDays", dto.LeadTimeDays);
+            p.Add("@CreatedBy", context.ActorUserToken.ToString());
+            var row = await connection.QueryFirstOrDefaultAsync<Article>(
+                "sp_Article_Create", p, transaction, commandType: CommandType.StoredProcedure);
+
+            if (row is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            await CreatePackagingLevelsAsync(connection, transaction, row.ArticleId, dto.PackagingLevels, context, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            var resultDto = mapper.Map<ArticleDto>(row);
+            resultDto.PackagingLevels = await LoadPackagingLevelsAsync(connection, row.ArticleId);
+            return resultDto;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    // Shared by CreateAsync and SupersedeAsync — always called inside an already-open
+    // transaction, right after the owning Article row is inserted. Packaging levels are
+    // structurally immutable (same as PurchaseUnitId) — never edited in place, only ever
+    // created together with a brand-new Article row.
+    private static async Task CreatePackagingLevelsAsync(IDbConnection connection, IDbTransaction transaction, int articleId, List<ArticlePackagingLevelDto> levels, IRequestContext context, CancellationToken cancellationToken)
+    {
+        foreach (var level in levels)
+        {
+            var lp = new DynamicParameters();
+            lp.Add("@ArticlePackagingLevelToken", Guid.NewGuid());
+            lp.Add("@ArticleId", articleId);
+            lp.Add("@SequenceOrder", level.SequenceOrder);
+            lp.Add("@UnitOfMeasureId", level.UnitOfMeasureId);
+            lp.Add("@QuantityInParentUnit", level.QuantityInParentUnit);
+            lp.Add("@IsDefinedUnit", level.IsDefinedUnit);
+            lp.Add("@CreatedBy", context.ActorUserToken.ToString());
+            await connection.ExecuteAsync("sp_ArticlePackagingLevel_Create", lp, transaction, commandType: CommandType.StoredProcedure);
+        }
     }
 
     public async Task<ArticleDto?> EditAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default)
@@ -176,19 +226,19 @@ public class ArticleService(
         // reject a structural-field change before calling this method, but that guard lived only
         // in those two callers — a future caller that skips it would silently mutate structural
         // fields with nothing here to catch it. This re-checks independently against the current
-        // DB row so the rule holds no matter which caller reaches EditAsync.
+        // DB row (and its packaging levels) so the rule holds no matter which caller reaches
+        // EditAsync.
         var existing = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_GetByToken", new { ArticleToken = dto.ArticleToken }, commandType: CommandType.StoredProcedure);
 
         if (existing is null)
             return null;
 
+        var existingLevels = await LoadPackagingLevelsAsync(connection, existing.ArticleId);
+
         var isStructuralChange =
             dto.PurchaseUnitId != existing.PurchaseUnitId ||
-            dto.PurchaseQuantity != existing.PurchaseQuantity ||
-            dto.ContentUnitId != existing.ContentUnitId ||
-            dto.ContentQuantity != existing.ContentQuantity ||
-            dto.BaseUnitId != existing.BaseUnitId;
+            !ArticlePackagingLevelValidation.AreEqual(dto.PackagingLevels, existingLevels);
 
         if (isStructuralChange)
             throw new ApiException(
@@ -206,16 +256,17 @@ public class ArticleService(
         p.Add("@FamilyId", dto.FamilyId);
         p.Add("@SubFamilyId", dto.SubFamilyId);
         p.Add("@PurchaseUnitId", dto.PurchaseUnitId);
-        p.Add("@PurchaseQuantity", dto.PurchaseQuantity);
-        p.Add("@ContentUnitId", dto.ContentUnitId);
-        p.Add("@ContentQuantity", dto.ContentQuantity);
-        p.Add("@BaseUnitId", dto.BaseUnitId);
         p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
         p.Add("@LeadTimeDays", dto.LeadTimeDays);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<ArticleDto>(row);
+        if (row is null)
+            return null;
+
+        var resultDto = mapper.Map<ArticleDto>(row);
+        resultDto.PackagingLevels = existingLevels;
+        return resultDto;
     }
 
     public async Task<ArticleDto?> SupersedeAsync(Guid oldArticleToken, ArticleDto newArticleData, IRequestContext context, CancellationToken cancellationToken = default)
@@ -249,10 +300,6 @@ public class ArticleService(
             createP.Add("@FamilyId", newArticleData.FamilyId);
             createP.Add("@SubFamilyId", newArticleData.SubFamilyId);
             createP.Add("@PurchaseUnitId", newArticleData.PurchaseUnitId);
-            createP.Add("@PurchaseQuantity", newArticleData.PurchaseQuantity);
-            createP.Add("@ContentUnitId", newArticleData.ContentUnitId);
-            createP.Add("@ContentQuantity", newArticleData.ContentQuantity);
-            createP.Add("@BaseUnitId", newArticleData.BaseUnitId);
             createP.Add("@MinimumOrderQty", newArticleData.MinimumOrderQty);
             createP.Add("@LeadTimeDays", newArticleData.LeadTimeDays);
             createP.Add("@CreatedBy", context.ActorUserToken.ToString());
@@ -266,6 +313,8 @@ public class ArticleService(
                 return null;
             }
 
+            await CreatePackagingLevelsAsync(connection, transaction, newRow.ArticleId, newArticleData.PackagingLevels, context, cancellationToken);
+
             var setReplacedP = new DynamicParameters();
             setReplacedP.Add("@ArticleToken", oldArticleToken);
             setReplacedP.Add("@ReplacedByArticleId", newRow.ArticleId);
@@ -275,7 +324,10 @@ public class ArticleService(
                 "sp_Article_SetReplacedBy", setReplacedP, transaction, commandType: CommandType.StoredProcedure);
 
             await transaction.CommitAsync(cancellationToken);
-            return mapper.Map<ArticleDto>(newRow);
+
+            var resultDto = mapper.Map<ArticleDto>(newRow);
+            resultDto.PackagingLevels = await LoadPackagingLevelsAsync(connection, newRow.ArticleId);
+            return resultDto;
         }
         catch
         {
@@ -407,14 +459,23 @@ public class ArticleService(
                 var familyCode = row.Cell(7).GetString().Trim();
                 var subFamilyCode = row.Cell(8).GetString().Trim();
                 var purchaseUnitCode = row.Cell(9).GetString().Trim();
-                var purchaseQuantityText = row.Cell(10).GetString().Trim();
-                var contentUnitCode = row.Cell(11).GetString().Trim();
-                var contentQuantityText = row.Cell(12).GetString().Trim();
-                var baseUnitCode = row.Cell(13).GetString().Trim();
-                var minimumOrderQtyText = row.Cell(14).GetString().Trim();
-                var leadTimeDaysText = row.Cell(15).GetString().Trim();
-                var articleTokenText = row.Cell(16).GetString().Trim();
-                var statusText = row.Cell(17).GetString().Trim();
+                // Packaging levels: up to MaxBulkImportPackagingLevels (Level1..Level4)
+                // Unit/Quantity column pairs — the last non-blank pair is automatically the
+                // Unidad Definida, no separate "IsDefined" column to fill in by hand. This is a
+                // deliberate, documented cap (see GenerateArticleImportTemplateAsync's header
+                // comment) — a deeper chain than that needs the single-row UI, which has no such
+                // limit.
+                var levelCellPairs = new (string UnitCode, string QuantityText)[]
+                {
+                    (row.Cell(10).GetString().Trim(), row.Cell(11).GetString().Trim()),
+                    (row.Cell(12).GetString().Trim(), row.Cell(13).GetString().Trim()),
+                    (row.Cell(14).GetString().Trim(), row.Cell(15).GetString().Trim()),
+                    (row.Cell(16).GetString().Trim(), row.Cell(17).GetString().Trim()),
+                };
+                var minimumOrderQtyText = row.Cell(18).GetString().Trim();
+                var leadTimeDaysText = row.Cell(19).GetString().Trim();
+                var articleTokenText = row.Cell(20).GetString().Trim();
+                var statusText = row.Cell(21).GetString().Trim();
 
                 var rowIdentifier = !string.IsNullOrWhiteSpace(supplierSku)
                     ? supplierSku
@@ -627,59 +688,87 @@ public class ArticleService(
                     continue;
                 }
 
-                if (!decimal.TryParse(purchaseQuantityText, NumberStyles.Any, CultureInfo.InvariantCulture, out var purchaseQuantity) || purchaseQuantity <= 0)
+                // --- Resolve packaging levels: up to 4 Unit/Quantity column pairs, filled
+                // left-to-right with no gaps; the last non-blank pair is automatically the
+                // Unidad Definida (no separate column to mark it). ---
+                var resolvedLevelUnits = new List<UnitOfMeasure>();
+                var resolvedLevelQuantities = new List<decimal>();
+                var sawBlankLevelPair = false;
+                var levelRowHasError = false;
+                for (var levelIndex = 0; levelIndex < levelCellPairs.Length; levelIndex++)
                 {
-                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "PurchaseQuantity is required and must be a positive number." });
+                    var (levelUnitCode, levelQuantityText) = levelCellPairs[levelIndex];
+                    var isBlankPair = string.IsNullOrWhiteSpace(levelUnitCode) && string.IsNullOrWhiteSpace(levelQuantityText);
+                    if (isBlankPair)
+                    {
+                        sawBlankLevelPair = true;
+                        continue;
+                    }
+
+                    if (sawBlankLevelPair)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticlePackagingLevelInvalidSequence, Description = $"Packaging level {levelIndex + 1} is filled but an earlier level is blank — fill levels left to right with no gaps." });
+                        levelRowHasError = true;
+                        break;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(levelUnitCode) || string.IsNullOrWhiteSpace(levelQuantityText))
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = $"Packaging level {levelIndex + 1} needs both a unit code and a quantity." });
+                        levelRowHasError = true;
+                        break;
+                    }
+
+                    if (!decimal.TryParse(levelQuantityText, NumberStyles.Any, CultureInfo.InvariantCulture, out var levelQuantity) || levelQuantity <= 0)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticlePackagingLevelInvalidQuantity, Description = $"Packaging level {levelIndex + 1}'s quantity must be a positive number." });
+                        levelRowHasError = true;
+                        break;
+                    }
+
+                    var levelUnit = await ResolveUnitAsync(levelUnitCode);
+                    if (levelUnit is null)
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticlePackagingLevelUnitNotFound, Description = $"Packaging level {levelIndex + 1}'s unit '{levelUnitCode}' was not found." });
+                        levelRowHasError = true;
+                        break;
+                    }
+
+                    resolvedLevelUnits.Add(levelUnit);
+                    resolvedLevelQuantities.Add(levelQuantity);
+                }
+
+                if (levelRowHasError)
+                    continue;
+
+                if (resolvedLevelUnits.Count == 0)
+                {
+                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticlePackagingLevelsRequired, Description = "At least Level1UnitCode/Level1Quantity (the Unidad Definida when the article has only one level) is required." });
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(contentUnitCode))
+                // Every level except the last (the Unidad Definida) is a container/count level —
+                // same rule ArticlePackagingLevelValidation enforces for the single-row UI.
+                var indefiniteLevelInvalid = false;
+                for (var i = 0; i < resolvedLevelUnits.Count - 1; i++)
                 {
-                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "ContentUnitCode is required." });
-                    continue;
+                    if (!string.Equals(resolvedLevelUnits[i].UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticlePackagingLevelIndefiniteUnitMustBeCount, Description = $"Packaging level {i + 1} is not the last (Unidad Definida) level, so its unit must be a COUNT unit (e.g. BOX, BOTTLE, PALLET)." });
+                        indefiniteLevelInvalid = true;
+                        break;
+                    }
                 }
-                var contentUnit = await ResolveUnitAsync(contentUnitCode);
-                if (contentUnit is null)
-                {
-                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitNotFound, Description = $"Content unit '{contentUnitCode}' was not found." });
+                if (indefiniteLevelInvalid)
                     continue;
-                }
-                // See CreateArticleCommandHandler's identical check for why COUNT is allowed here too.
-                if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
-                {
-                    result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ContentUnitInvalidType, Description = "Content unit must be a WEIGHT, VOLUME, or COUNT unit." });
-                    continue;
-                }
 
-                decimal? contentQuantity = null;
-                if (!string.IsNullOrWhiteSpace(contentQuantityText))
+                var packagingLevels = resolvedLevelUnits.Select((unit, i) => new ArticlePackagingLevelDto
                 {
-                    if (!decimal.TryParse(contentQuantityText, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedContentQuantity) || parsedContentQuantity <= 0)
-                    {
-                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowInvalid, Description = "ContentQuantity must be a positive number." });
-                        continue;
-                    }
-                    contentQuantity = parsedContentQuantity;
-                }
-
-                int? baseUnitId = null;
-                if (!string.IsNullOrWhiteSpace(baseUnitCode))
-                {
-                    var baseUnit = await ResolveUnitAsync(baseUnitCode);
-                    if (baseUnit is null)
-                    {
-                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.BaseUnitNotFound, Description = $"Base unit '{baseUnitCode}' was not found." });
-                        continue;
-                    }
-                    if (baseUnit.UnitTypeId != contentUnit.UnitTypeId)
-                    {
-                        result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.BaseUnitTypeMismatch, Description = "Base unit must be the same UnitType as the content unit (e.g. both WEIGHT or both VOLUME)." });
-                        continue;
-                    }
-                    baseUnitId = baseUnit.UnitOfMeasureId;
-                }
+                    SequenceOrder = i + 1,
+                    UnitOfMeasureId = unit.UnitOfMeasureId,
+                    QuantityInParentUnit = resolvedLevelQuantities[i],
+                    IsDefinedUnit = i == resolvedLevelUnits.Count - 1
+                }).ToList();
 
                 decimal? minimumOrderQty = null;
                 if (!string.IsNullOrWhiteSpace(minimumOrderQtyText))
@@ -711,12 +800,10 @@ public class ArticleService(
                         // EditArticleCommandHandler enforces for the single-row edit endpoint. A row
                         // that tries to change them is rejected rather than silently applied or
                         // auto-superseded — bulk import is not the place for a structural change.
+                        var existingLevels = await LoadPackagingLevelsAsync(connection, existingArticle.ArticleId);
                         var isStructuralChange =
                             purchaseUnit.UnitOfMeasureId != existingArticle.PurchaseUnitId ||
-                            purchaseQuantity != existingArticle.PurchaseQuantity ||
-                            contentUnit.UnitOfMeasureId != existingArticle.ContentUnitId ||
-                            contentQuantity != existingArticle.ContentQuantity ||
-                            baseUnitId != existingArticle.BaseUnitId;
+                            !ArticlePackagingLevelValidation.AreEqual(packagingLevels, existingLevels);
 
                         if (isStructuralChange)
                         {
@@ -736,10 +823,7 @@ public class ArticleService(
                             FamilyId = familyId,
                             SubFamilyId = subFamilyId,
                             PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
-                            PurchaseQuantity = purchaseQuantity,
-                            ContentUnitId = contentUnit.UnitOfMeasureId,
-                            ContentQuantity = contentQuantity,
-                            BaseUnitId = baseUnitId,
+                            PackagingLevels = packagingLevels,
                             MinimumOrderQty = minimumOrderQty,
                             LeadTimeDays = leadTimeDays
                         };
@@ -775,10 +859,7 @@ public class ArticleService(
                             FamilyId = familyId,
                             SubFamilyId = subFamilyId,
                             PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
-                            PurchaseQuantity = purchaseQuantity,
-                            ContentUnitId = contentUnit.UnitOfMeasureId,
-                            ContentQuantity = contentQuantity,
-                            BaseUnitId = baseUnitId,
+                            PackagingLevels = packagingLevels,
                             MinimumOrderQty = minimumOrderQty,
                             LeadTimeDays = leadTimeDays
                         };
@@ -825,13 +906,30 @@ public class ArticleService(
         // the full catalog, matching the single-row read scope.
         var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, searchText, includeInactive, false, null, context, cancellationToken);
 
+        // GetPagedAsync deliberately leaves PackagingLevels empty (avoids an N+1 per row on the
+        // catalog-browse path) — export needs the full chain, so it's fetched here in one batched
+        // round trip (same STRING_SPLIT convention as sp_User_GetPaged's RoleIds/OrganizationIds)
+        // instead of one query per article.
+        var articleIds = articles.Items.Select(a => a.ArticleId).ToList();
+        var levelsByArticleId = new Dictionary<int, List<ArticlePackagingLevel>>();
+        if (articleIds.Count > 0)
+        {
+            await using var levelsConnection = connectionFactory.CreateConnection();
+            var levelRows = await levelsConnection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+            levelsByArticleId = levelRows.GroupBy(l => l.ArticleId).ToDictionary(g => g.Key, g => g.OrderBy(l => l.SequenceOrder).ToList());
+        }
+
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Articles");
 
         // ArticleToken sits right after the fields that also appear on the import template (same
-        // column position, 16) so a re-uploaded export lines up with a hand-filled template file;
-        // Status is export-only and trails after it, where the importer already ignores it.
-        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
+        // column positions as GenerateArticleImportTemplateAsync) so a re-uploaded export lines
+        // up with a hand-filled template file; Status is export-only and trails after it, where
+        // the importer already ignores it. Level1..Level4 is a documented cap shared with the
+        // importer — an article with a deeper chain than that (built via the single-row UI, which
+        // has no such limit) only shows its first 4 levels here; editing beyond that needs the UI.
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "Level1UnitCode", "Level1Quantity", "Level2UnitCode", "Level2Quantity", "Level3UnitCode", "Level3Quantity", "Level4UnitCode", "Level4Quantity", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
@@ -839,6 +937,8 @@ public class ArticleService(
         var r = 2;
         foreach (var article in articles.Items)
         {
+            var levels = levelsByArticleId.GetValueOrDefault(article.ArticleId, []);
+
             worksheet.Cell(r, 1).Value = article.SupplierName;
             worksheet.Cell(r, 2).Value = article.SupplierSku;
             worksheet.Cell(r, 3).Value = article.Name;
@@ -848,14 +948,20 @@ public class ArticleService(
             worksheet.Cell(r, 7).Value = article.FamilyCode;
             worksheet.Cell(r, 8).Value = article.SubFamilyCode;
             worksheet.Cell(r, 9).Value = article.PurchaseUnitCode;
-            worksheet.Cell(r, 10).Value = article.PurchaseQuantity;
-            worksheet.Cell(r, 11).Value = article.ContentUnitCode;
-            worksheet.Cell(r, 12).Value = article.ContentQuantity;
-            worksheet.Cell(r, 13).Value = article.BaseUnitCode;
-            worksheet.Cell(r, 14).Value = article.MinimumOrderQty;
-            worksheet.Cell(r, 15).Value = article.LeadTimeDays;
-            worksheet.Cell(r, 16).Value = article.ArticleToken.ToString();
-            worksheet.Cell(r, 17).Value = article.IsActive ? "Active" : "Inactive";
+            for (var levelIndex = 0; levelIndex < 4; levelIndex++)
+            {
+                var unitColumn = 10 + levelIndex * 2;
+                var quantityColumn = unitColumn + 1;
+                if (levelIndex < levels.Count)
+                {
+                    worksheet.Cell(r, unitColumn).Value = levels[levelIndex].UnitOfMeasureCode;
+                    worksheet.Cell(r, quantityColumn).Value = levels[levelIndex].QuantityInParentUnit;
+                }
+            }
+            worksheet.Cell(r, 18).Value = article.MinimumOrderQty;
+            worksheet.Cell(r, 19).Value = article.LeadTimeDays;
+            worksheet.Cell(r, 20).Value = article.ArticleToken.ToString();
+            worksheet.Cell(r, 21).Value = article.IsActive ? "Active" : "Inactive";
             r++;
         }
 
@@ -875,13 +981,17 @@ public class ArticleService(
         using var workbook = new XLWorkbook();
 
         var articlesSheet = workbook.Worksheets.Add("Articles");
-        // ArticleToken (column 16) and Status (column 17) are left blank on a fresh template —
+        // ArticleToken (column 20) and Status (column 21) are left blank on a fresh template —
         // every row is a new article, so there's nothing to match and no status to change yet.
         // Both exist here purely so the columns line up with ExportArticlesAsync's layout: a
         // caller who re-uploads their own export (the recommended update flow) gets
         // ArticleToken-based matching and Status-driven activate/deactivate/delete for free,
         // instead of relying on SupplierSku and having no bulk lifecycle-state control at all.
-        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "PurchaseQuantity", "ContentUnitCode", "ContentQuantity", "BaseUnitCode", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
+        // Level1..Level4 (columns 10-17, Unit+Quantity pairs) is the packaging chain — fill left
+        // to right with no gaps; the last non-blank pair is automatically the Unidad Definida.
+        // Up to 4 levels covers the large majority of real articles; an article that genuinely
+        // needs more goes through the single-row UI instead, which has no such cap.
+        string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "Level1UnitCode", "Level1Quantity", "Level2UnitCode", "Level2Quantity", "Level3UnitCode", "Level3Quantity", "Level4UnitCode", "Level4Quantity", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             articlesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         articlesSheet.Row(1).Style.Font.Bold = true;
@@ -949,11 +1059,11 @@ public class ArticleService(
             articlesSheet.Range(2, 8, MaxBulkImportRows + 1, 8).CreateDataValidation().List(subFamilyNamedRange.Name, true);
         }
 
-        // Units reference sheet backs all three unit columns (Purchase/Content/Base) — Excel can't
-        // restrict a dropdown to only COUNT (for Purchase) or WEIGHT/VOLUME (for Content/Base)
-        // units without VBA, so all three share the same full list; the UnitType column is a
-        // visual hint for whoever fills the sheet, and BulkImportArticlesAsync still validates the
-        // resolved type server-side.
+        // Units reference sheet backs PurchaseUnitCode and all 4 Level*UnitCode columns — Excel
+        // can't restrict a dropdown to only COUNT (Purchase, and every level but the last) or "any
+        // type" (the Unidad Definida level, whichever one that ends up being) without VBA, so all
+        // of them share the same full list; the UnitType column is a visual hint for whoever fills
+        // the sheet, and BulkImportArticlesAsync still validates the resolved type server-side.
         var units = await unitOfMeasureService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
         var unitsSheet = workbook.Worksheets.Add("Units");
         unitsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
@@ -972,8 +1082,8 @@ public class ArticleService(
         {
             var unitNamedRange = workbook.DefinedNames.Add("ArticleImportUnitCodes", unitsSheet.Range(2, 1, unitRow - 1, 1));
             articlesSheet.Range(2, 9, MaxBulkImportRows + 1, 9).CreateDataValidation().List(unitNamedRange.Name, true);
-            articlesSheet.Range(2, 11, MaxBulkImportRows + 1, 11).CreateDataValidation().List(unitNamedRange.Name, true);
-            articlesSheet.Range(2, 13, MaxBulkImportRows + 1, 13).CreateDataValidation().List(unitNamedRange.Name, true);
+            foreach (var unitColumn in new[] { 10, 12, 14, 16 })
+                articlesSheet.Range(2, unitColumn, MaxBulkImportRows + 1, unitColumn).CreateDataValidation().List(unitNamedRange.Name, true);
         }
 
         articlesSheet.Columns().AdjustToContents();

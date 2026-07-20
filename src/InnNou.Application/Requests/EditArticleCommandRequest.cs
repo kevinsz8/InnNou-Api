@@ -15,10 +15,7 @@ namespace InnNou.Application.Requests
         public Guid? FamilyToken { get; set; }
         public Guid? SubFamilyToken { get; set; }
         public Guid PurchaseUnitToken { get; set; }
-        public decimal PurchaseQuantity { get; set; }
-        public Guid ContentUnitToken { get; set; }
-        public decimal? ContentQuantity { get; set; }
-        public Guid? BaseUnitToken { get; set; }
+        public List<ArticlePackagingLevelRequest> PackagingLevels { get; set; } = [];
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
     }

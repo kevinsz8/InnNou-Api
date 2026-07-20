@@ -92,6 +92,15 @@ namespace InnNou.Application.Common
         public const string ArticleBulkImportRowInvalid = "ARTICLE_BULK_IMPORT_ROW_INVALID";
         public const string ArticleBulkImportRowFailed = "ARTICLE_BULK_IMPORT_ROW_FAILED";
 
+        // Article packaging levels
+        public const string ArticlePackagingLevelsRequired = "ARTICLE_PACKAGING_LEVELS_REQUIRED";
+        public const string ArticlePackagingLevelInvalidSequence = "ARTICLE_PACKAGING_LEVEL_INVALID_SEQUENCE";
+        public const string ArticlePackagingLevelUnitNotFound = "ARTICLE_PACKAGING_LEVEL_UNIT_NOT_FOUND";
+        public const string ArticlePackagingLevelDefinedUnitRequired = "ARTICLE_PACKAGING_LEVEL_DEFINED_UNIT_REQUIRED";
+        public const string ArticlePackagingLevelDefinedUnitMustBeLast = "ARTICLE_PACKAGING_LEVEL_DEFINED_UNIT_MUST_BE_LAST";
+        public const string ArticlePackagingLevelIndefiniteUnitMustBeCount = "ARTICLE_PACKAGING_LEVEL_INDEFINITE_UNIT_MUST_BE_COUNT";
+        public const string ArticlePackagingLevelInvalidQuantity = "ARTICLE_PACKAGING_LEVEL_INVALID_QUANTITY";
+
         // ArticlePrice
         public const string ArticlePriceNotFound = "ARTICLE_PRICE_NOT_FOUND";
         public const string ArticlePriceCreateFailed = "ARTICLE_PRICE_CREATE_FAILED";

@@ -23,28 +23,9 @@ namespace InnNou.Application.Handlers
             if (!string.Equals(purchaseUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
                 return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.PurchaseUnitInvalidType, "Purchase unit must be a COUNT unit (e.g. BOX, PACK, BAG).", 400);
 
-            var contentUnit = await unitOfMeasureService.GetByTokenAsync(request.ContentUnitToken, cancellationToken);
-            if (contentUnit is null)
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitNotFound, "Content unit of measure not found.", 404);
-            // WEIGHT/VOLUME cover measured content (500ml per bottle); COUNT covers discrete
-            // content (100 gloves per box) and services with no physical measure at all
-            // (convention: ContentUnit = PurchaseUnit, ContentQuantity = 1) — same
-            // TotalContentPerPurchaseUnit = PurchaseQuantity × ContentQuantity formula either way.
-            if (!string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Weight, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Volume, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(contentUnit.UnitTypeCode, UnitTypeCodes.Count, StringComparison.OrdinalIgnoreCase))
-                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.ContentUnitInvalidType, "Content unit must be a WEIGHT, VOLUME, or COUNT unit.", 400);
-
-            int? baseUnitId = null;
-            if (request.BaseUnitToken.HasValue)
-            {
-                var baseUnit = await unitOfMeasureService.GetByTokenAsync(request.BaseUnitToken.Value, cancellationToken);
-                if (baseUnit is null)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.BaseUnitNotFound, "Base unit of measure not found.", 404);
-                if (baseUnit.UnitTypeId != contentUnit.UnitTypeId)
-                    return ApiResponse<CreateArticleCommandResponse>.FailureResponse(ErrorCodes.BaseUnitTypeMismatch, "Base unit must be the same UnitType as the content unit (e.g. both WEIGHT or both VOLUME).", 400);
-                baseUnitId = baseUnit.UnitOfMeasureId;
-            }
+            var levelsResult = await ArticlePackagingLevelValidation.ResolveAsync(request.PackagingLevels, unitOfMeasureService, cancellationToken);
+            if (levelsResult.Error is not null)
+                return ApiResponse<CreateArticleCommandResponse>.FailureResponse(levelsResult.Error.Code, levelsResult.Error.Description, levelsResult.Error.StatusCode);
 
             int? familyId = null;
             if (request.FamilyToken.HasValue)
@@ -82,10 +63,7 @@ namespace InnNou.Application.Handlers
                 FamilyId = familyId,
                 SubFamilyId = subFamilyId,
                 PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
-                PurchaseQuantity = request.PurchaseQuantity,
-                ContentUnitId = contentUnit.UnitOfMeasureId,
-                ContentQuantity = request.ContentQuantity,
-                BaseUnitId = baseUnitId,
+                PackagingLevels = levelsResult.Levels,
                 MinimumOrderQty = request.MinimumOrderQty,
                 LeadTimeDays = request.LeadTimeDays
             };
