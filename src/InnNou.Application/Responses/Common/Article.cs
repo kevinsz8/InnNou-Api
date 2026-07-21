@@ -25,5 +25,11 @@ namespace InnNou.Application.Responses.Common
         public bool IsFavorite { get; set; }
         public bool IsInherited { get; set; }
         public string? FavoriteOrganizationName { get; set; }
+        public Guid? CategoryToken { get; set; }
+        public string? CategoryCode { get; set; }
+        public Guid? SubCategoryToken { get; set; }
+        public string? SubCategoryCode { get; set; }
+        public bool IsCategoryInherited { get; set; }
+        public string? ClassificationOrganizationName { get; set; }
     }
 }

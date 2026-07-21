@@ -24,6 +24,10 @@ CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrderLine_Create
     @ContentQuantity         DECIMAL(18,4) = NULL,
     @UnitPrice               DECIMAL(18,4),
     @CurrencyCode            VARCHAR(3),
+    @CategoryId              INT           = NULL,
+    @CategoryCode            NVARCHAR(50)  = NULL,
+    @SubCategoryId           INT           = NULL,
+    @SubCategoryCode         NVARCHAR(50)  = NULL,
     @Notes                   NVARCHAR(500) = NULL,
     @CreatedBy               VARCHAR(150)
 )
@@ -34,11 +38,11 @@ BEGIN
     INSERT INTO dbo.PurchaseOrderLine
         (PurchaseOrderLineToken, PurchaseOrderId, OrderLineId, ArticleId, Quantity,
          PurchaseUnitId, PurchaseQuantity, ContentUnitId, ContentQuantity,
-         UnitPrice, CurrencyCode, Notes, CreatedBy)
+         UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
     VALUES
         (@PurchaseOrderLineToken, @PurchaseOrderId, @OrderLineId, @ArticleId, @Quantity,
          @PurchaseUnitId, @PurchaseQuantity, @ContentUnitId, @ContentQuantity,
-         @UnitPrice, @CurrencyCode, @Notes, @CreatedBy);
+         @UnitPrice, @CurrencyCode, @CategoryId, @CategoryCode, @SubCategoryId, @SubCategoryCode, @Notes, @CreatedBy);
 
     SELECT
         pol.PurchaseOrderLineId, pol.PurchaseOrderLineToken,
@@ -51,6 +55,7 @@ BEGIN
         pol.ContentUnitId, cu.Code AS ContentUnitCode,
         pol.ContentQuantity,
         pol.UnitPrice, pol.CurrencyCode,
+        pol.CategoryId, pol.CategoryCode, pol.SubCategoryId, pol.SubCategoryCode,
         pol.Notes,
         pol.CreatedUtc, pol.CreatedBy, pol.LastUpdatedUtc, pol.LastUpdatedBy
     FROM dbo.PurchaseOrderLine pol

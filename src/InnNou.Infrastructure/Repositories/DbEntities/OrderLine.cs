@@ -24,6 +24,15 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public decimal UnitPrice { get; set; }
         public string CurrencyCode { get; set; } = default!;
 
+        // Frozen classification snapshot, resolved once at line-add time (see
+        // OrderService.AddLineAsync) — never re-resolved live, so a later Article
+        // reclassification or Category Code rename can't retroactively change a historical
+        // report. Null when the article had no classification at add time.
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

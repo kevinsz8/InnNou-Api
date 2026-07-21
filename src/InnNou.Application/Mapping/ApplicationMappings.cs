@@ -19,6 +19,7 @@ using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePackagingLevel = InnNou.Application.Responses.Common.ArticlePackagingLevel;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonArticleFavorite = InnNou.Application.Responses.Common.ArticleFavorite;
+using CommonArticleClassification = InnNou.Application.Responses.Common.ArticleClassification;
 using CommonCurrency = InnNou.Application.Responses.Common.Currency;
 using CommonMenuItem = InnNou.Application.Responses.Common.MenuItem;
 using CommonWarehouse = InnNou.Application.Responses.Common.Warehouse;
@@ -513,7 +514,13 @@ namespace InnNou.Application.Mapping
                 ReplacedByArticleToken = d.ReplacedByArticleToken,
                 IsFavorite = d.IsFavorite,
                 IsInherited = d.IsInherited,
-                FavoriteOrganizationName = d.FavoriteOrganizationName
+                FavoriteOrganizationName = d.FavoriteOrganizationName,
+                CategoryToken = d.CategoryToken,
+                CategoryCode = d.CategoryCode,
+                SubCategoryToken = d.SubCategoryToken,
+                SubCategoryCode = d.SubCategoryCode,
+                IsCategoryInherited = d.IsCategoryInherited,
+                ClassificationOrganizationName = d.ClassificationOrganizationName
             });
             mapper.Register<ArticlePackagingLevelDto, CommonArticlePackagingLevel>(d => new CommonArticlePackagingLevel
             {
@@ -582,6 +589,27 @@ namespace InnNou.Application.Mapping
                 IsInherited = d.IsInherited,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
+            });
+
+            // ArticleClassification
+            mapper.Register<ArticleClassificationDto, CommonArticleClassification>(d => new CommonArticleClassification
+            {
+                ArticleClassificationToken = d.ArticleClassificationToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierSku = d.SupplierSku,
+                SupplierName = d.SupplierName,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                CategoryToken = d.CategoryToken,
+                CategoryCode = d.CategoryCode,
+                SubCategoryToken = d.SubCategoryToken,
+                SubCategoryCode = d.SubCategoryCode,
+                IsInherited = d.IsInherited,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
             });
 
             // Currency
@@ -904,6 +932,8 @@ namespace InnNou.Application.Mapping
                 ContentQuantity = d.ContentQuantity,
                 UnitPrice = d.UnitPrice,
                 CurrencyCode = d.CurrencyCode,
+                CategoryCode = d.CategoryCode,
+                SubCategoryCode = d.SubCategoryCode,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc
             });
@@ -924,6 +954,8 @@ namespace InnNou.Application.Mapping
                 ContentQuantity = d.ContentQuantity,
                 UnitPrice = d.UnitPrice,
                 CurrencyCode = d.CurrencyCode,
+                CategoryCode = d.CategoryCode,
+                SubCategoryCode = d.SubCategoryCode,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc
             });

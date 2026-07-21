@@ -26,6 +26,11 @@ namespace InnNou.Domain.Dtos
         public decimal UnitPrice { get; set; }
         public string CurrencyCode { get; set; } = default!;
 
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

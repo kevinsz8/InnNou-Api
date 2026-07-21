@@ -24,6 +24,10 @@ CREATE OR ALTER PROCEDURE dbo.sp_OrderLine_Upsert
     @ContentQuantity  DECIMAL(18,4) = NULL,
     @UnitPrice        DECIMAL(18,4),
     @CurrencyCode     VARCHAR(3),
+    @CategoryId       INT           = NULL,
+    @CategoryCode     NVARCHAR(50)  = NULL,
+    @SubCategoryId    INT           = NULL,
+    @SubCategoryCode  NVARCHAR(50)  = NULL,
     @Notes            NVARCHAR(500) = NULL,
     @CreatedBy        VARCHAR(150)
 )
@@ -42,6 +46,10 @@ BEGIN
             ContentQuantity  = @ContentQuantity,
             UnitPrice        = @UnitPrice,
             CurrencyCode     = @CurrencyCode,
+            CategoryId       = @CategoryId,
+            CategoryCode     = @CategoryCode,
+            SubCategoryId    = @SubCategoryId,
+            SubCategoryCode  = @SubCategoryCode,
             Notes            = @Notes,
             LastUpdatedUtc   = SYSUTCDATETIME(),
             LastUpdatedBy    = @CreatedBy
@@ -51,10 +59,12 @@ BEGIN
     BEGIN
         INSERT INTO dbo.OrderLine
             (OrderLineToken, OrderId, ArticleId, Quantity, PurchaseUnitId, PurchaseQuantity,
-             ContentUnitId, ContentQuantity, UnitPrice, CurrencyCode, Notes, CreatedBy)
+             ContentUnitId, ContentQuantity, UnitPrice, CurrencyCode,
+             CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
         VALUES
             (@OrderLineToken, @OrderId, @ArticleId, @Quantity, @PurchaseUnitId, @PurchaseQuantity,
-             @ContentUnitId, @ContentQuantity, @UnitPrice, @CurrencyCode, @Notes, @CreatedBy);
+             @ContentUnitId, @ContentQuantity, @UnitPrice, @CurrencyCode,
+             @CategoryId, @CategoryCode, @SubCategoryId, @SubCategoryCode, @Notes, @CreatedBy);
     END
 
     SELECT
@@ -66,6 +76,7 @@ BEGIN
         ol.ContentUnitId, cu.Code AS ContentUnitCode,
         ol.ContentQuantity,
         ol.UnitPrice, ol.CurrencyCode,
+        ol.CategoryId, ol.CategoryCode, ol.SubCategoryId, ol.SubCategoryCode,
         ol.Notes,
         ol.CreatedUtc, ol.CreatedBy, ol.LastUpdatedUtc, ol.LastUpdatedBy
     FROM dbo.OrderLine ol

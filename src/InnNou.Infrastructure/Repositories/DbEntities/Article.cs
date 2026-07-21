@@ -29,6 +29,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public bool IsFavorite { get; set; }
         public bool IsInherited { get; set; }
         public string? FavoriteOrganizationName { get; set; }
+        public int? CategoryId { get; set; }
+        public Guid? CategoryToken { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public Guid? SubCategoryToken { get; set; }
+        public string? SubCategoryCode { get; set; }
+        public bool IsCategoryInherited { get; set; }
+        public string? ClassificationOrganizationName { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

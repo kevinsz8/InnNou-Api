@@ -53,6 +53,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IArticleService, ArticleService>();
             services.AddScoped<IArticlePriceService, ArticlePriceService>();
             services.AddScoped<IArticleFavoriteService, ArticleFavoriteService>();
+            services.AddScoped<IArticleClassificationService, ArticleClassificationService>();
             services.AddScoped<ICurrencyService, CurrencyService>();
             services.AddScoped<IMenuService, MenuService>();
             services.AddScoped<IOrderService, OrderService>();

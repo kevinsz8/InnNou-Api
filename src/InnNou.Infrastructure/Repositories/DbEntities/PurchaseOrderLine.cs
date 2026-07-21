@@ -26,6 +26,12 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public decimal UnitPrice { get; set; }
         public string CurrencyCode { get; set; } = default!;
 
+        // Copied verbatim from the source OrderLine at Submit split time — see OrderLine.cs.
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

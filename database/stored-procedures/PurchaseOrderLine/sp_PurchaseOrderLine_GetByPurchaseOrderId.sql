@@ -27,6 +27,7 @@ BEGIN
         pol.ContentUnitId, cu.Code AS ContentUnitCode,
         pol.ContentQuantity,
         pol.UnitPrice, pol.CurrencyCode,
+        pol.CategoryId, pol.CategoryCode, pol.SubCategoryId, pol.SubCategoryCode,
         pol.Notes,
         pol.CreatedUtc, pol.CreatedBy, pol.LastUpdatedUtc, pol.LastUpdatedBy
     FROM dbo.PurchaseOrderLine pol

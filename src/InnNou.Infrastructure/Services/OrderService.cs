@@ -272,6 +272,18 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             currencyCode = normalizedCurrencyCode;
         }
 
+        // Snapshot the Order's own organization's effective classification (own row, else
+        // inherited from the nearest Super Asociado ancestor) — frozen onto the OrderLine as
+        // plain CategoryId/CategoryCode/SubCategoryId/SubCategoryCode, never re-resolved live.
+        // This is what protects historical spend-by-category reporting: a later Article
+        // reclassification or Category Code rename must never retroactively change what an
+        // already-placed Order reports. An unclassified article simply snapshots nulls —
+        // classification is optional metadata, never a purchasing precondition.
+        var classification = await connection.QueryFirstOrDefaultAsync<ArticleClassificationEffective>(
+            "sp_ArticleClassification_GetEffectiveForArticle",
+            new { ArticleId = article.ArticleId, OrganizationId = order.OrganizationId },
+            commandType: CommandType.StoredProcedure);
+
         var linePararms = new DynamicParameters();
         linePararms.Add("@OrderLineToken", Guid.NewGuid());
         linePararms.Add("@OrderId", order.OrderId);
@@ -283,6 +295,10 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         linePararms.Add("@ContentQuantity", totalContentQuantity);
         linePararms.Add("@UnitPrice", unitPrice);
         linePararms.Add("@CurrencyCode", currencyCode);
+        linePararms.Add("@CategoryId", classification?.CategoryId);
+        linePararms.Add("@CategoryCode", classification?.CategoryCode);
+        linePararms.Add("@SubCategoryId", classification?.SubCategoryId);
+        linePararms.Add("@SubCategoryCode", classification?.SubCategoryCode);
         linePararms.Add("@Notes", (string?)null);
         linePararms.Add("@CreatedBy", context.ActorUserToken.ToString());
 
@@ -414,6 +430,10 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
                     polParams.Add("@ContentQuantity", line.ContentQuantity);
                     polParams.Add("@UnitPrice", line.UnitPrice);
                     polParams.Add("@CurrencyCode", line.CurrencyCode);
+                    polParams.Add("@CategoryId", line.CategoryId);
+                    polParams.Add("@CategoryCode", line.CategoryCode);
+                    polParams.Add("@SubCategoryId", line.SubCategoryId);
+                    polParams.Add("@SubCategoryCode", line.SubCategoryCode);
                     polParams.Add("@Notes", line.Notes);
                     polParams.Add("@CreatedBy", actor);
 
@@ -651,5 +671,14 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         public int? OrganizationZoneId { get; set; }
         public bool EnforcementActive { get; set; }
         public bool HasCoverage { get; set; }
+    }
+
+    private sealed class ArticleClassificationEffective
+    {
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string? SubCategoryCode { get; set; }
+        public bool IsInherited { get; set; }
     }
 }

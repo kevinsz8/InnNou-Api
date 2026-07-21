@@ -124,6 +124,14 @@ namespace InnNou.Application.Common
         public const string ArticleFavoriteNoOrganizationContext = "ARTICLE_FAVORITE_NO_ORGANIZATION_CONTEXT";
         public const string ArticleFavoriteForbidden = "ARTICLE_FAVORITE_FORBIDDEN";
 
+        // ArticleClassification
+        public const string ArticleClassificationNotFound = "ARTICLE_CLASSIFICATION_NOT_FOUND";
+        public const string ArticleClassificationCreateFailed = "ARTICLE_CLASSIFICATION_CREATE_FAILED";
+        public const string ArticleClassificationForbidden = "ARTICLE_CLASSIFICATION_FORBIDDEN";
+        public const string ArticleClassificationCategoryNotFound = "ARTICLE_CLASSIFICATION_CATEGORY_NOT_FOUND";
+        public const string ArticleClassificationSubCategoryMismatch = "ARTICLE_CLASSIFICATION_SUB_CATEGORY_MISMATCH";
+        public const string ArticleClassificationOutsideScope = "ARTICLE_CLASSIFICATION_OUTSIDE_SCOPE";
+
         // Family
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";
         public const string FamilyCodeExists = "FAMILY_CODE_EXISTS";

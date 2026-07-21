@@ -24,6 +24,7 @@ BEGIN
         ol.ContentUnitId, cu.Code AS ContentUnitCode,
         ol.ContentQuantity,
         ol.UnitPrice, ol.CurrencyCode,
+        ol.CategoryId, ol.CategoryCode, ol.SubCategoryId, ol.SubCategoryCode,
         ol.Notes,
         ol.CreatedUtc, ol.CreatedBy, ol.LastUpdatedUtc, ol.LastUpdatedBy
     FROM dbo.OrderLine ol

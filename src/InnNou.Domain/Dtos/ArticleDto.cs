@@ -38,5 +38,19 @@ namespace InnNou.Domain.Dtos
         public bool IsFavorite { get; set; }
         public bool IsInherited { get; set; }
         public string? FavoriteOrganizationName { get; set; }
+
+        // Effective Category/SubCategory classification (own-organization row wins, else
+        // inherited from the nearest Super Asociado ancestor) — same "own ∪ inherited"
+        // resolution as IsFavorite/IsInherited above, denormalized from ArticleClassifications
+        // via the same @OrganizationId param. Null when the article has no classification at
+        // all (most articles, initially). SubCategoryId is optional even when CategoryId is set.
+        public int? CategoryId { get; set; }
+        public Guid? CategoryToken { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public Guid? SubCategoryToken { get; set; }
+        public string? SubCategoryCode { get; set; }
+        public bool IsCategoryInherited { get; set; }
+        public string? ClassificationOrganizationName { get; set; }
     }
 }

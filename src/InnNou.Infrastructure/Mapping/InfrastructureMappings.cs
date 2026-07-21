@@ -18,6 +18,7 @@ using ArticleEntity = InnNou.Infrastructure.Repositories.DbEntities.Article;
 using ArticlePackagingLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePackagingLevel;
 using ArticlePriceEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticlePrice;
 using ArticleFavoriteEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticleFavorite;
+using ArticleClassificationEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticleClassification;
 using CurrencyEntity = InnNou.Infrastructure.Repositories.DbEntities.Currency;
 using WarehouseEntity = InnNou.Infrastructure.Repositories.DbEntities.Warehouse;
 using WarehouseContactEntity = InnNou.Infrastructure.Repositories.DbEntities.WarehouseContact;
@@ -270,7 +271,15 @@ namespace InnNou.Infrastructure.Mapping
                 ReplacedByArticleToken = e.ReplacedByArticleToken,
                 IsFavorite = e.IsFavorite,
                 IsInherited = e.IsInherited,
-                FavoriteOrganizationName = e.FavoriteOrganizationName
+                FavoriteOrganizationName = e.FavoriteOrganizationName,
+                CategoryId = e.CategoryId,
+                CategoryToken = e.CategoryToken,
+                CategoryCode = e.CategoryCode,
+                SubCategoryId = e.SubCategoryId,
+                SubCategoryToken = e.SubCategoryToken,
+                SubCategoryCode = e.SubCategoryCode,
+                IsCategoryInherited = e.IsCategoryInherited,
+                ClassificationOrganizationName = e.ClassificationOrganizationName
             });
 
             mapper.Register<ArticlePackagingLevelEntity, ArticlePackagingLevelDto>(e => new ArticlePackagingLevelDto
@@ -315,6 +324,31 @@ namespace InnNou.Infrastructure.Mapping
                 IsInherited = e.IsInherited,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<ArticleClassificationEntity, ArticleClassificationDto>(e => new ArticleClassificationDto
+            {
+                ArticleClassificationId = e.ArticleClassificationId,
+                ArticleClassificationToken = e.ArticleClassificationToken,
+                ArticleId = e.ArticleId,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierSku = e.SupplierSku,
+                SupplierName = e.SupplierName,
+                OrganizationId = e.OrganizationId,
+                OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
+                CategoryId = e.CategoryId,
+                CategoryToken = e.CategoryToken,
+                CategoryCode = e.CategoryCode,
+                SubCategoryId = e.SubCategoryId,
+                SubCategoryToken = e.SubCategoryToken,
+                SubCategoryCode = e.SubCategoryCode,
+                IsInherited = e.IsInherited,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
             });
 
             mapper.Register<CurrencyEntity, CurrencyDto>(e => new CurrencyDto
@@ -409,6 +443,10 @@ namespace InnNou.Infrastructure.Mapping
                 ContentQuantity = e.ContentQuantity,
                 UnitPrice = e.UnitPrice,
                 CurrencyCode = e.CurrencyCode,
+                CategoryId = e.CategoryId,
+                CategoryCode = e.CategoryCode,
+                SubCategoryId = e.SubCategoryId,
+                SubCategoryCode = e.SubCategoryCode,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
@@ -438,6 +476,10 @@ namespace InnNou.Infrastructure.Mapping
                 ContentQuantity = e.ContentQuantity,
                 UnitPrice = e.UnitPrice,
                 CurrencyCode = e.CurrencyCode,
+                CategoryId = e.CategoryId,
+                CategoryCode = e.CategoryCode,
+                SubCategoryId = e.SubCategoryId,
+                SubCategoryCode = e.SubCategoryCode,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,

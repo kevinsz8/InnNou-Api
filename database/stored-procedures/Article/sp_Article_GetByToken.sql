@@ -59,6 +59,16 @@ BEGIN
                CASE WHEN oa.Depth = 0 THEN CAST(0 AS BIT) ELSE CAST(1 AS BIT) END AS IsInherited
         FROM   ArticleFavorites af
         INNER JOIN OrganizationAncestry oa ON oa.OrganizationId = af.OrganizationId
+    ),
+    -- Same ascending-walk shape as EffectiveFavorites above, applied to
+    -- ArticleClassifications instead — see sp_Article_GetPaged.sql's header comment.
+    EffectiveClassifications AS
+    (
+        SELECT ac.ArticleId, ac.OrganizationId, ac.CategoryId, ac.SubCategoryId,
+               ROW_NUMBER() OVER (PARTITION BY ac.ArticleId ORDER BY oa.Depth ASC) AS rn,
+               CASE WHEN oa.Depth = 0 THEN CAST(0 AS BIT) ELSE CAST(1 AS BIT) END AS IsInherited
+        FROM   ArticleClassifications ac
+        INNER JOIN OrganizationAncestry oa ON oa.OrganizationId = ac.OrganizationId
     )
     SELECT
         a.ArticleId,
@@ -88,6 +98,14 @@ BEGIN
         CASE WHEN ef.ArticleId IS NULL THEN CAST(0 AS BIT) ELSE CAST(1 AS BIT) END AS IsFavorite,
         ISNULL(ef.IsInherited, CAST(0 AS BIT)) AS IsInherited,
         efo.Name        AS FavoriteOrganizationName,
+        ec.CategoryId,
+        cat.CategoryToken,
+        cat.Code        AS CategoryCode,
+        ec.SubCategoryId,
+        subcat.SubCategoryToken,
+        subcat.Code     AS SubCategoryCode,
+        ISNULL(ec.IsInherited, CAST(0 AS BIT)) AS IsCategoryInherited,
+        eco.Name        AS ClassificationOrganizationName,
         a.DeletedUtc,
         a.DeletedBy
     FROM   Articles        a
@@ -98,6 +116,10 @@ BEGIN
     LEFT JOIN Articles     r  ON  r.ArticleId         = a.ReplacedByArticleId
     LEFT JOIN (SELECT ArticleId, OrganizationId, IsInherited FROM EffectiveFavorites WHERE rn = 1) ef ON ef.ArticleId = a.ArticleId
     LEFT JOIN Organizations efo ON efo.OrganizationId = ef.OrganizationId
+    LEFT JOIN (SELECT ArticleId, OrganizationId, CategoryId, SubCategoryId, IsInherited FROM EffectiveClassifications WHERE rn = 1) ec ON ec.ArticleId = a.ArticleId
+    LEFT JOIN Categories    cat    ON cat.CategoryId       = ec.CategoryId
+    LEFT JOIN SubCategories subcat ON subcat.SubCategoryId = ec.SubCategoryId
+    LEFT JOIN Organizations eco    ON eco.OrganizationId   = ec.OrganizationId
     WHERE  a.ArticleToken = @ArticleToken
       AND  a.IsDeleted    = 0
       AND  (
