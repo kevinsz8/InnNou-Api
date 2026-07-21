@@ -41,22 +41,31 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         return canAccess == 1;
     }
 
-    // Same hierarchy rule as CanAccessOrganizationAsync, plus: a caller whose own organization is
-    // SUPER_ASSOCIATE (the holding/group level) is view-only for Orders regardless of role/
-    // hierarchy — purchasing happens at the ASSOCIATE (property) level; the holding org can see
-    // everything (GetPagedAsync/GetByTokenAsync are unaffected — they call
-    // CanAccessOrganizationAsync directly) but never creates/edits/submits/cancels/deletes an
-    // order itself. Used to gate every write call site (Create/AddLine/EditLine/DeleteLine/
-    // Submit/Cancel/Delete).
+    // Only a caller whose own organization is ASSOCIATE (the property level) may write — both
+    // SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE (the
+    // holding/group level) are read-only for Orders, no exceptions; purchasing happens at the
+    // ASSOCIATE level only. The holding org and SuperAdmin can still see everything
+    // (GetPagedAsync/GetByTokenAsync are unaffected — they call CanAccessOrganizationAsync
+    // directly, which keeps its own RoleLevel>=100 bypass for reads) but never
+    // creates/edits/submits/cancels/deletes an order itself. Impersonating an ASSOCIATE
+    // organization's user (or one of its warehouse contacts) flips the effective
+    // OrganizationTypeCode to ASSOCIATE for that session, which is what grants write access —
+    // not the RoleLevel. Used to gate every write call site (Create/AddLine/EditLine/
+    // DeleteLine/Submit/Cancel/Delete).
     private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
     {
-        if (context.RoleLevel >= SuperAdminRoleLevel)
-            return true;
-
-        if (context.OrganizationTypeCode == OrganizationTypeCodes.SuperAssociate)
+        if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
-        return await CanAccessOrganizationAsync(connection, context, targetOrganizationId);
+        if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        var canAccess = await connection.ExecuteScalarAsync<int>(
+            "sp_Organization_IsInHierarchy",
+            new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = targetOrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        return canAccess == 1;
     }
 
     private static async Task<List<OrderLine>> GetLinesAsync(IDbConnection connection, int orderId)

@@ -362,17 +362,60 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         var now = DateTime.UtcNow;
         var actor = context.ActorUserToken.ToString();
 
-        await connection.ExecuteAsync(
-            "sp_WarehouseContact_SoftDelete",
-            new
-            {
-                WarehouseContactToken = warehouseContactToken,
-                DeletedUtc = now,
-                DeletedBy = actor,
-                LastUpdatedUtc = now,
-                LastUpdatedBy = actor
-            },
+        var shadowUser = await connection.QueryFirstOrDefaultAsync<User>(
+            "sp_User_GetByWarehouseContactId",
+            new { WarehouseContactId = existing.WarehouseContactId },
             commandType: CommandType.StoredProcedure);
+
+        if (shadowUser is null)
+            throw new InvalidOperationException("Warehouse contact has no linked shadow user.");
+
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await connection.ExecuteAsync(
+                "sp_WarehouseContact_SoftDelete",
+                new
+                {
+                    WarehouseContactToken = warehouseContactToken,
+                    DeletedUtc = now,
+                    DeletedBy = actor,
+                    LastUpdatedUtc = now,
+                    LastUpdatedBy = actor
+                },
+                transaction,
+                commandType: CommandType.StoredProcedure);
+
+            // Deactivate (never clear/delete) the linked shadow user, same
+            // credentials-preserved-but-login-blocked rule as toggling HasAccessToSystem
+            // off (see CLAUDE.md, "Supplier system access") — a deleted contact must not
+            // remain directly loginable, even though WarehouseContacts.IsDeleted doesn't
+            // cascade to Users on its own.
+            await connection.ExecuteAsync(
+                "sp_User_SetWarehouseContactAccess",
+                new
+                {
+                    WarehouseContactId = existing.WarehouseContactId,
+                    Email = shadowUser.Email,
+                    NormalizedEmail = shadowUser.Email.ToUpperInvariant(),
+                    UserName = shadowUser.UserName,
+                    NormalizedUserName = shadowUser.UserName.ToUpperInvariant(),
+                    PasswordHash = shadowUser.PasswordHash,
+                    IsActive = false,
+                    LastUpdatedUtc = now,
+                    LastUpdatedBy = actor
+                },
+                transaction,
+                commandType: CommandType.StoredProcedure);
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
 
         return true;
     }

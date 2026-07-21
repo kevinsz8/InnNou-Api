@@ -8,10 +8,15 @@ GO
    to a Supplier, looked up by Suppliers.SupplierToken. Used to
    resolve the impersonation target for "impersonate this supplier"
    without requiring the caller to already know its UserToken.
-   No IsActive/IsDeleted filter on purpose — eligibility is decided
-   entirely by AuthService.ImpersonateAsync downstream, so a
-   Supplier with no real system access (HasAccessToSystem = 0) can
-   still be impersonated by a superadmin.
+   No IsActive filter on the shadow User itself, on purpose —
+   eligibility is decided entirely by AuthService.ImpersonateAsync
+   downstream, so a Supplier with no real system access
+   (HasAccessToSystem = 0) can still be impersonated by a superadmin.
+   s.IsDeleted IS filtered, though: a deleted Supplier no longer
+   exists as a manageable entity, so its identity must not remain
+   impersonable even if its shadow User row is still IsActive = 1
+   (SupplierService.DeleteSupplierAsync deactivates it, but this
+   filter is the real guarantee — it doesn't depend on that).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Auth_GetUserBySupplierToken
 (
@@ -37,6 +42,7 @@ BEGIN
     FROM dbo.Suppliers s
     INNER JOIN dbo.Users u ON u.SupplierId = s.SupplierId
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
-    WHERE s.SupplierToken = @SupplierToken;
+    WHERE s.SupplierToken = @SupplierToken
+      AND s.IsDeleted = 0;
 END;
 GO

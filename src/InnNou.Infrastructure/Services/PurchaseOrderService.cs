@@ -36,12 +36,13 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return canAccess == 1;
     }
 
-    // Write visibility (Cancel) — same shape plus the StaffRoleLevel floor, mirrors
-    // OrderService.CanManageOrganizationAsync.
+    // Write visibility (Cancel) — only a caller whose own organization is ASSOCIATE may cancel;
+    // SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE are
+    // read-only, mirrors OrderService.CanManageOrganizationAsync.
     private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
     {
-        if (context.RoleLevel >= SuperAdminRoleLevel)
-            return true;
+        if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
+            return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
             return false;
