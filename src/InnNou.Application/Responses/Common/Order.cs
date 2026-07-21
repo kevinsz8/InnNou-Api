@@ -15,5 +15,6 @@ namespace InnNou.Application.Responses.Common
         public string? LastUpdatedBy { get; set; }
         public int LineCount { get; set; }
         public List<OrderLine> Lines { get; set; } = [];
+        public List<OrderApprovalStep> ApprovalSteps { get; set; } = [];
     }
 }

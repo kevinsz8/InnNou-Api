@@ -31,6 +31,8 @@ using OrderTemplateLineEntity = InnNou.Infrastructure.Repositories.DbEntities.Or
 using CountryEntity = InnNou.Infrastructure.Repositories.DbEntities.Country;
 using ZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.Zone;
 using SupplierDeliveryZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierDeliveryZone;
+using FamilyApprovalThresholdEntity = InnNou.Infrastructure.Repositories.DbEntities.FamilyApprovalThreshold;
+using OrderApprovalStepEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderApprovalStep;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -112,6 +114,55 @@ namespace InnNou.Infrastructure.Mapping
                 Code = z.Code,
                 Name = z.Name,
                 IsActive = z.IsActive
+            });
+
+            mapper.Register<FamilyApprovalThresholdEntity, FamilyApprovalThresholdDto>(t => new FamilyApprovalThresholdDto
+            {
+                FamilyApprovalThresholdId = t.FamilyApprovalThresholdId,
+                FamilyApprovalThresholdToken = t.FamilyApprovalThresholdToken,
+                OrganizationId = t.OrganizationId,
+                OrganizationToken = t.OrganizationToken,
+                OrganizationName = t.OrganizationName,
+                FamilyId = t.FamilyId,
+                FamilyToken = t.FamilyToken,
+                FamilyCode = t.FamilyCode,
+                Level = t.Level,
+                ThresholdAmount = t.ThresholdAmount,
+                ApproverUserId = t.ApproverUserId,
+                ApproverUserToken = t.ApproverUserToken,
+                ApproverName = t.ApproverName,
+                IsActive = t.IsActive,
+                CreatedUtc = t.CreatedUtc,
+                CreatedBy = t.CreatedBy,
+                LastUpdatedUtc = t.LastUpdatedUtc,
+                LastUpdatedBy = t.LastUpdatedBy
+            });
+
+            mapper.Register<OrderApprovalStepEntity, OrderApprovalStepDto>(s => new OrderApprovalStepDto
+            {
+                OrderApprovalStepId = s.OrderApprovalStepId,
+                OrderApprovalStepToken = s.OrderApprovalStepToken,
+                OrderId = s.OrderId,
+                OrderToken = s.OrderToken,
+                OrganizationToken = s.OrganizationToken,
+                OrganizationName = s.OrganizationName,
+                WarehouseToken = s.WarehouseToken,
+                WarehouseName = s.WarehouseName,
+                FamilyId = s.FamilyId,
+                FamilyCode = s.FamilyCode,
+                Level = s.Level,
+                ThresholdAmount = s.ThresholdAmount,
+                ActualFamilyAmount = s.ActualFamilyAmount,
+                CurrencyCode = s.CurrencyCode,
+                ApproverUserId = s.ApproverUserId,
+                ApproverUserToken = s.ApproverUserToken,
+                ApproverName = s.ApproverName,
+                Status = s.Status,
+                DecidedUtc = s.DecidedUtc,
+                DecidedBy = s.DecidedBy,
+                RejectionReason = s.RejectionReason,
+                CreatedUtc = s.CreatedUtc,
+                CreatedBy = s.CreatedBy
             });
 
             mapper.Register<SupplierDeliveryZoneEntity, SupplierDeliveryZoneDto>(s => new SupplierDeliveryZoneDto

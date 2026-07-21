@@ -28,6 +28,8 @@ using CommonOrder = InnNou.Application.Responses.Common.Order;
 using CommonOrderLine = InnNou.Application.Responses.Common.OrderLine;
 using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
 using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
+using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
+using CommonFamilyApprovalThreshold = InnNou.Application.Responses.Common.FamilyApprovalThreshold;
 using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
 using CommonOrderTemplateLine = InnNou.Application.Responses.Common.OrderTemplateLine;
 using CommonApplyOrderTemplateLineResult = InnNou.Application.Responses.Common.ApplyOrderTemplateLineResult;
@@ -960,6 +962,47 @@ namespace InnNou.Application.Mapping
                 CreatedUtc = d.CreatedUtc
             });
 
+            // OrderApprovalStep (registered before Order since it embeds a List<CommonOrderApprovalStep>)
+            mapper.Register<OrderApprovalStepDto, CommonOrderApprovalStep>(d => new CommonOrderApprovalStep
+            {
+                OrderApprovalStepToken = d.OrderApprovalStepToken,
+                OrderToken = d.OrderToken,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                FamilyCode = d.FamilyCode,
+                Level = d.Level,
+                ThresholdAmount = d.ThresholdAmount,
+                ActualFamilyAmount = d.ActualFamilyAmount,
+                CurrencyCode = d.CurrencyCode,
+                ApproverUserToken = d.ApproverUserToken,
+                ApproverName = d.ApproverName,
+                Status = d.Status,
+                DecidedUtc = d.DecidedUtc,
+                DecidedBy = d.DecidedBy,
+                RejectionReason = d.RejectionReason,
+                CreatedUtc = d.CreatedUtc
+            });
+
+            mapper.Register<FamilyApprovalThresholdDto, CommonFamilyApprovalThreshold>(d => new CommonFamilyApprovalThreshold
+            {
+                FamilyApprovalThresholdToken = d.FamilyApprovalThresholdToken,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                FamilyToken = d.FamilyToken,
+                FamilyCode = d.FamilyCode,
+                Level = d.Level,
+                ThresholdAmount = d.ThresholdAmount,
+                ApproverUserToken = d.ApproverUserToken,
+                ApproverName = d.ApproverName,
+                IsActive = d.IsActive,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
             // Order
             mapper.Register<OrderDto, CommonOrder>(d => new CommonOrder
             {
@@ -975,7 +1018,8 @@ namespace InnNou.Application.Mapping
                 LastUpdatedUtc = d.LastUpdatedUtc,
                 LastUpdatedBy = d.LastUpdatedBy,
                 LineCount = d.LineCount,
-                Lines = mapper.MapList<CommonOrderLine>(d.Lines)
+                Lines = mapper.MapList<CommonOrderLine>(d.Lines),
+                ApprovalSteps = mapper.MapList<CommonOrderApprovalStep>(d.ApprovalSteps)
             });
 
             // PurchaseOrder

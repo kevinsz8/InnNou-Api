@@ -21,5 +21,12 @@ namespace InnNou.Application.Common.Interfaces
         // never aborting the whole file on one row's failure — same convention as
         // ArticleService.BulkImportArticlesAsync.
         Task<ImportOrderLinesResultDto> ImportLinesAsync(Guid orderToken, byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken);
+
+        // Order approval workflow — see .claude/OrdersModule.md / OrderApprovalModule.md.
+        // ApproveAsync auto-completes the submission (creates the PurchaseOrders) the moment
+        // every required step for the Order is APPROVED; RejectAsync reverts the Order to DRAFT.
+        Task<OrderApprovalStepDto?> ApproveOrderApprovalStepAsync(Guid stepToken, IRequestContext context, CancellationToken cancellationToken);
+        Task<OrderApprovalStepDto?> RejectOrderApprovalStepAsync(Guid stepToken, string reason, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<OrderApprovalStepDto>> GetPendingApprovalStepsAsync(int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
     }
 }

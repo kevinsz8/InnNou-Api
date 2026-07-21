@@ -26,6 +26,28 @@ public class OrdersEndpoints : ICarterModule
         group.MapPost("/importLines", HandleImportLines)
             .Produces<ApiResponse<ImportOrderLinesCommandResponse>>(200)
             .DisableAntiforgery();
+
+        group.MapPost("/approveStep", HandleApproveStep).Produces<ApiResponse<ApproveOrderApprovalStepCommandResponse>>(200);
+        group.MapPost("/rejectStep", HandleRejectStep).Produces<ApiResponse<RejectOrderApprovalStepCommandResponse>>(200);
+        group.MapPost("/pendingApprovals", HandlePendingApprovals).Produces<ApiResponse<GetPendingOrderApprovalsQueryResponse>>(200);
+    }
+
+    private static async Task<IResult> HandleApproveStep([FromBody] ApproveOrderApprovalStepCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleRejectStep([FromBody] RejectOrderApprovalStepCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandlePendingApprovals([FromBody] GetPendingOrderApprovalsQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleCreate([FromBody] CreateOrderCommandRequest request, ISender sender, CancellationToken ct)

@@ -229,6 +229,24 @@ namespace InnNou.Application.Common
         public const string OrderImportLinesInvalidFile = "ORDER_IMPORT_LINES_INVALID_FILE";
         public const string OrderImportLinesTooManyRows = "ORDER_IMPORT_LINES_TOO_MANY_ROWS";
         public const string OrderImportLinesRowInvalid = "ORDER_IMPORT_LINES_ROW_INVALID";
+        public const string OrderNotCancellable = "ORDER_NOT_CANCELLABLE";
+
+        // FamilyApprovalThreshold
+        public const string FamilyApprovalThresholdNotFound = "FAMILY_APPROVAL_THRESHOLD_NOT_FOUND";
+        public const string FamilyApprovalThresholdForbidden = "FAMILY_APPROVAL_THRESHOLD_FORBIDDEN";
+        public const string FamilyApprovalThresholdOutsideScope = "FAMILY_APPROVAL_THRESHOLD_OUTSIDE_SCOPE";
+        public const string FamilyApprovalThresholdInvalidLevel = "FAMILY_APPROVAL_THRESHOLD_INVALID_LEVEL";
+        public const string FamilyApprovalThresholdInvalidAmount = "FAMILY_APPROVAL_THRESHOLD_INVALID_AMOUNT";
+        public const string FamilyApprovalThresholdLevelExists = "FAMILY_APPROVAL_THRESHOLD_LEVEL_EXISTS";
+        public const string FamilyApprovalThresholdApproverNotFound = "FAMILY_APPROVAL_THRESHOLD_APPROVER_NOT_FOUND";
+        public const string FamilyApprovalThresholdApproverOutsideHierarchy = "FAMILY_APPROVAL_THRESHOLD_APPROVER_OUTSIDE_HIERARCHY";
+        public const string FamilyApprovalThresholdOrganizationNotAssociate = "FAMILY_APPROVAL_THRESHOLD_ORGANIZATION_NOT_ASSOCIATE";
+
+        // OrderApprovalStep
+        public const string OrderApprovalStepNotFound = "ORDER_APPROVAL_STEP_NOT_FOUND";
+        public const string OrderApprovalStepForbidden = "ORDER_APPROVAL_STEP_FORBIDDEN";
+        public const string OrderApprovalStepAlreadyDecided = "ORDER_APPROVAL_STEP_ALREADY_DECIDED";
+        public const string OrderApprovalStepPriorLevelPending = "ORDER_APPROVAL_STEP_PRIOR_LEVEL_PENDING";
 
         // OrderTemplate
         public const string OrderTemplateNotFound = "ORDER_TEMPLATE_NOT_FOUND";

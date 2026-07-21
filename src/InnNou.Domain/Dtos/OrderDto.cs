@@ -27,5 +27,10 @@ namespace InnNou.Domain.Dtos
         // resolved by the mapper directly, same reasoning ArticleDto's IsFavorite required a
         // dedicated query rather than a lazy nav property.
         public List<OrderLineDto> Lines { get; set; } = [];
+
+        // Same "second query, always populated" pattern as Lines above — includes terminal
+        // (REJECTED/CANCELLED) rows from a past attempt too, so the detail view shows the full
+        // approval history, not just what's currently pending.
+        public List<OrderApprovalStepDto> ApprovalSteps { get; set; } = [];
     }
 }

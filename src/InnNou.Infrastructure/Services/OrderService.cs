@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using System.Data;
+using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -75,6 +76,13 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         return lines.ToList();
     }
 
+    private static async Task<List<OrderApprovalStep>> GetApprovalStepsAsync(IDbConnection connection, int orderId)
+    {
+        var steps = await connection.QueryAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_GetByOrderId", new { OrderId = orderId }, commandType: CommandType.StoredProcedure);
+        return steps.ToList();
+    }
+
     public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
@@ -138,6 +146,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         var dto = mapper.Map<OrderDto>(order);
         dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
         dto.LineCount = dto.Lines.Count;
+        dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
         return dto;
     }
 
@@ -381,6 +390,24 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot submit an order outside your organization.", 403);
 
+        // Self-healing retry path: if every required approval step already ended up APPROVED
+        // but the auto-completion inside ApproveOrderApprovalStepAsync failed transiently (e.g.
+        // a SQL timeout) after the last step was already persisted as APPROVED, the order would
+        // otherwise be stuck in PENDING_APPROVAL forever — sp_OrderApprovalStep_Approve refuses
+        // to re-approve a non-PENDING step, so there'd be no way back in. Re-submitting picks up
+        // exactly where the failed auto-completion left off.
+        if (order.Status == "PENDING_APPROVAL")
+        {
+            var existingSteps = await GetApprovalStepsAsync(connection, order.OrderId);
+            if (existingSteps.Count > 0 && existingSteps.All(s => s.Status == "APPROVED"))
+            {
+                var approvedLines = await GetLinesAsync(connection, order.OrderId);
+                return await CompleteSubmissionAsync(connection, order, approvedLines, context, cancellationToken);
+            }
+
+            throw new ApiException(ErrorCodes.OrderNotDraft, "This order is still pending approval.", 409);
+        }
+
         if (order.Status != "DRAFT")
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be submitted.", 409);
 
@@ -388,6 +415,21 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.OrderEmpty, "Cannot submit an order with no lines.", 400);
 
+        // Pure read, no transaction needed — if any configured Family threshold is crossed,
+        // the Order goes to PENDING_APPROVAL instead of splitting into PurchaseOrders. See
+        // CLAUDE.md's "Order Approval Workflow" section.
+        var triggeredSteps = await EvaluateApprovalRequirementAsync(connection, order, lines);
+        if (triggeredSteps.Count > 0)
+            return await CreatePendingApprovalAsync(connection, order, lines, triggeredSteps, context, cancellationToken);
+
+        return await CompleteSubmissionAsync(connection, order, lines, context, cancellationToken);
+    }
+
+    // Extracted from SubmitAsync so the same PO-split-and-SUBMIT logic can also be invoked from
+    // ApproveOrderApprovalStepAsync once every required step is APPROVED (auto-completion, no
+    // second manual Submit click needed).
+    private async Task<OrderDto?> CompleteSubmissionAsync(DbConnection connection, Order order, List<OrderLine> lines, IRequestContext context, CancellationToken cancellationToken)
+    {
         var actor = context.ActorUserToken.ToString();
 
         await connection.OpenAsync(cancellationToken);
@@ -444,7 +486,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
             var updatedOrder = await connection.QueryFirstOrDefaultAsync<Order>(
                 "sp_Order_SetStatus",
-                new { OrderToken = orderToken, Status = "SUBMITTED", ActorBy = actor },
+                new { OrderToken = order.OrderToken, Status = "SUBMITTED", ActorBy = actor },
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
@@ -454,8 +496,9 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
                 return null;
 
             var dto = mapper.Map<OrderDto>(updatedOrder);
-            dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, order.OrderId));
+            dto.Lines = mapper.MapList<OrderLineDto>(lines);
             dto.LineCount = dto.Lines.Count;
+            dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
             return dto;
         }
         catch
@@ -463,6 +506,238 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private sealed class TriggeredApprovalStep
+    {
+        public int FamilyId { get; set; }
+        public string FamilyCode { get; set; } = default!;
+        public int Level { get; set; }
+        public decimal ThresholdAmount { get; set; }
+        public decimal ActualFamilyAmount { get; set; }
+        public string CurrencyCode { get; set; } = default!;
+        public int ApproverUserId { get; set; }
+    }
+
+    private sealed class ArticleFamilyProjection
+    {
+        public int ArticleId { get; set; }
+        public int? FamilyId { get; set; }
+    }
+
+    // Evaluates this Order's own total per Family (never cumulative history — confirmed with
+    // the user) against that Family's configured FamilyApprovalThresholds for the Order's
+    // organization. Only lines whose CurrencyCode matches the organization's own resolved
+    // currency count toward a Family's total — a deliberate simplification, not a bug: this
+    // codebase doesn't do FX conversion anywhere else either. Sequential/cumulative levels: if
+    // the highest crossed Level is N, every level 1..N is returned (all of them need to sign
+    // off, in order — see OrderApprovalStep's "your turn" gate in Approve/Reject below).
+    private async Task<List<TriggeredApprovalStep>> EvaluateApprovalRequirementAsync(IDbConnection connection, Order order, List<OrderLine> lines)
+    {
+        var result = new List<TriggeredApprovalStep>();
+
+        var articleIds = lines.Select(l => l.ArticleId).Distinct().ToList();
+        var articleFamilies = (await connection.QueryAsync<ArticleFamilyProjection>(
+            "sp_Article_GetFamilyIdsByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure))
+            .ToDictionary(a => a.ArticleId, a => a.FamilyId);
+
+        var currencyParams = new DynamicParameters();
+        currencyParams.Add("@OrganizationId", order.OrganizationId);
+        currencyParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
+        await connection.ExecuteAsync("sp_Organization_ResolveCurrencyCode", currencyParams, commandType: CommandType.StoredProcedure);
+        var orgCurrencyCode = currencyParams.Get<string?>("@CurrencyCode");
+
+        if (orgCurrencyCode is null)
+            return result;
+
+        var familyTotals = lines
+            .Where(l => articleFamilies.TryGetValue(l.ArticleId, out var familyId) && familyId.HasValue && l.CurrencyCode == orgCurrencyCode)
+            .GroupBy(l => articleFamilies[l.ArticleId]!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity * l.UnitPrice));
+
+        foreach (var (familyId, total) in familyTotals)
+        {
+            var levels = (await connection.QueryAsync<FamilyApprovalThreshold>(
+                "sp_FamilyApprovalThreshold_GetPaged",
+                new { OrganizationId = order.OrganizationId, PageNumber = 1, PageSize = MaxPageSize, FamilyId = familyId, IncludeInactive = false },
+                commandType: CommandType.StoredProcedure))
+                .OrderBy(t => t.Level)
+                .ToList();
+
+            var highestTriggeredLevel = levels.Where(t => total >= t.ThresholdAmount).Select(t => (int?)t.Level).DefaultIfEmpty().Max();
+            if (!highestTriggeredLevel.HasValue)
+                continue;
+
+            foreach (var level in levels.Where(t => t.Level <= highestTriggeredLevel.Value))
+            {
+                result.Add(new TriggeredApprovalStep
+                {
+                    FamilyId = familyId,
+                    FamilyCode = level.FamilyCode,
+                    Level = level.Level,
+                    ThresholdAmount = level.ThresholdAmount,
+                    ActualFamilyAmount = total,
+                    CurrencyCode = orgCurrencyCode,
+                    ApproverUserId = level.ApproverUserId
+                });
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<OrderDto?> CreatePendingApprovalAsync(IDbConnection connection, Order order, List<OrderLine> lines, List<TriggeredApprovalStep> triggeredSteps, IRequestContext context, CancellationToken cancellationToken)
+    {
+        var actor = context.ActorUserToken.ToString();
+
+        foreach (var step in triggeredSteps)
+        {
+            var stepParams = new DynamicParameters();
+            stepParams.Add("@OrderApprovalStepToken", Guid.NewGuid());
+            stepParams.Add("@OrderId", order.OrderId);
+            stepParams.Add("@FamilyId", step.FamilyId);
+            stepParams.Add("@FamilyCode", step.FamilyCode);
+            stepParams.Add("@Level", step.Level);
+            stepParams.Add("@ThresholdAmount", step.ThresholdAmount);
+            stepParams.Add("@ActualFamilyAmount", step.ActualFamilyAmount);
+            stepParams.Add("@CurrencyCode", step.CurrencyCode);
+            stepParams.Add("@ApproverUserId", step.ApproverUserId);
+            stepParams.Add("@CreatedBy", actor);
+            await connection.ExecuteAsync("sp_OrderApprovalStep_Create", stepParams, commandType: CommandType.StoredProcedure);
+        }
+
+        var pendingOrder = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_SetStatus",
+            new { OrderToken = order.OrderToken, Status = "PENDING_APPROVAL", ActorBy = actor },
+            commandType: CommandType.StoredProcedure);
+
+        if (pendingOrder is null)
+            return null;
+
+        var dto = mapper.Map<OrderDto>(pendingOrder);
+        dto.Lines = mapper.MapList<OrderLineDto>(lines);
+        dto.LineCount = dto.Lines.Count;
+        dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
+        return dto;
+    }
+
+    public async Task<OrderApprovalStepDto?> ApproveOrderApprovalStepAsync(Guid stepToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var step = await GetApprovalStepByTokenAsync(connection, stepToken);
+        if (step is null)
+            return null;
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = step.OrderToken }, commandType: CommandType.StoredProcedure);
+        if (order is null)
+            return null;
+
+        await EnsureCanDecideStepAsync(connection, context, step);
+
+        var approved = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_Approve",
+            new { OrderApprovalStepToken = stepToken, DecidedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        if (approved is null)
+            throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
+
+        // Auto-complete the submission the moment every required step for this Order is
+        // APPROVED — confirmed with the user, no second manual Submit click.
+        var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
+        if (allSteps.All(s => s.Status == "APPROVED"))
+        {
+            var lines = await GetLinesAsync(connection, order.OrderId);
+            await CompleteSubmissionAsync(connection, order, lines, context, cancellationToken);
+        }
+
+        return mapper.Map<OrderApprovalStepDto>(approved);
+    }
+
+    public async Task<OrderApprovalStepDto?> RejectOrderApprovalStepAsync(Guid stepToken, string reason, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var step = await GetApprovalStepByTokenAsync(connection, stepToken);
+        if (step is null)
+            return null;
+
+        await EnsureCanDecideStepAsync(connection, context, step);
+
+        var rejected = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_Reject",
+            new { OrderApprovalStepToken = stepToken, RejectionReason = reason, DecidedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        if (rejected is null)
+            throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
+
+        await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_SetStatus",
+            new { OrderToken = step.OrderToken, Status = "DRAFT", ActorBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        return mapper.Map<OrderApprovalStepDto>(rejected);
+    }
+
+    public async Task<PagedResult<OrderApprovalStepDto>> GetPendingApprovalStepsAsync(int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
+
+        await using var connection = connectionFactory.CreateConnection();
+
+        var user = await connection.QueryFirstOrDefaultAsync<User>(
+            "sp_User_GetByToken", new { UserToken = context.EffectiveUserToken }, commandType: CommandType.StoredProcedure);
+        if (user is null)
+            return new PagedResult<OrderApprovalStepDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+        var p = new DynamicParameters();
+        p.Add("@ApproverUserId", user.UserId);
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
+        var rows = (await connection.QueryAsync<OrderApprovalStepPageRow>(
+            "sp_OrderApprovalStep_GetPendingForApprover", p, commandType: CommandType.StoredProcedure)).ToList();
+
+        return new PagedResult<OrderApprovalStepDto>
+        {
+            Items = mapper.MapList<OrderApprovalStepDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
+    }
+
+    private sealed class OrderApprovalStepPageRow : OrderApprovalStep { public int TotalCount { get; set; } }
+
+    private static Task<OrderApprovalStep?> GetApprovalStepByTokenAsync(IDbConnection connection, Guid stepToken)
+    {
+        return connection.QueryFirstOrDefaultAsync<OrderApprovalStep?>(
+            "sp_OrderApprovalStep_GetByToken", new { OrderApprovalStepToken = stepToken }, commandType: CommandType.StoredProcedure);
+    }
+
+    // The step's frozen ApproverUserId must match the caller's own resolved UserId, or the
+    // caller is SuperAdmin (same escape-hatch convention used throughout this codebase). The
+    // "your turn" gate — no lower, still-non-APPROVED sibling Level for the same
+    // Order+Family — is enforced here too, not just left to sp_OrderApprovalStep_Approve/Reject's
+    // lighter existing-status guard.
+    private async Task EnsureCanDecideStepAsync(IDbConnection connection, IRequestContext context, OrderApprovalStep step)
+    {
+        if (context.RoleLevel < SuperAdminRoleLevel)
+        {
+            var user = await connection.QueryFirstOrDefaultAsync<User>(
+                "sp_User_GetByToken", new { UserToken = context.EffectiveUserToken }, commandType: CommandType.StoredProcedure);
+
+            if (user is null || user.UserId != step.ApproverUserId)
+                throw new ApiException(ErrorCodes.OrderApprovalStepForbidden, "You are not the designated approver for this step.", 403);
+        }
+
+        var siblingSteps = await GetApprovalStepsAsync(connection, step.OrderId);
+        var priorLevelPending = siblingSteps.Any(s => s.FamilyId == step.FamilyId && s.Level < step.Level && s.Status != "APPROVED");
+        if (priorLevelPending)
+            throw new ApiException(ErrorCodes.OrderApprovalStepPriorLevelPending, "An earlier level for this Family must be approved first.", 409);
     }
 
     public async Task<bool> DeleteAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
@@ -500,8 +775,16 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot cancel an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
-            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be cancelled.", 409);
+        // A submitter withdrawing a request stuck in PENDING_APPROVAL is a reasonable capability
+        // — same as a rejection, this voids any still-PENDING steps first.
+        if (order.Status is not ("DRAFT" or "PENDING_APPROVAL"))
+            throw new ApiException(ErrorCodes.OrderNotCancellable, "Only a draft or pending-approval order can be cancelled.", 409);
+
+        if (order.Status == "PENDING_APPROVAL")
+            await connection.ExecuteAsync(
+                "sp_OrderApprovalStep_CancelPendingForOrder",
+                new { order.OrderId, DecidedBy = context.ActorUserToken.ToString() },
+                commandType: CommandType.StoredProcedure);
 
         var updated = await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_SetStatus",
