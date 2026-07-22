@@ -30,6 +30,13 @@ CREATE OR ALTER PROCEDURE dbo.sp_Organization_Update
     @CurrencyCode         VARCHAR(10)   = NULL,
     @LanguageCode         VARCHAR(10)   = NULL,
     @ZoneId               INT           = NULL,
+    @AddressLine1         VARCHAR(250)  = NULL,
+    @AddressLine2         VARCHAR(250)  = NULL,
+    @City                 VARCHAR(150)  = NULL,
+    @State                VARCHAR(150)  = NULL,
+    @PostalCode           VARCHAR(50)   = NULL,
+    @Country              VARCHAR(100)  = NULL,
+    @Description          VARCHAR(MAX)  = NULL,
     @LastUpdatedUtc       DATETIME2(7),
     @LastUpdatedBy        VARCHAR(150)  = NULL
 )
@@ -49,6 +56,13 @@ BEGIN
         CurrencyCode         = @CurrencyCode,
         LanguageCode         = @LanguageCode,
         ZoneId               = @ZoneId,
+        AddressLine1         = @AddressLine1,
+        AddressLine2         = @AddressLine2,
+        City                 = @City,
+        State                = @State,
+        PostalCode           = @PostalCode,
+        Country              = @Country,
+        Description          = @Description,
         LastUpdatedUtc       = @LastUpdatedUtc,
         LastUpdatedBy        = @LastUpdatedBy
     WHERE OrganizationToken = @OrganizationToken
@@ -59,6 +73,7 @@ BEGIN
         o.ParentOrganizationId, o.OrganizationTypeId, ot.Code AS OrganizationTypeCode,
         o.TimeZone, o.CurrencyCode, o.LanguageCode,
         o.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
+        o.AddressLine1, o.AddressLine2, o.City, o.State, o.PostalCode, o.Country, o.Description,
         o.IsActive, o.IsDeleted, o.CreatedUtc, o.CreatedBy,
         o.LastUpdatedUtc, o.LastUpdatedBy, o.DeletedUtc, o.DeletedBy
     FROM dbo.Organizations o

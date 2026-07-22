@@ -26,6 +26,16 @@ namespace InnNou.Domain.Dtos
         public string? CountryCode { get; set; }
         public string? CountryName { get; set; }
 
+        // Physical address + free-form description — purely informational/reference, no
+        // enforcement logic tied to them (unlike ZoneId above).
+        public string? AddressLine1 { get; set; }
+        public string? AddressLine2 { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+        public string? Description { get; set; }
+
         public bool IsActive { get; set; }
         public bool IsDeleted { get; set; }
     }

@@ -20,5 +20,13 @@ namespace InnNou.Application.Requests
         // Super Asociado orgs are never zoned. Can be set, not cleared (same "supplied value
         // wins, otherwise unchanged" limitation every other nullable field on this entity has).
         public Guid? ZoneToken { get; set; }
+
+        public string? AddressLine1 { get; set; }
+        public string? AddressLine2 { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+        public string? Description { get; set; }
     }
 }

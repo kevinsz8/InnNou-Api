@@ -93,6 +93,13 @@ namespace InnNou.Infrastructure.Mapping
                 ZoneName = o.ZoneName,
                 CountryCode = o.CountryCode,
                 CountryName = o.CountryName,
+                AddressLine1 = o.AddressLine1,
+                AddressLine2 = o.AddressLine2,
+                City = o.City,
+                State = o.State,
+                PostalCode = o.PostalCode,
+                Country = o.Country,
+                Description = o.Description,
                 IsActive = o.IsActive,
                 IsDeleted = o.IsDeleted
             });

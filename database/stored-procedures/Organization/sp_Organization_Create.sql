@@ -22,6 +22,13 @@ CREATE OR ALTER PROCEDURE dbo.sp_Organization_Create
     @CurrencyCode         VARCHAR(10)   = NULL,
     @LanguageCode         VARCHAR(10)   = NULL,
     @ZoneId               INT           = NULL,
+    @AddressLine1         VARCHAR(250)  = NULL,
+    @AddressLine2         VARCHAR(250)  = NULL,
+    @City                 VARCHAR(150)  = NULL,
+    @State                VARCHAR(150)  = NULL,
+    @PostalCode           VARCHAR(50)   = NULL,
+    @Country              VARCHAR(100)  = NULL,
+    @Description          VARCHAR(MAX)  = NULL,
     @IsActive             BIT,
     @IsDeleted            BIT,
     @CreatedUtc           DATETIME2(7),
@@ -43,12 +50,14 @@ BEGIN
     (
         OrganizationToken, Name, NormalizedName, LegalName, Code,
         ParentOrganizationId, OrganizationTypeId, TimeZone, CurrencyCode, LanguageCode, ZoneId,
+        AddressLine1, AddressLine2, City, State, PostalCode, Country, Description,
         IsActive, IsDeleted, CreatedUtc, CreatedBy
     )
     VALUES
     (
         @OrganizationToken, @Name, @NormalizedName, @LegalName, @Code,
         @ParentOrganizationId, @ResolvedOrganizationTypeId, @TimeZone, @CurrencyCode, @LanguageCode, @ZoneId,
+        @AddressLine1, @AddressLine2, @City, @State, @PostalCode, @Country, @Description,
         @IsActive, @IsDeleted, @CreatedUtc, @CreatedBy
     );
 
@@ -57,6 +66,7 @@ BEGIN
         o.ParentOrganizationId, o.OrganizationTypeId, ot.Code AS OrganizationTypeCode,
         o.TimeZone, o.CurrencyCode, o.LanguageCode,
         o.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
+        o.AddressLine1, o.AddressLine2, o.City, o.State, o.PostalCode, o.Country, o.Description,
         o.IsActive, o.IsDeleted, o.CreatedUtc, o.CreatedBy,
         o.LastUpdatedUtc, o.LastUpdatedBy, o.DeletedUtc, o.DeletedBy
     FROM dbo.Organizations o

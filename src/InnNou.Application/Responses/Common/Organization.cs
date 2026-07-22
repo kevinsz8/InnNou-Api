@@ -16,6 +16,13 @@ namespace InnNou.Application.Responses.Common
         public string? ZoneName { get; set; }
         public string? CountryCode { get; set; }
         public string? CountryName { get; set; }
+        public string? AddressLine1 { get; set; }
+        public string? AddressLine2 { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+        public string? Description { get; set; }
         public bool IsActive { get; set; }
     }
 }

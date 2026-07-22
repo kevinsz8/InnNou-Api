@@ -118,7 +118,14 @@ namespace InnNou.Application.Mapping
                 OrganizationTypeId = r.OrganizationTypeId ?? 0,
                 TimeZone = r.TimeZone,
                 CurrencyCode = r.CurrencyCode,
-                LanguageCode = r.LanguageCode
+                LanguageCode = r.LanguageCode,
+                AddressLine1 = r.AddressLine1,
+                AddressLine2 = r.AddressLine2,
+                City = r.City,
+                State = r.State,
+                PostalCode = r.PostalCode,
+                Country = r.Country,
+                Description = r.Description
             });
             mapper.Register<OrganizationDto, CreateOrganizationCommandResponse>(d => new CreateOrganizationCommandResponse
             {
@@ -138,6 +145,13 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                AddressLine1 = d.AddressLine1,
+                AddressLine2 = d.AddressLine2,
+                City = d.City,
+                State = d.State,
+                PostalCode = d.PostalCode,
+                Country = d.Country,
+                Description = d.Description,
                 IsActive = d.IsActive
             });
             mapper.Register<EditOrganizationCommandRequest, OrganizationDto>(r => new OrganizationDto
@@ -150,7 +164,14 @@ namespace InnNou.Application.Mapping
                 OrganizationTypeId = r.OrganizationTypeId ?? 0,
                 TimeZone = r.TimeZone,
                 CurrencyCode = r.CurrencyCode,
-                LanguageCode = r.LanguageCode
+                LanguageCode = r.LanguageCode,
+                AddressLine1 = r.AddressLine1,
+                AddressLine2 = r.AddressLine2,
+                City = r.City,
+                State = r.State,
+                PostalCode = r.PostalCode,
+                Country = r.Country,
+                Description = r.Description
             });
             mapper.Register<OrganizationDto, EditOrganizationCommandResponse>(d => new EditOrganizationCommandResponse
             {
@@ -170,6 +191,13 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                AddressLine1 = d.AddressLine1,
+                AddressLine2 = d.AddressLine2,
+                City = d.City,
+                State = d.State,
+                PostalCode = d.PostalCode,
+                Country = d.Country,
+                Description = d.Description,
                 IsActive = d.IsActive
             });
             mapper.Register<OrganizationDto, CommonOrganization>(d => new CommonOrganization
@@ -188,6 +216,13 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                AddressLine1 = d.AddressLine1,
+                AddressLine2 = d.AddressLine2,
+                City = d.City,
+                State = d.State,
+                PostalCode = d.PostalCode,
+                Country = d.Country,
+                Description = d.Description,
                 IsActive = d.IsActive
             });
 
