@@ -5,14 +5,21 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Documents;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
-public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper) : IOrderService
+public class OrderService(
+    IDbConnectionFactory connectionFactory,
+    IMapper mapper,
+    IOrderPdfStorage orderPdfStorage,
+    IEmailSender emailSender,
+    ILogger<OrderService> logger) : IOrderService
 {
     private sealed class OrderPageRow : Order { public int TotalCount { get; set; } }
 
@@ -81,6 +88,20 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         var steps = await connection.QueryAsync<OrderApprovalStep>(
             "sp_OrderApprovalStep_GetByOrderId", new { OrderId = orderId }, commandType: CommandType.StoredProcedure);
         return steps.ToList();
+    }
+
+    private static async Task<string> GetOrganizationNameAsync(IDbConnection connection, Guid organizationToken)
+    {
+        var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+            "sp_Organization_GetByToken", new { OrganizationToken = organizationToken }, commandType: CommandType.StoredProcedure);
+        return organization?.Name ?? "InnNou";
+    }
+
+    private static async Task<string?> GetUserEmailAsync(IDbConnection connection, Guid userToken)
+    {
+        var user = await connection.QueryFirstOrDefaultAsync<User>(
+            "sp_User_GetByToken", new { UserToken = userToken }, commandType: CommandType.StoredProcedure);
+        return user?.Email;
     }
 
     public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
@@ -157,6 +178,31 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         dto.LineCount = dto.Lines.Count;
         dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
         return dto;
+    }
+
+    // Streams the order-confirmation PDF back through the authenticated API — deliberately never
+    // served as a static file (unlike Supplier.LogoUrl) since it carries prices/commercial data.
+    // Same hierarchy check as GetByTokenAsync (read access, not the stricter CanManage write
+    // check); returns null for "order not found or no PDF has been generated yet", which the
+    // caller maps to 404.
+    public async Task<(byte[] FileBytes, string FileName)?> GetPdfAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (!await CanAccessOrganizationAsync(connection, context, order.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot access an order outside your organization.", 403);
+
+        if (string.IsNullOrWhiteSpace(order.PdfUrl))
+            return null;
+
+        var pdfBytes = await orderPdfStorage.GetAsync(order.OrderToken, cancellationToken);
+        return pdfBytes is null ? null : (pdfBytes, $"order-{order.OrderToken:N}.pdf");
     }
 
     public async Task<OrderDto?> CreateAsync(Guid warehouseToken, string? notes, IRequestContext context, CancellationToken cancellationToken)
@@ -443,6 +489,11 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        // Retained here (not re-grouped after commit) so the post-commit PDF/email block below
+        // can send one email per supplier without a second GroupBy pass.
+        var purchaseOrdersWithLines = new List<(PurchaseOrder PurchaseOrder, List<OrderLine> Lines)>();
+
         try
         {
             foreach (var supplierGroup in lines.GroupBy(l => l.SupplierId))
@@ -464,10 +515,13 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
                     return null;
                 }
 
+                var supplierLines = supplierGroup.ToList();
+                purchaseOrdersWithLines.Add((purchaseOrder, supplierLines));
+
                 // One PurchaseOrderLine per OrderLine in this supplier's group — an
                 // independent snapshot copy captured at split time, not a shared row
                 // with OrderLine (see .claude/OrdersModule.md for why).
-                foreach (var line in supplierGroup)
+                foreach (var line in supplierLines)
                 {
                     var polParams = new DynamicParameters();
                     polParams.Add("@PurchaseOrderLineToken", Guid.NewGuid());
@@ -508,12 +562,74 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             dto.Lines = mapper.MapList<OrderLineDto>(lines);
             dto.LineCount = dto.Lines.Count;
             dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
+
+            // Best-effort, non-blocking: the Order/PurchaseOrders are already committed above, so
+            // a QuestPDF bug or an SMTP outage here must never fail an already-successful
+            // confirmation. dto.PdfUrl simply stays null if generation fails.
+            await SendOrderConfirmationAsync(connection, updatedOrder, lines, purchaseOrdersWithLines, context, dto, cancellationToken);
+
             return dto;
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
+        }
+    }
+
+    private async Task SendOrderConfirmationAsync(
+        DbConnection connection,
+        Order updatedOrder,
+        List<OrderLine> lines,
+        List<(PurchaseOrder PurchaseOrder, List<OrderLine> Lines)> purchaseOrdersWithLines,
+        IRequestContext context,
+        OrderDto dto,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var organizationName = await GetOrganizationNameAsync(connection, updatedOrder.OrganizationToken);
+            var buyerEmail = await GetUserEmailAsync(connection, context.ActorUserToken);
+
+            var fullPdfBytes = OrderConfirmationDocument.BuildFullOrderPdf(updatedOrder, organizationName, lines);
+            await orderPdfStorage.SaveAsync(updatedOrder.OrderToken, fullPdfBytes, cancellationToken);
+
+            var pdfUrl = $"/orders/{updatedOrder.OrderToken}/downloadPdf";
+            await connection.ExecuteAsync(
+                "sp_Order_SetPdfUrl",
+                new { updatedOrder.OrderToken, PdfUrl = pdfUrl, LastUpdatedUtc = DateTime.UtcNow, LastUpdatedBy = context.ActorUserToken.ToString() },
+                commandType: CommandType.StoredProcedure);
+            dto.PdfUrl = pdfUrl;
+
+            if (!string.IsNullOrWhiteSpace(buyerEmail))
+            {
+                await emailSender.SendAsync(new EmailMessage
+                {
+                    ToAddress = buyerEmail,
+                    Subject = $"Order confirmed — {organizationName}",
+                    HtmlBody = OrderConfirmationEmailContent.BuildBuyerEmailHtml(updatedOrder, organizationName, lines),
+                    Attachments = [new EmailAttachment { FileName = "order-confirmation.pdf", Content = fullPdfBytes }]
+                }, cancellationToken);
+            }
+
+            foreach (var (purchaseOrder, supplierLines) in purchaseOrdersWithLines)
+            {
+                if (string.IsNullOrWhiteSpace(purchaseOrder.SupplierEmail))
+                    continue;
+
+                var supplierPdf = OrderConfirmationDocument.BuildSupplierPdf(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines);
+                await emailSender.SendAsync(new EmailMessage
+                {
+                    ToAddress = purchaseOrder.SupplierEmail,
+                    Subject = $"New purchase order — {organizationName}",
+                    HtmlBody = OrderConfirmationEmailContent.BuildSupplierEmailHtml(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines),
+                    Attachments = [new EmailAttachment { FileName = "purchase-order.pdf", Content = supplierPdf }]
+                }, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Order confirmation PDF/email generation failed for order {OrderToken}", updatedOrder.OrderToken);
         }
     }
 

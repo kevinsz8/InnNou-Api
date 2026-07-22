@@ -14,6 +14,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public OrderStatus Status { get; set; }
         public string? Notes { get; set; }
         public DateTime? SubmittedUtc { get; set; }
+        public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

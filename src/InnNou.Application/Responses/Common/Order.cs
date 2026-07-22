@@ -9,6 +9,7 @@ namespace InnNou.Application.Responses.Common
         public string Status { get; set; } = default!;
         public string? Notes { get; set; }
         public DateTime? SubmittedUtc { get; set; }
+        public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

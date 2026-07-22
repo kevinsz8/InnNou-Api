@@ -7,6 +7,12 @@ namespace InnNou.Application.Common.Interfaces
     {
         Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> GetByTokenAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
+
+        // Streams back the order-confirmation PDF generated best-effort at confirmation time
+        // (see OrderService.CompleteSubmissionAsync). Null means "order not found, outside your
+        // scope, or no PDF has been generated yet" — the caller maps that to 404. Served through
+        // this authenticated endpoint rather than a static file, since it carries prices.
+        Task<(byte[] FileBytes, string FileName)?> GetPdfAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> CreateAsync(Guid warehouseToken, string? notes, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderLineDto?> AddLineAsync(Guid orderToken, Guid articleToken, decimal quantity, decimal? manualUnitPrice, string? manualCurrencyCode, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderLineDto?> EditLineAsync(Guid orderLineToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken);

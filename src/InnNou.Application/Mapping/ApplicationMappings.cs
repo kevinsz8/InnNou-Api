@@ -1016,6 +1016,7 @@ namespace InnNou.Application.Mapping
                 Status = d.Status,
                 Notes = d.Notes,
                 SubmittedUtc = d.SubmittedUtc,
+                PdfUrl = d.PdfUrl,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,
                 LastUpdatedUtc = d.LastUpdatedUtc,

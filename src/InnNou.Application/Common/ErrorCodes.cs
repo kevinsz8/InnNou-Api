@@ -233,6 +233,7 @@ namespace InnNou.Application.Common
         public const string OrderImportLinesRowInvalid = "ORDER_IMPORT_LINES_ROW_INVALID";
         public const string OrderNotCancellable = "ORDER_NOT_CANCELLABLE";
         public const string OrderCopyInvalidSourceStatus = "ORDER_COPY_INVALID_SOURCE_STATUS";
+        public const string OrderPdfNotAvailable = "ORDER_PDF_NOT_AVAILABLE";
 
         // FamilyApprovalThreshold
         public const string FamilyApprovalThresholdNotFound = "FAMILY_APPROVAL_THRESHOLD_NOT_FOUND";

@@ -29,7 +29,7 @@ BEGIN
     SELECT
         po.PurchaseOrderId, po.PurchaseOrderToken,
         po.OrderId, ord.OrderToken,
-        po.SupplierId, s.Name AS SupplierName,
+        po.SupplierId, s.Name AS SupplierName, s.Email AS SupplierEmail,
         po.OrganizationId, org.OrganizationToken,
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         pos.Code AS Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,

@@ -23,6 +23,7 @@ public class OrdersEndpoints : ICarterModule
         group.MapPost("/copy",       HandleCopy).Produces<ApiResponse<CopyOrderCommandResponse>>(201);
         group.MapPost("/getAll",     HandleGetAll).Produces<ApiResponse<GetOrdersQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetOrderByTokenQueryResponse>>(200);
+        group.MapPost("/downloadPdf", HandleDownloadPdf);
 
         group.MapPost("/importLines", HandleImportLines)
             .Produces<ApiResponse<ImportOrderLinesCommandResponse>>(200)
@@ -109,6 +110,12 @@ public class OrdersEndpoints : ICarterModule
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleDownloadPdf([FromBody] DownloadOrderPdfQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return Results.File(result.FileBytes, result.ContentType, result.FileName);
     }
 
     private static async Task<IResult> HandleImportLines(HttpRequest httpRequest, ISender sender, CancellationToken ct)

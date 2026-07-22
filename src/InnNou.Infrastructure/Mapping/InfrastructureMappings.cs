@@ -552,6 +552,7 @@ namespace InnNou.Infrastructure.Mapping
                 Status = OrderStatusCodes.ToCode(e.Status),
                 Notes = e.Notes,
                 SubmittedUtc = e.SubmittedUtc,
+                PdfUrl = e.PdfUrl,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LastUpdatedUtc = e.LastUpdatedUtc,

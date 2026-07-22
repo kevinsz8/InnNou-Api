@@ -38,7 +38,7 @@ BEGIN
     SELECT
         o.OrderId, o.OrderToken, o.OrganizationId, org.OrganizationToken,
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        os.Code AS Status, o.Notes, o.SubmittedUtc,
+        os.Code AS Status, o.Notes, o.SubmittedUtc, o.PdfUrl,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy
     FROM dbo.[Order] o
     JOIN dbo.Organizations org ON org.OrganizationId = o.OrganizationId

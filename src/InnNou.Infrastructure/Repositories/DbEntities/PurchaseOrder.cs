@@ -10,6 +10,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }
         public string? SupplierName { get; set; }
+
+        // Internal-use only, resolved by the extended sp_PurchaseOrder_Create so
+        // OrderService.CompleteSubmissionAsync can send a per-supplier confirmation email
+        // without a second query per group. Deliberately never mapped into PurchaseOrderDto —
+        // same "transient field that never round-trips a response" convention as
+        // ArticlePriceDto's transient SupplierId.
+        public string? SupplierEmail { get; set; }
         public int OrganizationId { get; set; }
         public Guid OrganizationToken { get; set; }
         public int WarehouseId { get; set; }

@@ -39,6 +39,8 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<ISupplierService, SupplierService>();
             services.AddSingleton<ISupplierLogoStorage, LocalSupplierLogoStorage>();
+            services.AddSingleton<IOrderPdfStorage, LocalOrderPdfStorage>();
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
 
             // Catalog services
             services.AddScoped<IUnitTypeService, UnitTypeService>();

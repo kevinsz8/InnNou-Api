@@ -102,6 +102,13 @@ Migrations/*.Designer.cs
 *.tmp
 *.temp
 
+#######################################
+# Local file storage (Supplier logos, Order PDFs — see CLAUDE.md's
+# "Supplier logo" / "Order confirmation" notes; local-disk-now/S3-later seam)
+#######################################
+
+src/InnNou.API/UploadedFiles/
+
 #Claude
 .claude
 .claude/*

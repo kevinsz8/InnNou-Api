@@ -36,7 +36,7 @@ BEGIN
     SELECT
         o.OrderId, o.OrderToken, o.OrganizationId, org.OrganizationToken,
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        os.Code AS Status, o.Notes, o.SubmittedUtc,
+        os.Code AS Status, o.Notes, o.SubmittedUtc, o.PdfUrl,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy,
         lc.LineCount,
         COUNT(*) OVER() AS TotalCount

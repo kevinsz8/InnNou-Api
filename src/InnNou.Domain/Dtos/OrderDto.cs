@@ -12,6 +12,13 @@ namespace InnNou.Domain.Dtos
         public string Status { get; set; } = default!;
         public string? Notes { get; set; }
         public DateTime? SubmittedUtc { get; set; }
+
+        // Relative URL to the order-confirmation PDF, populated best-effort by
+        // OrderService.CompleteSubmissionAsync once PurchaseOrders are created — null until then,
+        // and stays null if generation ever fails (never blocks order confirmation itself).
+        // Downloaded via the authenticated POST /orders/downloadPdf endpoint, never served
+        // statically (unlike Supplier.LogoUrl) since it carries prices/commercial data.
+        public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

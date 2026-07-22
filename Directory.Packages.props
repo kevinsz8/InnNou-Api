@@ -3,7 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-<PackageVersion Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageVersion Include="Carter" Version="10.0.0" />
     <PackageVersion Include="ClosedXML" Version="0.104.2" />
     <PackageVersion Include="Dapper" Version="2.1.35" />
@@ -17,6 +17,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
+    <PackageVersion Include="QuestPDF" Version="2026.7.1" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.4" />
     <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.4" />
