@@ -53,6 +53,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         string? searchField,
         string? searchText,
         bool includeInactive,
+        Guid? warehouseToken,
         IRequestContext context,
         CancellationToken cancellationToken)
     {
@@ -72,11 +73,20 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
 
         await using var connection = connectionFactory.CreateConnection();
 
+        int? contextWarehouseId = null;
+        if (warehouseToken.HasValue)
+        {
+            var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+                "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
+            contextWarehouseId = warehouse?.WarehouseId;
+        }
+
         var isSuperAdmin = context.RoleLevel >= SuperAdminRoleLevel;
         var p = new DynamicParameters();
         p.Add("@ContextRoleLevel", context.RoleLevel);
         p.Add("@ContextSupplierId", isSuperAdmin ? (int?)null : context.SupplierId);
         p.Add("@ContextOrganizationId", isSuperAdmin ? (int?)null : context.OrganizationId);
+        p.Add("@ContextWarehouseId", contextWarehouseId);
         p.Add("@SearchField", string.IsNullOrWhiteSpace(searchField) ? null : searchField.Trim().ToLower());
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim().ToLower());
         p.Add("@PageNumber", safePageNumber);
@@ -893,7 +903,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.SupplierBulkImportForbidden, "Only Admins and SuperAdmins can export suppliers.", 403);
 
-        var suppliers = await GetSuppliersAsync(1, MaxExportRows, searchField, searchText, includeInactive, context, cancellationToken);
+        var suppliers = await GetSuppliersAsync(1, MaxExportRows, searchField, searchText, includeInactive, warehouseToken: null, context, cancellationToken);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Suppliers");

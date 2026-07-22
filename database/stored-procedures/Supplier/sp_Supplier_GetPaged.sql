@@ -21,6 +21,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_GetPaged
     @ContextRoleLevel      INT,
     @ContextSupplierId     INT          = NULL,
     @ContextOrganizationId INT          = NULL,
+    @ContextWarehouseId    INT          = NULL,
     @SearchField           VARCHAR(50)  = NULL,
     @SearchText            VARCHAR(200) = NULL,
     @PageNumber            INT,
@@ -119,26 +120,31 @@ BEGIN
         AND
         (
             -- Zone delivery-coverage filter (additional AND narrowing the visibility OR-block
-            -- above, never widening it) — only applies when the caller is a zoned ASSOCIATE-type
-            -- organization; a supplier with zero coverage rows for that zone is excluded. NULL-safe
-            -- with no special case: @ContextOrganizationId is NULL for SuperAdmin and for a
-            -- supplier-scoped login (its shadow user has no OrganizationId), so
-            -- co.OrganizationId = @ContextOrganizationId matches nothing and this block no-ops.
+            -- above, never widening it) — keyed off the WAREHOUSE's own Zone (a Warehouse
+            -- actually receives deliveries; a single Organization can have warehouses in
+            -- different zones, so this can no longer be based on Organization.ZoneId — see
+            -- CLAUDE.md's "Delivery Zones" note). Only applies when the caller supplied a
+            -- specific @ContextWarehouseId that is itself zoned and owned by an ASSOCIATE-type
+            -- organization; a supplier with zero coverage rows for that zone is excluded.
+            -- NULL-safe with no special case: @ContextWarehouseId is NULL whenever the caller
+            -- has no specific warehouse in context (e.g. the general admin Suppliers catalog),
+            -- so cw.WarehouseId = @ContextWarehouseId matches nothing and this block no-ops.
             @ContextRoleLevel >= 100
             OR NOT EXISTS (
                 SELECT 1
-                FROM dbo.Organizations co
+                FROM dbo.Warehouses cw
+                JOIN dbo.Organizations co      ON co.OrganizationId = cw.OrganizationId
                 JOIN dbo.OrganizationTypes cot ON cot.OrganizationTypeId = co.OrganizationTypeId
-                WHERE co.OrganizationId = @ContextOrganizationId
-                  AND co.ZoneId IS NOT NULL
+                WHERE cw.WarehouseId = @ContextWarehouseId
+                  AND cw.ZoneId IS NOT NULL
                   AND cot.Code = 'ASSOCIATE'
             )
             OR EXISTS (
                 SELECT 1
                 FROM dbo.SupplierDeliveryZones sdz
-                JOIN dbo.Organizations co2 ON co2.OrganizationId = @ContextOrganizationId
+                JOIN dbo.Warehouses cw2 ON cw2.WarehouseId = @ContextWarehouseId
                 WHERE sdz.SupplierId = s.SupplierId
-                  AND sdz.ZoneId = co2.ZoneId
+                  AND sdz.ZoneId = cw2.ZoneId
             )
         )
         AND

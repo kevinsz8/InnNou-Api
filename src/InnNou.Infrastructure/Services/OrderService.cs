@@ -271,14 +271,16 @@ public class OrderService(
         var definedLevel = packagingLevels.FirstOrDefault(l => l.IsDefinedUnit);
         var totalContentQuantity = packagingLevels.Aggregate(1m, (total, level) => total * level.QuantityInParentUnit);
 
-        // Zone delivery-coverage gate — keyed off the ORDER'S OWN organization, never the
-        // acting/impersonating user's (same rule as the article-visibility fetch above). Null
-        // OrganizationZoneId ("not yet assigned") or a non-ASSOCIATE org means "not enforced
-        // yet" — never a block. Day-of-week is deliberately not considered — coverage on any
-        // day is enough to be available for ordering.
+        // Zone delivery-coverage gate — keyed off the ORDER'S OWN warehouse (not its
+        // organization — a single Organization can have warehouses in different zones, and the
+        // Warehouse is what actually receives the delivery; see CLAUDE.md's "Delivery Zones"
+        // note), never the acting/impersonating user's. Null WarehouseZoneId ("not yet
+        // assigned") or the warehouse's organization not being ASSOCIATE-type means "not
+        // enforced yet" — never a block. Day-of-week is deliberately not considered — coverage
+        // on any day is enough to be available for ordering.
         var coverage = await connection.QueryFirstOrDefaultAsync<SupplierDeliveryZoneCoverage>(
             "sp_SupplierDeliveryZone_CheckCoverage",
-            new { SupplierId = article.SupplierId, OrganizationId = order.OrganizationId },
+            new { SupplierId = article.SupplierId, WarehouseId = order.WarehouseId },
             commandType: CommandType.StoredProcedure);
 
         if (coverage is not null && coverage.EnforcementActive && !coverage.HasCoverage)
@@ -1137,7 +1139,7 @@ public class OrderService(
 
     private sealed class SupplierDeliveryZoneCoverage
     {
-        public int? OrganizationZoneId { get; set; }
+        public int? WarehouseZoneId { get; set; }
         public bool EnforcementActive { get; set; }
         public bool HasCoverage { get; set; }
     }

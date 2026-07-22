@@ -213,6 +213,7 @@ namespace InnNou.Application.Common
         public const string WarehouseDefaultReceivingConflict = "WAREHOUSE_DEFAULT_RECEIVING_CONFLICT";
         public const string WarehouseDefaultConsumptionConflict = "WAREHOUSE_DEFAULT_CONSUMPTION_CONFLICT";
         public const string WarehouseMainConflict = "WAREHOUSE_MAIN_CONFLICT";
+        public const string WarehouseInvalidZone = "WAREHOUSE_INVALID_ZONE";
 
         // WarehouseContact
         public const string WarehouseContactNotFound = "WAREHOUSE_CONTACT_NOT_FOUND";

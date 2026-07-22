@@ -11,5 +11,9 @@ namespace InnNou.Application.Requests
         public string? SearchField { get; set; }
         public string? SearchText { get; set; }
         public bool IncludeInactive { get; set; } = false;
+
+        // Narrows the zone delivery-coverage filter to this Warehouse's own Zone — omitted for
+        // the general admin Suppliers catalog, which has no single warehouse in context.
+        public Guid? WarehouseToken { get; set; }
     }
 }

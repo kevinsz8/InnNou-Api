@@ -12,7 +12,15 @@ CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_Create
     @Name             VARCHAR(200),
     @NormalizedName   VARCHAR(200),
     @Code             VARCHAR(50)  = NULL,
-    @Description      VARCHAR(500) = NULL,
+    @Description      VARCHAR(MAX) = NULL,
+
+    @AddressLine1     VARCHAR(250) = NULL,
+    @AddressLine2     VARCHAR(250) = NULL,
+    @City             VARCHAR(150) = NULL,
+    @State            VARCHAR(150) = NULL,
+    @PostalCode       VARCHAR(50)  = NULL,
+    @Country          VARCHAR(100) = NULL,
+    @ZoneId           INT          = NULL,
 
     @IsInventoriable               BIT,
     @CanReceivePurchases           BIT,
@@ -47,6 +55,7 @@ BEGIN
     INSERT INTO dbo.Warehouses
     (
         WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
+        AddressLine1, AddressLine2, City, State, PostalCode, Country, ZoneId,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
         CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
@@ -56,6 +65,7 @@ BEGIN
     VALUES
     (
         @WarehouseToken, @OrganizationId, @Name, @NormalizedName, @Code, @Description,
+        @AddressLine1, @AddressLine2, @City, @State, @PostalCode, @Country, @ZoneId,
         @IsInventoriable, @CanReceivePurchases, @CanReceiveTransfers, @CanTransferOut,
         @CanConsumeInventory, @CanProduceItems, @CanSellItems, @CanAdjustInventory, @CanReceiveReturns,
         @TrackLotNumbers, @TrackExpirationDates, @TrackSerialNumbers, @RequireApproval,
@@ -64,13 +74,17 @@ BEGIN
     );
 
     SELECT
-        WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
-        IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
-        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns,
-        TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
-        IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
-        IsActive, IsDeleted, CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
-    FROM dbo.Warehouses
-    WHERE WarehouseToken = @WarehouseToken;
+        w.WarehouseId, w.WarehouseToken, w.OrganizationId, w.Name, w.NormalizedName, w.Code, w.Description,
+        w.AddressLine1, w.AddressLine2, w.City, w.State, w.PostalCode, w.Country,
+        w.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
+        w.IsInventoriable, w.CanReceivePurchases, w.CanReceiveTransfers, w.CanTransferOut,
+        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns,
+        w.TrackLotNumbers, w.TrackExpirationDates, w.TrackSerialNumbers, w.RequireApproval,
+        w.IsDefaultReceivingWarehouse, w.IsDefaultConsumptionWarehouse, w.IsMainWarehouse,
+        w.IsActive, w.IsDeleted, w.CreatedUtc, w.CreatedBy, w.LastUpdatedUtc, w.LastUpdatedBy, w.DeletedUtc, w.DeletedBy
+    FROM dbo.Warehouses w
+    LEFT JOIN dbo.Zones z     ON z.ZoneId = w.ZoneId
+    LEFT JOIN dbo.Countries zc ON zc.CountryId = z.CountryId
+    WHERE w.WarehouseToken = @WarehouseToken;
 END;
 GO

@@ -165,6 +165,13 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@NormalizedName", normalizedName);
         p.Add("@Code", string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim());
         p.Add("@Description", dto.Description);
+        p.Add("@AddressLine1", dto.AddressLine1);
+        p.Add("@AddressLine2", dto.AddressLine2);
+        p.Add("@City", dto.City);
+        p.Add("@State", dto.State);
+        p.Add("@PostalCode", dto.PostalCode);
+        p.Add("@Country", dto.Country);
+        p.Add("@ZoneId", dto.ZoneId);
         AddCapabilityParameters(p, dto);
         p.Add("@CreatedUtc", DateTime.UtcNow);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
@@ -204,6 +211,13 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@NormalizedName", normalizedName);
         p.Add("@Code", string.IsNullOrWhiteSpace(dto.Code) ? null : dto.Code.Trim());
         p.Add("@Description", dto.Description);
+        p.Add("@AddressLine1", dto.AddressLine1);
+        p.Add("@AddressLine2", dto.AddressLine2);
+        p.Add("@City", dto.City);
+        p.Add("@State", dto.State);
+        p.Add("@PostalCode", dto.PostalCode);
+        p.Add("@Country", dto.Country);
+        p.Add("@ZoneId", dto.ZoneId);
         AddCapabilityParameters(p, dto);
         p.Add("@LastUpdatedUtc", DateTime.UtcNow);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());

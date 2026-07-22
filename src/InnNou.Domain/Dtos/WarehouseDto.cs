@@ -14,6 +14,25 @@ namespace InnNou.Domain.Dtos
         public string? Code { get; set; }
         public string? Description { get; set; }
 
+        public string? AddressLine1 { get; set; }
+        public string? AddressLine2 { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? Country { get; set; }
+
+        // ZoneToken is dual-purpose, same as OrganizationDto's: write-in bridge (resolved to
+        // ZoneId inside the Create/EditWarehouseCommandHandler, mirroring
+        // CreateOrganizationCommandHandler's exact pattern) AND denormalized read-only display
+        // value on a hydrated read. ZoneCode/ZoneName/CountryCode/CountryName are read-only,
+        // joined from Zones/Countries, never written back.
+        public int? ZoneId { get; set; }
+        public Guid? ZoneToken { get; set; }
+        public string? ZoneCode { get; set; }
+        public string? ZoneName { get; set; }
+        public string? CountryCode { get; set; }
+        public string? CountryName { get; set; }
+
         public bool IsInventoriable { get; set; }
         public bool CanReceivePurchases { get; set; }
         public bool CanReceiveTransfers { get; set; }

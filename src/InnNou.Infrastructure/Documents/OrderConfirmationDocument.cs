@@ -44,9 +44,10 @@ namespace InnNou.Infrastructure.Documents
                     {
                         foreach (var group in groups)
                         {
-                            col.Item().PaddingTop(10).Text(group.SupplierName).FontSize(12).Bold();
+                            col.Item().PaddingTop(16).PaddingBottom(8).Text(group.SupplierName)
+                                .FontSize(12).Bold().FontColor(Colors.Teal.Darken2);
 
-                            col.Item().PaddingBottom(5).Table(table =>
+                            col.Item().PaddingBottom(6).Table(table =>
                             {
                                 table.ColumnsDefinition(columns =>
                                 {
@@ -59,21 +60,21 @@ namespace InnNou.Infrastructure.Documents
 
                                 table.Header(header =>
                                 {
-                                    header.Cell().Text("Article").Bold();
-                                    header.Cell().Text("Qty").Bold();
-                                    header.Cell().Text("Unit").Bold();
-                                    header.Cell().Text("Unit Price").Bold();
-                                    header.Cell().AlignRight().Text("Line Total").Bold();
+                                    header.Cell().Element(HeaderCell).Text("Article").Bold();
+                                    header.Cell().Element(HeaderCell).Text("Qty").Bold();
+                                    header.Cell().Element(HeaderCell).Text("Unit").Bold();
+                                    header.Cell().Element(HeaderCell).Text("Unit Price").Bold();
+                                    header.Cell().Element(HeaderCell).AlignRight().Text("Line Total").Bold();
                                 });
 
                                 foreach (var line in group.Lines)
                                 {
                                     var lineTotal = line.Quantity * line.UnitPrice;
-                                    table.Cell().Text(line.ArticleName ?? "—");
-                                    table.Cell().Text(line.Quantity.ToString("0.####"));
-                                    table.Cell().Text(line.PurchaseUnitCode ?? "—");
-                                    table.Cell().Text($"{line.UnitPrice:0.00} {line.CurrencyCode}");
-                                    table.Cell().AlignRight().Text($"{lineTotal:0.00} {line.CurrencyCode}");
+                                    table.Cell().Element(BodyCell).Text(line.ArticleName ?? "—");
+                                    table.Cell().Element(BodyCell).Text(line.Quantity.ToString("0.####"));
+                                    table.Cell().Element(BodyCell).Text(line.PurchaseUnitCode ?? "—");
+                                    table.Cell().Element(BodyCell).Text($"{line.UnitPrice:0.00} {line.CurrencyCode}");
+                                    table.Cell().Element(BodyCell).AlignRight().Text($"{lineTotal:0.00} {line.CurrencyCode}");
                                 }
                             });
 
@@ -96,5 +97,20 @@ namespace InnNou.Infrastructure.Documents
 
             return document.GeneratePdf();
         }
+
+        // Table cells have zero padding/border by default in QuestPDF — without these, the
+        // header row visually blends into both the supplier name above it and the data rows
+        // below it. A shaded, bottom-bordered header plus consistent cell padding is what makes
+        // "supplier name / column headers / rows" read as three distinct visual bands.
+        private static IContainer HeaderCell(IContainer container)
+            => container
+                .Background(Colors.Grey.Lighten3)
+                .BorderBottom(1).BorderColor(Colors.Grey.Medium)
+                .PaddingVertical(6).PaddingHorizontal(4);
+
+        private static IContainer BodyCell(IContainer container)
+            => container
+                .BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
+                .PaddingVertical(5).PaddingHorizontal(4);
     }
 }

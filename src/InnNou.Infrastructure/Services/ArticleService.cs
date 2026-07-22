@@ -1002,7 +1002,7 @@ public class ArticleService(
         // pick from a dropdown for them.
         if (!context.SupplierId.HasValue)
         {
-            var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, context, cancellationToken);
+            var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, warehouseToken: null, context, cancellationToken);
             var suppliersSheet = workbook.Worksheets.Add("Suppliers");
             suppliersSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
             suppliersSheet.Row(1).Style.Font.Bold = true;

@@ -5,7 +5,10 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface ISupplierService
     {
-        Task<PagedResult<SupplierDto>> GetSuppliersAsync(int pageNumber, int pageSize, string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken);
+        // warehouseToken narrows the zone delivery-coverage filter to a specific Warehouse's own
+        // Zone (see CLAUDE.md's "Delivery Zones" note) — null means no warehouse in context, so
+        // the filter no-ops (e.g. the general admin Suppliers catalog page).
+        Task<PagedResult<SupplierDto>> GetSuppliersAsync(int pageNumber, int pageSize, string? searchField, string? searchText, bool includeInactive, Guid? warehouseToken, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> GetSupplierByTokenAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> EditSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken);
