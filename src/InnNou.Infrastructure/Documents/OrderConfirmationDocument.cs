@@ -1,4 +1,5 @@
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -9,19 +10,23 @@ namespace InnNou.Infrastructure.Documents
     // concern, same "used directly, not behind an abstraction" convention as ClosedXML elsewhere
     // in this codebase). Two entry points share one layout: the full order (every supplier) for
     // the buyer, and a single-supplier slice for that supplier's own email.
+    //
+    // `languageCode` drives every label/heading via OrderConfirmationLocalization. BuildFullOrderPdf's
+    // caller passes the buying Organization's own LanguageCode; BuildSupplierPdf's caller passes the
+    // Supplier's own LanguageCode. The "en" default only matters when a caller has no code on file.
     public static class OrderConfirmationDocument
     {
-        public static byte[] BuildFullOrderPdf(Order order, string organizationName, List<OrderLine> lines)
-            => Render(order, organizationName, "Order Confirmation", OrderConfirmationData.GroupBySupplier(lines), OrderConfirmationData.TotalsByCurrency(lines));
+        public static byte[] BuildFullOrderPdf(Order order, string organizationName, List<OrderLine> lines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
+            => Render(order, organizationName, OrderConfirmationLocalization.Label("OrderConfirmationTitle", languageCode), OrderConfirmationData.GroupBySupplier(lines), OrderConfirmationData.TotalsByCurrency(lines), warehouseInfo, languageCode);
 
-        public static byte[] BuildSupplierPdf(Order order, string organizationName, string supplierName, List<OrderLine> supplierLines)
+        public static byte[] BuildSupplierPdf(Order order, string organizationName, string supplierName, List<OrderLine> supplierLines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
         {
             var totals = OrderConfirmationData.TotalsByCurrency(supplierLines);
             var group = new OrderConfirmationData.SupplierGroup { SupplierName = supplierName, Lines = supplierLines, SubtotalsByCurrency = totals };
-            return Render(order, organizationName, "Purchase Order", [group], totals);
+            return Render(order, organizationName, OrderConfirmationLocalization.Label("PurchaseOrderTitle", languageCode), [group], totals, warehouseInfo, languageCode);
         }
 
-        private static byte[] Render(Order order, string organizationName, string title, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals)
+        private static byte[] Render(Order order, string organizationName, string title, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode)
         {
             var document = Document.Create(container =>
             {
@@ -34,10 +39,21 @@ namespace InnNou.Infrastructure.Documents
                     page.Header().Column(col =>
                     {
                         col.Item().Text("InnNou").FontSize(20).Bold().FontColor(Colors.Teal.Darken2);
-                        col.Item().Text(title).FontSize(14).SemiBold();
-                        col.Item().PaddingTop(5).Text($"{organizationName} — {order.WarehouseName}").FontColor(Colors.Grey.Darken1);
-                        col.Item().Text($"Order #{order.OrderToken.ToString()[..8].ToUpperInvariant()} · {(order.SubmittedUtc ?? DateTime.UtcNow):yyyy-MM-dd HH:mm} UTC")
-                            .FontSize(9).FontColor(Colors.Grey.Darken1);
+                        col.Item().PaddingBottom(4).Text(title).FontSize(14).SemiBold();
+
+                        // Every header fact is a labeled "Label: value" row — with only Order #/
+                        // Warehouse/Organization this read fine unlabeled, but now that Address/
+                        // Contact/Phone/Email join the header, each value needs its own label to
+                        // stay unambiguous. Rows for data the warehouse doesn't have on file are
+                        // skipped entirely (LabeledLine no-ops on a blank value).
+                        LabeledLine(col, OrderConfirmationLocalization.Label("OrderNumberLabel", languageCode), order.OrderToken.ToString()[..8].ToUpperInvariant());
+                        LabeledLine(col, OrderConfirmationLocalization.Label("DateLabel", languageCode), $"{(order.SubmittedUtc ?? DateTime.UtcNow):yyyy-MM-dd HH:mm} UTC");
+                        LabeledLine(col, OrderConfirmationLocalization.Label("OrganizationLabel", languageCode), organizationName);
+                        LabeledLine(col, OrderConfirmationLocalization.Label("WarehouseLabel", languageCode), order.WarehouseName);
+                        LabeledLine(col, OrderConfirmationLocalization.Label("AddressLabel", languageCode), OrderConfirmationData.FormatAddress(warehouseInfo));
+                        LabeledLine(col, OrderConfirmationLocalization.Label("ContactLabel", languageCode), warehouseInfo?.ContactName);
+                        LabeledLine(col, OrderConfirmationLocalization.Label("PhoneLabel", languageCode), warehouseInfo?.ContactPhone);
+                        LabeledLine(col, OrderConfirmationLocalization.Label("EmailLabel", languageCode), warehouseInfo?.ContactEmail);
                     });
 
                     page.Content().PaddingTop(15).Column(col =>
@@ -60,11 +76,11 @@ namespace InnNou.Infrastructure.Documents
 
                                 table.Header(header =>
                                 {
-                                    header.Cell().Element(HeaderCell).Text("Article").Bold();
-                                    header.Cell().Element(HeaderCell).Text("Qty").Bold();
-                                    header.Cell().Element(HeaderCell).Text("Unit").Bold();
-                                    header.Cell().Element(HeaderCell).Text("Unit Price").Bold();
-                                    header.Cell().Element(HeaderCell).AlignRight().Text("Line Total").Bold();
+                                    header.Cell().Element(HeaderCell).Text(OrderConfirmationLocalization.Label("ArticleColumn", languageCode)).Bold();
+                                    header.Cell().Element(HeaderCell).Text(OrderConfirmationLocalization.Label("QtyColumn", languageCode)).Bold();
+                                    header.Cell().Element(HeaderCell).Text(OrderConfirmationLocalization.Label("UnitColumn", languageCode)).Bold();
+                                    header.Cell().Element(HeaderCell).Text(OrderConfirmationLocalization.Label("UnitPriceColumn", languageCode)).Bold();
+                                    header.Cell().Element(HeaderCell).AlignRight().Text(OrderConfirmationLocalization.Label("LineTotalColumn", languageCode)).Bold();
                                 });
 
                                 foreach (var line in group.Lines)
@@ -79,23 +95,34 @@ namespace InnNou.Infrastructure.Documents
                             });
 
                             foreach (var (currency, subtotal) in group.SubtotalsByCurrency)
-                                col.Item().AlignRight().Text($"Subtotal: {subtotal:0.00} {currency}").SemiBold();
+                                col.Item().AlignRight().Text($"{OrderConfirmationLocalization.Label("SubtotalLabel", languageCode)}: {subtotal:0.00} {currency}").SemiBold();
                         }
 
                         col.Item().PaddingTop(15).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                         foreach (var (currency, total) in grandTotals)
-                            col.Item().PaddingTop(5).AlignRight().Text($"Grand Total: {total:0.00} {currency}").FontSize(13).Bold();
+                            col.Item().PaddingTop(5).AlignRight().Text($"{OrderConfirmationLocalization.Label("GrandTotalLabel", languageCode)}: {total:0.00} {currency}").FontSize(13).Bold();
                     });
 
                     page.Footer().AlignCenter().Text(text =>
                     {
-                        text.Span("Generated by InnNou — ").FontSize(8).FontColor(Colors.Grey.Darken1);
+                        text.Span($"{OrderConfirmationLocalization.Label("GeneratedByLabel", languageCode)} ").FontSize(8).FontColor(Colors.Grey.Darken1);
                         text.Span(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") + " UTC").FontSize(8).FontColor(Colors.Grey.Darken1);
                     });
                 });
             });
 
             return document.GeneratePdf();
+        }
+
+        private static void LabeledLine(ColumnDescriptor col, string label, string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+
+            col.Item().Text(t =>
+            {
+                t.Span($"{label}: ").FontSize(9).SemiBold().FontColor(Colors.Grey.Darken2);
+                t.Span(value).FontSize(9).FontColor(Colors.Grey.Darken1);
+            });
         }
 
         // Table cells have zero padding/border by default in QuestPDF — without these, the

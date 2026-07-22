@@ -267,6 +267,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     State = dto.State,
                     PostalCode = dto.PostalCode,
                     Country = dto.Country,
+                    LanguageCode = dto.LanguageCode,
                     IsGlobal = isGlobal,
                     SupplierTypeId = (int)SupplierTypeCodes.FromCode(dto.SupplierType ?? SupplierTypeCodes.Product),
                     HasAccessToSystem = hasAccess,
@@ -563,6 +564,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             State = dto.State ?? existing.State,
             PostalCode = dto.PostalCode ?? existing.PostalCode,
             Country = dto.Country ?? existing.Country,
+            LanguageCode = dto.LanguageCode ?? existing.LanguageCode,
             IsGlobal = newIsGlobal,
             SupplierTypeId = (int)(dto.SupplierType is not null ? SupplierTypeCodes.FromCode(dto.SupplierType) : existing.SupplierType),
             HasAccessToSystem = newHasAccess,
@@ -826,8 +828,9 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 var state = row.Cell(9).GetString().Trim();
                 var postalCode = row.Cell(10).GetString().Trim();
                 var country = row.Cell(11).GetString().Trim();
-                var isGlobalText = row.Cell(12).GetString();
-                var supplierTypeText = row.Cell(13).GetString().Trim();
+                var languageCode = row.Cell(12).GetString().Trim();
+                var isGlobalText = row.Cell(13).GetString();
+                var supplierTypeText = row.Cell(14).GetString().Trim();
 
                 var rowName = string.IsNullOrWhiteSpace(name) ? null : name;
 
@@ -868,6 +871,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                             State = NullIfEmpty(state),
                             PostalCode = NullIfEmpty(postalCode),
                             Country = NullIfEmpty(country),
+                            LanguageCode = NullIfEmpty(languageCode),
                             IsGlobal = IsTruthy(isGlobalText),
                             SupplierType = string.IsNullOrWhiteSpace(supplierTypeText) ? SupplierTypeCodes.Product : supplierTypeText.Trim().ToUpperInvariant(),
                             HasAccessToSystem = false
@@ -908,7 +912,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Suppliers");
 
-        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal", "SupplierType", "Status"];
+        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "LanguageCode", "IsGlobal", "SupplierType", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
@@ -927,9 +931,10 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             worksheet.Cell(r, 9).Value = supplier.State;
             worksheet.Cell(r, 10).Value = supplier.PostalCode;
             worksheet.Cell(r, 11).Value = supplier.Country;
-            worksheet.Cell(r, 12).Value = (supplier.IsGlobal ?? false) ? "TRUE" : "FALSE";
-            worksheet.Cell(r, 13).Value = supplier.SupplierType;
-            worksheet.Cell(r, 14).Value = supplier.IsActive ? "Active" : "Inactive";
+            worksheet.Cell(r, 12).Value = supplier.LanguageCode;
+            worksheet.Cell(r, 13).Value = (supplier.IsGlobal ?? false) ? "TRUE" : "FALSE";
+            worksheet.Cell(r, 14).Value = supplier.SupplierType;
+            worksheet.Cell(r, 15).Value = supplier.IsActive ? "Active" : "Inactive";
             r++;
         }
 
@@ -951,7 +956,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         using var workbook = new XLWorkbook();
 
         var suppliersSheet = workbook.Worksheets.Add("Suppliers");
-        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "IsGlobal", "SupplierType"];
+        string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "LanguageCode", "IsGlobal", "SupplierType"];
         for (var i = 0; i < headers.Length; i++)
             suppliersSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         suppliersSheet.Row(1).Style.Font.Bold = true;

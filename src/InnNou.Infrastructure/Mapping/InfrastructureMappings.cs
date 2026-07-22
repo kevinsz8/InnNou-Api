@@ -218,6 +218,7 @@ namespace InnNou.Infrastructure.Mapping
                 State = s.State,
                 PostalCode = s.PostalCode,
                 Country = s.Country,
+                LanguageCode = s.LanguageCode,
                 IsGlobal = s.IsGlobal,
                 SupplierType = SupplierTypeCodes.ToCode(s.SupplierType),
                 LogoUrl = s.LogoUrl,

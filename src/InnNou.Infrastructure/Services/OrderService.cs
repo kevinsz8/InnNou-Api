@@ -7,6 +7,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Documents;
 using InnNou.Infrastructure.Repositories.DbEntities;
+using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Extensions.Logging;
 using System.Data;
@@ -90,11 +91,15 @@ public class OrderService(
         return steps.ToList();
     }
 
-    private static async Task<string> GetOrganizationNameAsync(IDbConnection connection, Guid organizationToken)
+    // Name + LanguageCode in one round trip — the order confirmation email/PDF sent to the buyer
+    // is localized via the buying Organization's own LanguageCode (OrderConfirmationLocalization
+    // falls back to "en" for a null/unrecognized code). The supplier-facing "New purchase order"
+    // email/PDF is localized the same way via PurchaseOrder.SupplierLanguageCode below.
+    private static async Task<(string Name, string? LanguageCode)> GetOrganizationNameAndLanguageAsync(IDbConnection connection, Guid organizationToken)
     {
         var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_GetByToken", new { OrganizationToken = organizationToken }, commandType: CommandType.StoredProcedure);
-        return organization?.Name ?? "InnNou";
+        return (organization?.Name ?? "InnNou", organization?.LanguageCode);
     }
 
     private static async Task<string?> GetUserEmailAsync(IDbConnection connection, Guid userToken)
@@ -102,6 +107,40 @@ public class OrderService(
         var user = await connection.QueryFirstOrDefaultAsync<User>(
             "sp_User_GetByToken", new { UserToken = userToken }, commandType: CommandType.StoredProcedure);
         return user?.Email;
+    }
+
+    // The order confirmation PDF/email header shows the delivery warehouse's own address and
+    // primary contact (Name/Phone/Email) — sp_WarehouseContact_GetPagedByWarehouseId already
+    // orders by IsPrimary DESC, ContactName, so PageSize=1 hands back exactly the primary contact
+    // (or the first active one alphabetically if none is marked primary). Missing address/contact
+    // data simply means those fields are null — OrderConfirmationDocument/EmailContent skip the
+    // corresponding labeled row rather than printing a blank one.
+    private static async Task<OrderConfirmationData.WarehouseHeaderInfo> GetWarehouseHeaderInfoAsync(IDbConnection connection, Guid warehouseToken)
+    {
+        var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+            "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
+
+        WarehouseContact? contact = null;
+        if (warehouse is not null)
+        {
+            contact = await connection.QueryFirstOrDefaultAsync<WarehouseContact>(
+                "sp_WarehouseContact_GetPagedByWarehouseId",
+                new { WarehouseId = warehouse.WarehouseId, PageNumber = 1, PageSize = 1, SearchText = (string?)null, IncludeInactive = false },
+                commandType: CommandType.StoredProcedure);
+        }
+
+        return new OrderConfirmationData.WarehouseHeaderInfo
+        {
+            AddressLine1 = warehouse?.AddressLine1,
+            AddressLine2 = warehouse?.AddressLine2,
+            City = warehouse?.City,
+            State = warehouse?.State,
+            PostalCode = warehouse?.PostalCode,
+            Country = warehouse?.Country,
+            ContactName = contact?.ContactName,
+            ContactPhone = contact?.Phone ?? contact?.Mobile,
+            ContactEmail = contact?.Email
+        };
     }
 
     public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
@@ -590,10 +629,11 @@ public class OrderService(
     {
         try
         {
-            var organizationName = await GetOrganizationNameAsync(connection, updatedOrder.OrganizationToken);
+            var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, updatedOrder.OrganizationToken);
             var buyerEmail = await GetUserEmailAsync(connection, context.ActorUserToken);
+            var warehouseInfo = await GetWarehouseHeaderInfoAsync(connection, updatedOrder.WarehouseToken);
 
-            var fullPdfBytes = OrderConfirmationDocument.BuildFullOrderPdf(updatedOrder, organizationName, lines);
+            var fullPdfBytes = OrderConfirmationDocument.BuildFullOrderPdf(updatedOrder, organizationName, lines, warehouseInfo, organizationLanguageCode);
             await orderPdfStorage.SaveAsync(updatedOrder.OrderToken, fullPdfBytes, cancellationToken);
 
             var pdfUrl = $"/orders/{updatedOrder.OrderToken}/downloadPdf";
@@ -608,8 +648,8 @@ public class OrderService(
                 await emailSender.SendAsync(new EmailMessage
                 {
                     ToAddress = buyerEmail,
-                    Subject = $"Order confirmed — {organizationName}",
-                    HtmlBody = OrderConfirmationEmailContent.BuildBuyerEmailHtml(updatedOrder, organizationName, lines),
+                    Subject = $"{OrderConfirmationLocalization.Label("OrderConfirmedHeading", organizationLanguageCode)} — {organizationName}",
+                    HtmlBody = OrderConfirmationEmailContent.BuildBuyerEmailHtml(updatedOrder, organizationName, lines, warehouseInfo, organizationLanguageCode),
                     Attachments = [new EmailAttachment { FileName = "order-confirmation.pdf", Content = fullPdfBytes }]
                 }, cancellationToken);
             }
@@ -619,12 +659,12 @@ public class OrderService(
                 if (string.IsNullOrWhiteSpace(purchaseOrder.SupplierEmail))
                     continue;
 
-                var supplierPdf = OrderConfirmationDocument.BuildSupplierPdf(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines);
+                var supplierPdf = OrderConfirmationDocument.BuildSupplierPdf(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode);
                 await emailSender.SendAsync(new EmailMessage
                 {
                     ToAddress = purchaseOrder.SupplierEmail,
-                    Subject = $"New purchase order — {organizationName}",
-                    HtmlBody = OrderConfirmationEmailContent.BuildSupplierEmailHtml(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines),
+                    Subject = $"{OrderConfirmationLocalization.Label("NewPurchaseOrderHeading", purchaseOrder.SupplierLanguageCode)} — {organizationName}",
+                    HtmlBody = OrderConfirmationEmailContent.BuildSupplierEmailHtml(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode),
                     Attachments = [new EmailAttachment { FileName = "purchase-order.pdf", Content = supplierPdf }]
                 }, cancellationToken);
             }

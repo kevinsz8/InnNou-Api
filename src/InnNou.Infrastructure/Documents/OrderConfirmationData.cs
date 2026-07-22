@@ -7,7 +7,7 @@ namespace InnNou.Infrastructure.Documents
     // Totals are computed per currency, never summed across currencies: in practice an Order's
     // lines all resolve to the same currency (the org's own resolved currency, or a manually
     // supplied one — see OrderService.AddLineAsync), but nothing here may assume that silently.
-    internal static class OrderConfirmationData
+    public static class OrderConfirmationData
     {
         public sealed class SupplierGroup
         {
@@ -34,6 +34,34 @@ namespace InnNou.Infrastructure.Documents
             return lines
                 .GroupBy(l => l.CurrencyCode)
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity * l.UnitPrice));
+        }
+
+        // The delivery warehouse's address + primary contact — surfaced in the PDF/email header
+        // so a recipient can tell at a glance where/who the order is for, alongside Order #/
+        // Organization/Warehouse. All fields optional: a warehouse with no address/contact on
+        // file simply omits that labeled row rather than printing an empty one.
+        public sealed class WarehouseHeaderInfo
+        {
+            public string? AddressLine1 { get; init; }
+            public string? AddressLine2 { get; init; }
+            public string? City { get; init; }
+            public string? State { get; init; }
+            public string? PostalCode { get; init; }
+            public string? Country { get; init; }
+            public string? ContactName { get; init; }
+            public string? ContactPhone { get; init; }
+            public string? ContactEmail { get; init; }
+        }
+
+        public static string? FormatAddress(WarehouseHeaderInfo? info)
+        {
+            if (info is null) return null;
+
+            var parts = new[] { info.AddressLine1, info.AddressLine2, info.City, info.State, info.PostalCode, info.Country }
+                .Where(p => !string.IsNullOrWhiteSpace(p));
+
+            var joined = string.Join(", ", parts);
+            return string.IsNullOrWhiteSpace(joined) ? null : joined;
         }
     }
 }

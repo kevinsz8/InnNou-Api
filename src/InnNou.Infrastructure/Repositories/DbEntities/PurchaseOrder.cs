@@ -17,6 +17,10 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         // same "transient field that never round-trips a response" convention as
         // ArticlePriceDto's transient SupplierId.
         public string? SupplierEmail { get; set; }
+
+        // Same internal-use-only convention as SupplierEmail above — drives the "New purchase
+        // order" email/PDF's language (OrderConfirmationLocalization falls back to "en" when null).
+        public string? SupplierLanguageCode { get; set; }
         public int OrganizationId { get; set; }
         public Guid OrganizationToken { get; set; }
         public int WarehouseId { get; set; }

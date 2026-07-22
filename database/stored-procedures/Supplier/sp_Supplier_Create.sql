@@ -29,6 +29,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Create
     @State          VARCHAR(150) = NULL,
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
+    @LanguageCode   VARCHAR(10)  = NULL,
     @IsGlobal           BIT,
     @SupplierTypeId     INT,
     @HasAccessToSystem  BIT,
@@ -45,21 +46,21 @@ BEGIN
     (
         SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, SupplierTypeId, HasAccessToSystem, IsActive, IsDeleted,
+        PostalCode, Country, LanguageCode, IsGlobal, SupplierTypeId, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy
     )
     VALUES
     (
         @SupplierToken, @Name, @NormalizedName, @LegalName, @TaxId,
         @Email, @Phone, @AddressLine1, @AddressLine2, @City, @State,
-        @PostalCode, @Country, @IsGlobal, @SupplierTypeId, @HasAccessToSystem, @IsActive, @IsDeleted,
+        @PostalCode, @Country, @LanguageCode, @IsGlobal, @SupplierTypeId, @HasAccessToSystem, @IsActive, @IsDeleted,
         @CreatedUtc, @CreatedBy
     );
 
     SELECT
         s.SupplierId, s.SupplierToken, s.Name, s.NormalizedName, s.LegalName, s.TaxId,
         s.Email, s.Phone, s.AddressLine1, s.AddressLine2, s.City, s.State,
-        s.PostalCode, s.Country, s.IsGlobal, st.Code AS SupplierType, s.LogoUrl, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
+        s.PostalCode, s.Country, s.LanguageCode, s.IsGlobal, st.Code AS SupplierType, s.LogoUrl, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
         s.CreatedUtc, s.CreatedBy, s.LastUpdatedUtc, s.LastUpdatedBy, s.DeletedUtc, s.DeletedBy
     FROM dbo.Suppliers s
     JOIN dbo.SupplierTypes st ON st.SupplierTypeId = s.SupplierTypeId

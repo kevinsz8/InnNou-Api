@@ -18,6 +18,7 @@ namespace InnNou.Application.Requests
         public string? State { get; set; }
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
+        public string? LanguageCode { get; set; }
         public bool? IsGlobal { get; set; }
         public string? SupplierType { get; set; }
         public bool? HasAccessToSystem { get; set; }

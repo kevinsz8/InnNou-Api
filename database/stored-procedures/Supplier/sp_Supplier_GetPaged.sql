@@ -63,6 +63,7 @@ BEGIN
         s.State,
         s.PostalCode,
         s.Country,
+        s.LanguageCode,
         s.IsGlobal,
         st.Code AS SupplierType,
         s.LogoUrl,

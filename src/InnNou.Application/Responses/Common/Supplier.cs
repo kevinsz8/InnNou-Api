@@ -15,6 +15,7 @@ namespace InnNou.Application.Responses.Common
         public string? State { get; set; }
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
+        public string? LanguageCode { get; set; }
         public bool IsGlobal { get; set; }
         public string SupplierType { get; set; } = default!;
         public string? LogoUrl { get; set; }
