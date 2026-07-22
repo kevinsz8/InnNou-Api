@@ -95,7 +95,7 @@ BEGIN
         a.ArticleToken,
         a.SupplierId,
         s.Name          AS SupplierName,
-        s.SupplierType  AS SupplierType,
+        st.Code         AS SupplierType,
         a.Name,
         a.NormalizedName,
         a.Description,
@@ -131,6 +131,7 @@ BEGIN
         COUNT(*) OVER() AS TotalCount
     FROM   Articles        a
     JOIN   Suppliers       s  ON  s.SupplierId       = a.SupplierId
+    JOIN   SupplierTypes   st ON  st.SupplierTypeId  = s.SupplierTypeId
     JOIN   UnitsOfMeasure  pu ON  pu.UnitOfMeasureId = a.PurchaseUnitId
     LEFT JOIN Families     f  ON  f.FamilyId         = a.FamilyId
     LEFT JOIN SubFamilies  sf ON  sf.SubFamilyId      = a.SubFamilyId

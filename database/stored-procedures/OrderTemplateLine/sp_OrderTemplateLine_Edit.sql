@@ -32,7 +32,7 @@ BEGIN
     SELECT
         otl.OrderTemplateLineId, otl.OrderTemplateLineToken, otl.OrderTemplateId, ot.OrderTemplateToken,
         otl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
-        a.SupplierId, s.Name AS SupplierName, a.SupplierSku, s.SupplierType,
+        a.SupplierId, s.Name AS SupplierName, a.SupplierSku, st.Code AS SupplierType,
         a.PurchaseUnitId, pu.Code AS PurchaseUnitCode, pu.Symbol AS PurchaseUnitSymbol,
         a.IsActive AS IsArticleActive, a.IsDeleted AS IsArticleDeleted,
         r.ArticleToken AS ReplacedByArticleToken,
@@ -42,6 +42,7 @@ BEGIN
     JOIN dbo.OrderTemplate ot   ON ot.OrderTemplateId  = otl.OrderTemplateId
     JOIN dbo.Articles a         ON a.ArticleId         = otl.ArticleId
     JOIN dbo.Suppliers s        ON s.SupplierId        = a.SupplierId
+    JOIN dbo.SupplierTypes st   ON st.SupplierTypeId   = s.SupplierTypeId
     JOIN dbo.UnitsOfMeasure pu  ON pu.UnitOfMeasureId  = a.PurchaseUnitId
     LEFT JOIN dbo.Articles r    ON r.ArticleId         = a.ReplacedByArticleId
     WHERE otl.OrderTemplateLineToken = @OrderTemplateLineToken;

@@ -18,17 +18,18 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    INSERT INTO dbo.[Order] (OrderToken, OrganizationId, WarehouseId, Status, Notes, CreatedBy)
-    VALUES (@OrderToken, @OrganizationId, @WarehouseId, 'DRAFT', @Notes, @CreatedBy);
+    INSERT INTO dbo.[Order] (OrderToken, OrganizationId, WarehouseId, OrderStatusId, Notes, CreatedBy)
+    VALUES (@OrderToken, @OrganizationId, @WarehouseId, (SELECT OrderStatusId FROM dbo.OrderStatuses WHERE Code = 'DRAFT'), @Notes, @CreatedBy);
 
     SELECT
         o.OrderId, o.OrderToken, o.OrganizationId, org.OrganizationToken,
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        o.Status, o.Notes, o.SubmittedUtc,
+        os.Code AS Status, o.Notes, o.SubmittedUtc,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy
     FROM dbo.[Order] o
     JOIN dbo.Organizations org ON org.OrganizationId = o.OrganizationId
     JOIN dbo.Warehouses    w   ON w.WarehouseId      = o.WarehouseId
+    JOIN dbo.OrderStatuses os  ON os.OrderStatusId    = o.OrderStatusId
     WHERE o.OrderToken = @OrderToken;
 END;
 GO

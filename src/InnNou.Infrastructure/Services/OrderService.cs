@@ -114,10 +114,19 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             warehouseId = warehouse.WarehouseId;
         }
 
+        int? statusId = null;
+        if (status is not null)
+        {
+            // An unrecognized status filter matches nothing rather than 500ing.
+            if (!OrderStatusCodes.TryFromCode(status, out var parsedStatus))
+                return new PagedResult<OrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+            statusId = (int)parsedStatus;
+        }
+
         var p = new DynamicParameters();
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@WarehouseId", warehouseId);
-        p.Add("@Status", status);
+        p.Add("@StatusId", statusId);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 
@@ -189,7 +198,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
         // Pass the Order's OWN organization (never null, never the acting user's role/supplier
@@ -259,7 +268,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             // their price is negotiated at order time instead (see CLAUDE.md's "Supplier
             // type" section). PRODUCT suppliers keep the hard failure: a missing price
             // there is a real catalog data gap, not something to silently paper over.
-            var isServiceOrMixed = article.SupplierType is SupplierTypeCodes.Service or SupplierTypeCodes.Mixed;
+            var isServiceOrMixed = article.SupplierType is SupplierType.Service or SupplierType.Mixed;
             if (!isServiceOrMixed)
             {
                 if (resolvedCurrencyCode is null)
@@ -334,7 +343,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
         var updated = await connection.QueryFirstOrDefaultAsync<OrderLine>(
@@ -362,7 +371,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
         await connection.ExecuteAsync(
@@ -396,10 +405,10 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         // otherwise be stuck in PENDING_APPROVAL forever — sp_OrderApprovalStep_Approve refuses
         // to re-approve a non-PENDING step, so there'd be no way back in. Re-submitting picks up
         // exactly where the failed auto-completion left off.
-        if (order.Status == "PENDING_APPROVAL")
+        if (order.Status == OrderStatus.PendingApproval)
         {
             var existingSteps = await GetApprovalStepsAsync(connection, order.OrderId);
-            if (existingSteps.Count > 0 && existingSteps.All(s => s.Status == "APPROVED"))
+            if (existingSteps.Count > 0 && existingSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
             {
                 var approvedLines = await GetLinesAsync(connection, order.OrderId);
                 return await CompleteSubmissionAsync(connection, order, approvedLines, context, cancellationToken);
@@ -408,7 +417,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
             throw new ApiException(ErrorCodes.OrderNotDraft, "This order is still pending approval.", 409);
         }
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be submitted.", 409);
 
         var lines = await GetLinesAsync(connection, order.OrderId);
@@ -486,7 +495,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
             var updatedOrder = await connection.QueryFirstOrDefaultAsync<Order>(
                 "sp_Order_SetStatus",
-                new { OrderToken = order.OrderToken, Status = "SUBMITTED", ActorBy = actor },
+                new { OrderToken = order.OrderToken, Status = OrderStatusCodes.Submitted, ActorBy = actor },
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
@@ -608,7 +617,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         var pendingOrder = await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_SetStatus",
-            new { OrderToken = order.OrderToken, Status = "PENDING_APPROVAL", ActorBy = actor },
+            new { OrderToken = order.OrderToken, Status = OrderStatusCodes.PendingApproval, ActorBy = actor },
             commandType: CommandType.StoredProcedure);
 
         if (pendingOrder is null)
@@ -647,7 +656,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         // Auto-complete the submission the moment every required step for this Order is
         // APPROVED — confirmed with the user, no second manual Submit click.
         var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
-        if (allSteps.All(s => s.Status == "APPROVED"))
+        if (allSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
         {
             var lines = await GetLinesAsync(connection, order.OrderId);
             await CompleteSubmissionAsync(connection, order, lines, context, cancellationToken);
@@ -676,7 +685,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_SetStatus",
-            new { OrderToken = step.OrderToken, Status = "DRAFT", ActorBy = context.ActorUserToken.ToString() },
+            new { OrderToken = step.OrderToken, Status = OrderStatusCodes.Draft, ActorBy = context.ActorUserToken.ToString() },
             commandType: CommandType.StoredProcedure);
 
         return mapper.Map<OrderApprovalStepDto>(rejected);
@@ -735,7 +744,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         }
 
         var siblingSteps = await GetApprovalStepsAsync(connection, step.OrderId);
-        var priorLevelPending = siblingSteps.Any(s => s.FamilyId == step.FamilyId && s.Level < step.Level && s.Status != "APPROVED");
+        var priorLevelPending = siblingSteps.Any(s => s.FamilyId == step.FamilyId && s.Level < step.Level && s.Status != OrderApprovalStepStatus.Approved);
         if (priorLevelPending)
             throw new ApiException(ErrorCodes.OrderApprovalStepPriorLevelPending, "An earlier level for this Family must be approved first.", 409);
     }
@@ -753,7 +762,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot delete an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be deleted.", 409);
 
         await connection.ExecuteAsync(
@@ -777,10 +786,10 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         // A submitter withdrawing a request stuck in PENDING_APPROVAL is a reasonable capability
         // — same as a rejection, this voids any still-PENDING steps first.
-        if (order.Status is not ("DRAFT" or "PENDING_APPROVAL"))
+        if (order.Status is not (OrderStatus.Draft or OrderStatus.PendingApproval))
             throw new ApiException(ErrorCodes.OrderNotCancellable, "Only a draft or pending-approval order can be cancelled.", 409);
 
-        if (order.Status == "PENDING_APPROVAL")
+        if (order.Status == OrderStatus.PendingApproval)
             await connection.ExecuteAsync(
                 "sp_OrderApprovalStep_CancelPendingForOrder",
                 new { order.OrderId, DecidedBy = context.ActorUserToken.ToString() },
@@ -788,10 +797,71 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
 
         var updated = await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_SetStatus",
-            new { OrderToken = orderToken, Status = "CANCELLED", ActorBy = context.ActorUserToken.ToString() },
+            new { OrderToken = orderToken, Status = OrderStatusCodes.Cancelled, ActorBy = context.ActorUserToken.ToString() },
             commandType: CommandType.StoredProcedure);
 
         return updated is null ? null : mapper.Map<OrderDto>(updated);
+    }
+
+    // Creates a new Draft order for the same Warehouse as a SUBMITTED source order, re-adding
+    // every line via the existing AddLineAsync. Passing the ORIGINAL line's frozen UnitPrice/
+    // CurrencyCode as the "manual" fallback is deliberate: AddLineAsync always tries the live
+    // catalog price first regardless, so a re-priceable article (PRODUCT, or a priced SERVICE/
+    // MIXED) still gets today's current price; the fallback only engages for an unpriced
+    // SERVICE/MIXED article that was originally added with a manual price — without it, that
+    // line would 400 with ARTICLE_PRICE_MANUAL_REQUIRED on every copy. A line whose article can
+    // no longer be added (inactive/deleted/superseded/no price) is skipped and reported, never
+    // aborting the whole copy — same partial-failure convention as ImportLinesAsync.
+    public async Task<CopyOrderResultDto> CopyAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var source = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (source is null)
+            throw new ApiException(ErrorCodes.OrderNotFound, "Order not found.", 404);
+
+        if (!await CanManageOrganizationAsync(connection, context, source.OrganizationId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot copy an order outside your organization.", 403);
+
+        if (source.Status != OrderStatus.Submitted)
+            throw new ApiException(ErrorCodes.OrderCopyInvalidSourceStatus, "Only a submitted order can be copied.", 409);
+
+        var sourceLines = await GetLinesAsync(connection, source.OrderId);
+
+        var createParams = new DynamicParameters();
+        createParams.Add("@OrderToken", Guid.NewGuid());
+        createParams.Add("@OrganizationId", source.OrganizationId);
+        createParams.Add("@WarehouseId", source.WarehouseId);
+        createParams.Add("@Notes", (string?)null);
+        createParams.Add("@CreatedBy", context.ActorUserToken.ToString());
+
+        var newOrder = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_Create", createParams, commandType: CommandType.StoredProcedure)
+            ?? throw new InvalidOperationException("sp_Order_Create returned no row for a Warehouse/Organization already validated above.");
+
+        var result = new CopyOrderResultDto { NewOrderToken = newOrder.OrderToken, TotalLines = sourceLines.Count };
+
+        foreach (var line in sourceLines)
+        {
+            try
+            {
+                await AddLineAsync(newOrder.OrderToken, line.ArticleToken, line.Quantity, line.UnitPrice, line.CurrencyCode, context, cancellationToken);
+                result.CopiedCount++;
+            }
+            catch (ApiException ex)
+            {
+                result.SkippedLines.Add(new CopyOrderSkippedLineDto { ArticleToken = line.ArticleToken, ArticleName = line.ArticleName, Code = ex.Code, Description = ex.Message });
+            }
+            catch (Exception)
+            {
+                result.SkippedLines.Add(new CopyOrderSkippedLineDto { ArticleToken = line.ArticleToken, ArticleName = line.ArticleName, Code = ErrorCodes.UnhandledError, Description = "An unexpected error occurred while copying this line." });
+            }
+        }
+
+        result.SkippedCount = result.SkippedLines.Count;
+        return result;
     }
 
     // Bulk-adds lines to an existing Draft order from an uploaded Excel file. Column layout
@@ -819,7 +889,7 @@ public class OrderService(IDbConnectionFactory connectionFactory, IMapper mapper
         if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
-        if (order.Status != "DRAFT")
+        if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
         IXLWorkbook workbook;

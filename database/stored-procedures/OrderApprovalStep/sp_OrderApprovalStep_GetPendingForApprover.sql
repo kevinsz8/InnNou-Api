@@ -19,7 +19,7 @@ BEGIN
         w.WarehouseToken, w.Name AS WarehouseName,
         s.FamilyId, s.FamilyCode, s.Level, s.ThresholdAmount, s.ActualFamilyAmount, s.CurrencyCode,
         s.ApproverUserId, u.UserToken AS ApproverUserToken, u.FirstName + ' ' + u.LastName AS ApproverName,
-        s.Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
+        oass.Code AS Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
         s.CreatedUtc, s.CreatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM OrderApprovalSteps s
@@ -27,14 +27,16 @@ BEGIN
     JOIN Organizations org ON org.OrganizationId = ord.OrganizationId
     JOIN Warehouses w      ON w.WarehouseId      = ord.WarehouseId
     JOIN Users u           ON u.UserId           = s.ApproverUserId
-    WHERE s.Status = 'PENDING'
+    JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
+    WHERE oass.Code = 'PENDING'
       AND s.ApproverUserId = @ApproverUserId
       AND NOT EXISTS (
           SELECT 1 FROM OrderApprovalSteps prior
+          JOIN OrderApprovalStepStatuses prior_status ON prior_status.OrderApprovalStepStatusId = prior.OrderApprovalStepStatusId
           WHERE prior.OrderId  = s.OrderId
             AND prior.FamilyId = s.FamilyId
             AND prior.Level    < s.Level
-            AND prior.Status  <> 'APPROVED'
+            AND prior_status.Code <> 'APPROVED'
       )
     ORDER BY s.CreatedUtc
     OFFSET (@PageNumber - 1) * @PageSize ROWS

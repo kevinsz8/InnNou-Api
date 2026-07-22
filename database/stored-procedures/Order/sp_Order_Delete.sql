@@ -17,7 +17,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @OrderId INT = (SELECT OrderId FROM dbo.[Order] WHERE OrderToken = @OrderToken AND Status = 'DRAFT');
+    DECLARE @OrderId INT = (
+        SELECT o.OrderId
+        FROM dbo.[Order] o
+        JOIN dbo.OrderStatuses os ON os.OrderStatusId = o.OrderStatusId
+        WHERE o.OrderToken = @OrderToken AND os.Code = 'DRAFT'
+    );
 
     IF @OrderId IS NULL
         RETURN;

@@ -20,6 +20,7 @@ public class OrdersEndpoints : ICarterModule
         group.MapPost("/submit",     HandleSubmit).Produces<ApiResponse<SubmitOrderCommandResponse>>(200);
         group.MapPost("/delete",     HandleDelete).Produces<ApiResponse<DeleteOrderCommandResponse>>(200);
         group.MapPost("/cancel",     HandleCancel).Produces<ApiResponse<CancelOrderCommandResponse>>(200);
+        group.MapPost("/copy",       HandleCopy).Produces<ApiResponse<CopyOrderCommandResponse>>(201);
         group.MapPost("/getAll",     HandleGetAll).Produces<ApiResponse<GetOrdersQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetOrderByTokenQueryResponse>>(200);
 
@@ -90,6 +91,12 @@ public class OrdersEndpoints : ICarterModule
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleCopy([FromBody] CopyOrderCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Created("/orders", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetOrdersQueryRequest request, ISender sender, CancellationToken ct)

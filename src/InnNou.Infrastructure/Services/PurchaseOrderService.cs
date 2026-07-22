@@ -116,11 +116,20 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
         }
 
+        int? statusId = null;
+        if (status is not null)
+        {
+            // An unrecognized status filter matches nothing rather than 500ing.
+            if (!PurchaseOrderStatusCodes.TryFromCode(status, out var parsedStatus))
+                return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+            statusId = (int)parsedStatus;
+        }
+
         var p = new DynamicParameters();
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@SupplierId", supplierId);
         p.Add("@OrderId", orderId);
-        p.Add("@Status", status);
+        p.Add("@StatusId", statusId);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 
@@ -177,7 +186,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (!canManage)
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot cancel a purchase order outside your scope.", 403);
 
-        if (existing.Status != "SENT")
+        if (existing.Status != PurchaseOrderStatus.Sent)
             throw new ApiException(ErrorCodes.PurchaseOrderNotSent, "Only a sent purchase order can be cancelled.", 409);
 
         var updated = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(

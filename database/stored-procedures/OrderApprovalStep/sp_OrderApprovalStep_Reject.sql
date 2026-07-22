@@ -13,8 +13,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @PendingStatusId INT = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'PENDING');
     DECLARE @OrderId INT;
-    SELECT @OrderId = OrderId FROM OrderApprovalSteps WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND Status = 'PENDING';
+    SELECT @OrderId = OrderId FROM OrderApprovalSteps WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND OrderApprovalStepStatusId = @PendingStatusId;
 
     IF @OrderId IS NULL
     BEGIN
@@ -23,28 +24,29 @@ BEGIN
     END
 
     UPDATE OrderApprovalSteps
-    SET    Status           = 'REJECTED',
-           DecidedUtc       = SYSUTCDATETIME(),
-           DecidedBy        = @DecidedBy,
-           RejectionReason  = @RejectionReason
+    SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'REJECTED'),
+           DecidedUtc                = SYSUTCDATETIME(),
+           DecidedBy                 = @DecidedBy,
+           RejectionReason           = @RejectionReason
     WHERE  OrderApprovalStepToken = @OrderApprovalStepToken;
 
     UPDATE OrderApprovalSteps
-    SET    Status     = 'CANCELLED',
-           DecidedUtc = SYSUTCDATETIME(),
-           DecidedBy  = @DecidedBy
+    SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'CANCELLED'),
+           DecidedUtc                = SYSUTCDATETIME(),
+           DecidedBy                 = @DecidedBy
     WHERE  OrderId = @OrderId
-      AND  Status  = 'PENDING';
+      AND  OrderApprovalStepStatusId = @PendingStatusId;
 
     SELECT
         s.OrderApprovalStepId, s.OrderApprovalStepToken, s.OrderId, ord.OrderToken,
         s.FamilyId, s.FamilyCode, s.Level, s.ThresholdAmount, s.ActualFamilyAmount, s.CurrencyCode,
         s.ApproverUserId, u.UserToken AS ApproverUserToken, u.FirstName + ' ' + u.LastName AS ApproverName,
-        s.Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
+        oass.Code AS Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
         s.CreatedUtc, s.CreatedBy
     FROM OrderApprovalSteps s
     JOIN [Order] ord ON ord.OrderId = s.OrderId
     JOIN Users u      ON u.UserId   = s.ApproverUserId
+    JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
     WHERE s.OrderApprovalStepToken = @OrderApprovalStepToken;
 END;
 GO

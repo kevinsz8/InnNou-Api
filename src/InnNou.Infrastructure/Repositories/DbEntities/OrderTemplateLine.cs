@@ -1,3 +1,5 @@
+using InnNou.Application.Common;
+
 namespace InnNou.Infrastructure.Repositories.DbEntities
 {
     public class OrderTemplateLine
@@ -12,7 +14,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int SupplierId { get; set; }
         public string? SupplierName { get; set; }
         public string? SupplierSku { get; set; }
-        public string? SupplierType { get; set; }
+        public SupplierType? SupplierType { get; set; }
 
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }

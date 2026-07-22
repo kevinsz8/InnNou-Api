@@ -16,11 +16,12 @@ BEGIN
     SELECT
         o.OrderId, o.OrderToken, o.OrganizationId, org.OrganizationToken,
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        o.Status, o.Notes, o.SubmittedUtc,
+        os.Code AS Status, o.Notes, o.SubmittedUtc,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy
     FROM dbo.[Order] o
     JOIN dbo.Organizations org ON org.OrganizationId = o.OrganizationId
     JOIN dbo.Warehouses    w   ON w.WarehouseId      = o.WarehouseId
+    JOIN dbo.OrderStatuses os  ON os.OrderStatusId    = o.OrderStatusId
     WHERE o.OrderToken = @OrderToken;
 END;
 GO

@@ -30,7 +30,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Create
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
     @IsGlobal           BIT,
-    @SupplierType       VARCHAR(20),
+    @SupplierTypeId     INT,
     @HasAccessToSystem  BIT,
     @IsActive           BIT,
     @IsDeleted          BIT,
@@ -45,23 +45,24 @@ BEGIN
     (
         SupplierToken, Name, NormalizedName, LegalName, TaxId,
         Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, SupplierType, HasAccessToSystem, IsActive, IsDeleted,
+        PostalCode, Country, IsGlobal, SupplierTypeId, HasAccessToSystem, IsActive, IsDeleted,
         CreatedUtc, CreatedBy
     )
     VALUES
     (
         @SupplierToken, @Name, @NormalizedName, @LegalName, @TaxId,
         @Email, @Phone, @AddressLine1, @AddressLine2, @City, @State,
-        @PostalCode, @Country, @IsGlobal, @SupplierType, @HasAccessToSystem, @IsActive, @IsDeleted,
+        @PostalCode, @Country, @IsGlobal, @SupplierTypeId, @HasAccessToSystem, @IsActive, @IsDeleted,
         @CreatedUtc, @CreatedBy
     );
 
     SELECT
-        SupplierId, SupplierToken, Name, NormalizedName, LegalName, TaxId,
-        Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, SupplierType, HasAccessToSystem, IsActive, IsDeleted,
-        CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
-    FROM dbo.Suppliers
-    WHERE SupplierToken = @SupplierToken;
+        s.SupplierId, s.SupplierToken, s.Name, s.NormalizedName, s.LegalName, s.TaxId,
+        s.Email, s.Phone, s.AddressLine1, s.AddressLine2, s.City, s.State,
+        s.PostalCode, s.Country, s.IsGlobal, st.Code AS SupplierType, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
+        s.CreatedUtc, s.CreatedBy, s.LastUpdatedUtc, s.LastUpdatedBy, s.DeletedUtc, s.DeletedBy
+    FROM dbo.Suppliers s
+    JOIN dbo.SupplierTypes st ON st.SupplierTypeId = s.SupplierTypeId
+    WHERE s.SupplierToken = @SupplierToken;
 END;
 GO

@@ -25,7 +25,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Supplier_Update
     @PostalCode     VARCHAR(50)  = NULL,
     @Country        VARCHAR(100) = NULL,
     @IsGlobal           BIT,
-    @SupplierType       VARCHAR(20),
+    @SupplierTypeId     INT,
     @HasAccessToSystem  BIT,
     @LastUpdatedUtc     DATETIME2(7),
     @LastUpdatedBy      VARCHAR(150) = NULL
@@ -49,7 +49,7 @@ BEGIN
         PostalCode         = @PostalCode,
         Country            = @Country,
         IsGlobal           = @IsGlobal,
-        SupplierType       = @SupplierType,
+        SupplierTypeId     = @SupplierTypeId,
         HasAccessToSystem  = @HasAccessToSystem,
         LastUpdatedUtc     = @LastUpdatedUtc,
         LastUpdatedBy      = @LastUpdatedBy
@@ -57,11 +57,12 @@ BEGIN
       AND IsDeleted = 0;
 
     SELECT
-        SupplierId, SupplierToken, Name, NormalizedName, LegalName, TaxId,
-        Email, Phone, AddressLine1, AddressLine2, City, State,
-        PostalCode, Country, IsGlobal, SupplierType, HasAccessToSystem, IsActive, IsDeleted,
-        CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy
-    FROM dbo.Suppliers
-    WHERE SupplierToken = @SupplierToken;
+        s.SupplierId, s.SupplierToken, s.Name, s.NormalizedName, s.LegalName, s.TaxId,
+        s.Email, s.Phone, s.AddressLine1, s.AddressLine2, s.City, s.State,
+        s.PostalCode, s.Country, s.IsGlobal, st.Code AS SupplierType, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
+        s.CreatedUtc, s.CreatedBy, s.LastUpdatedUtc, s.LastUpdatedBy, s.DeletedUtc, s.DeletedBy
+    FROM dbo.Suppliers s
+    JOIN dbo.SupplierTypes st ON st.SupplierTypeId = s.SupplierTypeId
+    WHERE s.SupplierToken = @SupplierToken;
 END;
 GO

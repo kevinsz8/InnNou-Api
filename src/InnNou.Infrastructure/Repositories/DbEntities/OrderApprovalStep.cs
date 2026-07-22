@@ -1,3 +1,5 @@
+using InnNou.Application.Common;
+
 namespace InnNou.Infrastructure.Repositories.DbEntities
 {
     public class OrderApprovalStep
@@ -19,7 +21,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int ApproverUserId { get; set; }
         public Guid ApproverUserToken { get; set; }
         public string ApproverName { get; set; } = default!;
-        public string Status { get; set; } = default!;
+        public OrderApprovalStepStatus Status { get; set; }
         public DateTime? DecidedUtc { get; set; }
         public string? DecidedBy { get; set; }
         public string? RejectionReason { get; set; }

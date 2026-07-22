@@ -1,3 +1,5 @@
+using InnNou.Application.Common;
+
 namespace InnNou.Infrastructure.Repositories.DbEntities
 {
     public class PurchaseOrder
@@ -13,7 +15,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int WarehouseId { get; set; }
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }
-        public string Status { get; set; } = default!;
+        public PurchaseOrderStatus Status { get; set; }
         public DateTime SentUtc { get; set; }
         public DateTime? CancelledUtc { get; set; }
         public string? CancelledBy { get; set; }

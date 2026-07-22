@@ -13,7 +13,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Order_GetPaged
 (
     @RootOrganizationId INT          = NULL,
     @WarehouseId        INT          = NULL,
-    @Status             VARCHAR(20)  = NULL,
+    @StatusId            INT         = NULL,
     @PageNumber         INT,
     @PageSize           INT
 )
@@ -36,18 +36,19 @@ BEGIN
     SELECT
         o.OrderId, o.OrderToken, o.OrganizationId, org.OrganizationToken,
         o.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        o.Status, o.Notes, o.SubmittedUtc,
+        os.Code AS Status, o.Notes, o.SubmittedUtc,
         o.CreatedUtc, o.CreatedBy, o.LastUpdatedUtc, o.LastUpdatedBy,
         lc.LineCount,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.[Order] o
     JOIN dbo.Organizations org ON org.OrganizationId = o.OrganizationId
     JOIN dbo.Warehouses    w   ON w.WarehouseId      = o.WarehouseId
+    JOIN dbo.OrderStatuses os  ON os.OrderStatusId    = o.OrderStatusId
     CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.OrderLine ol WHERE ol.OrderId = o.OrderId) lc
     WHERE
         (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = o.OrganizationId))
         AND (@WarehouseId IS NULL OR o.WarehouseId = @WarehouseId)
-        AND (@Status IS NULL OR o.Status = @Status)
+        AND (@StatusId IS NULL OR o.OrderStatusId = @StatusId)
     ORDER BY o.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

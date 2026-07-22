@@ -8,10 +8,10 @@ BEGIN
     SET NOCOUNT ON;
 
     UPDATE OrderApprovalSteps
-    SET    Status     = 'CANCELLED',
-           DecidedUtc = SYSUTCDATETIME(),
-           DecidedBy  = @DecidedBy
+    SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'CANCELLED'),
+           DecidedUtc                = SYSUTCDATETIME(),
+           DecidedBy                 = @DecidedBy
     WHERE  OrderId = @OrderId
-      AND  Status  = 'PENDING';
+      AND  OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'PENDING');
 END;
 GO

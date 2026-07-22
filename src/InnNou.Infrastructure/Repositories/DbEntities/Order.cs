@@ -1,3 +1,5 @@
+using InnNou.Application.Common;
+
 namespace InnNou.Infrastructure.Repositories.DbEntities
 {
     public class Order
@@ -9,7 +11,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int WarehouseId { get; set; }
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }
-        public string Status { get; set; } = default!;
+        public OrderStatus Status { get; set; }
         public string? Notes { get; set; }
         public DateTime? SubmittedUtc { get; set; }
         public DateTime CreatedUtc { get; set; }

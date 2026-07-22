@@ -448,7 +448,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
                 ArticleToken = line.ArticleToken,
                 ArticleName = line.ArticleName,
                 SupplierName = line.SupplierName,
-                SupplierType = line.SupplierType,
+                SupplierType = line.SupplierType.HasValue ? SupplierTypeCodes.ToCode(line.SupplierType.Value) : null,
                 Quantity = line.Quantity
             };
 

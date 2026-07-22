@@ -1,3 +1,4 @@
+using InnNou.Application.Common;
 using InnNou.Domain.Dtos;
 using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
@@ -157,7 +158,7 @@ namespace InnNou.Infrastructure.Mapping
                 ApproverUserId = s.ApproverUserId,
                 ApproverUserToken = s.ApproverUserToken,
                 ApproverName = s.ApproverName,
-                Status = s.Status,
+                Status = OrderApprovalStepStatusCodes.ToCode(s.Status),
                 DecidedUtc = s.DecidedUtc,
                 DecidedBy = s.DecidedBy,
                 RejectionReason = s.RejectionReason,
@@ -211,7 +212,7 @@ namespace InnNou.Infrastructure.Mapping
                 PostalCode = s.PostalCode,
                 Country = s.Country,
                 IsGlobal = s.IsGlobal,
-                SupplierType = s.SupplierType,
+                SupplierType = SupplierTypeCodes.ToCode(s.SupplierType),
                 HasAccessToSystem = s.HasAccessToSystem,
                 IsActive = s.IsActive,
                 IsDeleted = s.IsDeleted,
@@ -300,7 +301,7 @@ namespace InnNou.Infrastructure.Mapping
                 ArticleToken = e.ArticleToken,
                 SupplierId = e.SupplierId,
                 SupplierName = e.SupplierName,
-                SupplierType = e.SupplierType,
+                SupplierType = e.SupplierType.HasValue ? SupplierTypeCodes.ToCode(e.SupplierType.Value) : null,
                 Name = e.Name,
                 NormalizedName = e.NormalizedName,
                 Description = e.Description,
@@ -547,7 +548,7 @@ namespace InnNou.Infrastructure.Mapping
                 WarehouseId = e.WarehouseId,
                 WarehouseToken = e.WarehouseToken,
                 WarehouseName = e.WarehouseName,
-                Status = e.Status,
+                Status = OrderStatusCodes.ToCode(e.Status),
                 Notes = e.Notes,
                 SubmittedUtc = e.SubmittedUtc,
                 CreatedUtc = e.CreatedUtc,
@@ -570,7 +571,7 @@ namespace InnNou.Infrastructure.Mapping
                 WarehouseId = e.WarehouseId,
                 WarehouseToken = e.WarehouseToken,
                 WarehouseName = e.WarehouseName,
-                Status = e.Status,
+                Status = PurchaseOrderStatusCodes.ToCode(e.Status),
                 SentUtc = e.SentUtc,
                 CancelledUtc = e.CancelledUtc,
                 CancelledBy = e.CancelledBy,
@@ -591,7 +592,7 @@ namespace InnNou.Infrastructure.Mapping
                 SupplierId = e.SupplierId,
                 SupplierName = e.SupplierName,
                 SupplierSku = e.SupplierSku,
-                SupplierType = e.SupplierType,
+                SupplierType = e.SupplierType.HasValue ? SupplierTypeCodes.ToCode(e.SupplierType.Value) : null,
                 PurchaseUnitId = e.PurchaseUnitId,
                 PurchaseUnitCode = e.PurchaseUnitCode,
                 PurchaseUnitSymbol = e.PurchaseUnitSymbol,

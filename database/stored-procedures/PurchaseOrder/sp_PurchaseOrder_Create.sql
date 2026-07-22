@@ -22,9 +22,9 @@ BEGIN
     SET NOCOUNT ON;
 
     INSERT INTO dbo.PurchaseOrder
-        (PurchaseOrderToken, OrderId, SupplierId, OrganizationId, WarehouseId, Status, CreatedBy)
+        (PurchaseOrderToken, OrderId, SupplierId, OrganizationId, WarehouseId, PurchaseOrderStatusId, CreatedBy)
     VALUES
-        (@PurchaseOrderToken, @OrderId, @SupplierId, @OrganizationId, @WarehouseId, 'SENT', @CreatedBy);
+        (@PurchaseOrderToken, @OrderId, @SupplierId, @OrganizationId, @WarehouseId, (SELECT PurchaseOrderStatusId FROM dbo.PurchaseOrderStatuses WHERE Code = 'SENT'), @CreatedBy);
 
     SELECT
         po.PurchaseOrderId, po.PurchaseOrderToken,
@@ -32,13 +32,14 @@ BEGIN
         po.SupplierId, s.Name AS SupplierName,
         po.OrganizationId, org.OrganizationToken,
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        po.Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
+        pos.Code AS Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
         po.CreatedUtc, po.CreatedBy
     FROM dbo.PurchaseOrder po
-    JOIN dbo.[Order] ord        ON ord.OrderId        = po.OrderId
-    JOIN dbo.Suppliers s        ON s.SupplierId       = po.SupplierId
-    JOIN dbo.Organizations org  ON org.OrganizationId = po.OrganizationId
-    JOIN dbo.Warehouses w       ON w.WarehouseId      = po.WarehouseId
+    JOIN dbo.[Order] ord              ON ord.OrderId        = po.OrderId
+    JOIN dbo.Suppliers s              ON s.SupplierId       = po.SupplierId
+    JOIN dbo.Organizations org        ON org.OrganizationId = po.OrganizationId
+    JOIN dbo.Warehouses w             ON w.WarehouseId      = po.WarehouseId
+    JOIN dbo.PurchaseOrderStatuses pos ON pos.PurchaseOrderStatusId = po.PurchaseOrderStatusId
     WHERE po.PurchaseOrderToken = @PurchaseOrderToken;
 END;
 GO

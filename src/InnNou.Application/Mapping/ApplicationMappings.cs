@@ -1119,6 +1119,23 @@ namespace InnNou.Application.Mapping
                 FailureCount = d.FailureCount,
                 Errors = mapper.MapList<ImportOrderLinesRowError>(d.Errors)
             });
+
+            // CopyOrder result (Orders module — copy a SUBMITTED order into a new Draft)
+            mapper.Register<CopyOrderSkippedLineDto, CopyOrderSkippedLineResponse>(d => new CopyOrderSkippedLineResponse
+            {
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<CopyOrderResultDto, CopyOrderCommandResponse>(d => new CopyOrderCommandResponse
+            {
+                NewOrderToken = d.NewOrderToken,
+                TotalLines = d.TotalLines,
+                CopiedCount = d.CopiedCount,
+                SkippedCount = d.SkippedCount,
+                SkippedLines = mapper.MapList<CopyOrderSkippedLineResponse>(d.SkippedLines)
+            });
         }
     }
 }

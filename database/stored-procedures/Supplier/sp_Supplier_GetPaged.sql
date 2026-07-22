@@ -63,7 +63,7 @@ BEGIN
         s.PostalCode,
         s.Country,
         s.IsGlobal,
-        s.SupplierType,
+        st.Code AS SupplierType,
         s.HasAccessToSystem,
         s.IsActive,
         s.IsDeleted,
@@ -77,6 +77,7 @@ BEGIN
         s.DeletedBy,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.Suppliers s
+    JOIN dbo.SupplierTypes st ON st.SupplierTypeId = s.SupplierTypeId
     OUTER APPLY (
         SELECT TOP (1) o.OrganizationToken, o.Name
         FROM dbo.OrganizationSuppliers os

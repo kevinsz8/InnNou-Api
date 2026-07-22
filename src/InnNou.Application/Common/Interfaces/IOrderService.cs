@@ -12,6 +12,13 @@ namespace InnNou.Application.Common.Interfaces
         Task<OrderLineDto?> EditLineAsync(Guid orderLineToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteLineAsync(Guid orderLineToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> SubmitAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
+
+        // Creates a new Draft order for the same Warehouse, re-adding every line of a SUBMITTED
+        // source order via the existing AddLineAsync (so each line's price is re-resolved fresh,
+        // never copied stale). A line whose article can no longer be added (inactive/deleted/
+        // superseded/no price) is skipped and reported, never aborting the whole copy — same
+        // partial-failure convention as ImportLinesAsync.
+        Task<CopyOrderResultDto> CopyAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> CancelAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
 

@@ -258,7 +258,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                     PostalCode = dto.PostalCode,
                     Country = dto.Country,
                     IsGlobal = isGlobal,
-                    SupplierType = dto.SupplierType ?? SupplierTypeCodes.Product,
+                    SupplierTypeId = (int)SupplierTypeCodes.FromCode(dto.SupplierType ?? SupplierTypeCodes.Product),
                     HasAccessToSystem = hasAccess,
                     IsActive = true,
                     IsDeleted = false,
@@ -466,7 +466,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             PostalCode = dto.PostalCode ?? existing.PostalCode,
             Country = dto.Country ?? existing.Country,
             IsGlobal = newIsGlobal,
-            SupplierType = dto.SupplierType ?? existing.SupplierType,
+            SupplierTypeId = (int)(dto.SupplierType is not null ? SupplierTypeCodes.FromCode(dto.SupplierType) : existing.SupplierType),
             HasAccessToSystem = newHasAccess,
             LastUpdatedUtc = DateTime.UtcNow,
             LastUpdatedBy = context.ActorUserToken.ToString()

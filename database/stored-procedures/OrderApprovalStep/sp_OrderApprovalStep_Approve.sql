@@ -13,27 +13,32 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    IF NOT EXISTS (SELECT 1 FROM OrderApprovalSteps WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND Status = 'PENDING')
+    IF NOT EXISTS (
+        SELECT 1 FROM OrderApprovalSteps s
+        JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
+        WHERE s.OrderApprovalStepToken = @OrderApprovalStepToken AND oass.Code = 'PENDING'
+    )
     BEGIN
         RAISERROR('ORDER_APPROVAL_STEP_ALREADY_DECIDED', 16, 1);
         RETURN;
     END
 
     UPDATE OrderApprovalSteps
-    SET    Status     = 'APPROVED',
-           DecidedUtc = SYSUTCDATETIME(),
-           DecidedBy  = @DecidedBy
+    SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'APPROVED'),
+           DecidedUtc                = SYSUTCDATETIME(),
+           DecidedBy                 = @DecidedBy
     WHERE  OrderApprovalStepToken = @OrderApprovalStepToken;
 
     SELECT
         s.OrderApprovalStepId, s.OrderApprovalStepToken, s.OrderId, ord.OrderToken,
         s.FamilyId, s.FamilyCode, s.Level, s.ThresholdAmount, s.ActualFamilyAmount, s.CurrencyCode,
         s.ApproverUserId, u.UserToken AS ApproverUserToken, u.FirstName + ' ' + u.LastName AS ApproverName,
-        s.Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
+        oass.Code AS Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
         s.CreatedUtc, s.CreatedBy
     FROM OrderApprovalSteps s
     JOIN [Order] ord ON ord.OrderId = s.OrderId
     JOIN Users u      ON u.UserId   = s.ApproverUserId
+    JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
     WHERE s.OrderApprovalStepToken = @OrderApprovalStepToken;
 END;
 GO

@@ -62,10 +62,11 @@ BEGIN
     (
         SELECT DISTINCT ord.OrganizationId
         FROM dbo.[Order] ord
+        JOIN dbo.OrderStatuses os ON os.OrderStatusId = ord.OrderStatusId
         JOIN dbo.OrderLine ol ON ol.OrderId = ord.OrderId
         JOIN dbo.Articles a   ON a.ArticleId = ol.ArticleId
         WHERE a.SupplierId = @SupplierId
-          AND ord.Status = 'DRAFT'
+          AND os.Code = 'DRAFT'
           AND ord.OrganizationId NOT IN (SELECT OrganizationId FROM RetainedOrganizations)
     ),
     ImpactedTemplateOrgs AS
