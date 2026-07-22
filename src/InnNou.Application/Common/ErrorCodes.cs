@@ -75,6 +75,8 @@ namespace InnNou.Application.Common
         public const string SupplierOrganizationNotFound = "SUPPLIER_ORGANIZATION_NOT_FOUND";
         public const string SupplierOwnershipChangeSuperadminOnly = "SUPPLIER_OWNERSHIP_CHANGE_SUPERADMIN_ONLY";
         public const string SupplierPrivatizationImpact = "SUPPLIER_PRIVATIZATION_IMPACT";
+        public const string SupplierLogoInvalidFile = "SUPPLIER_LOGO_INVALID_FILE";
+        public const string SupplierLogoTooLarge = "SUPPLIER_LOGO_TOO_LARGE";
 
         // Article
         public const string ArticleNotFound = "ARTICLE_NOT_FOUND";

@@ -64,6 +64,7 @@ BEGIN
         s.Country,
         s.IsGlobal,
         st.Code AS SupplierType,
+        s.LogoUrl,
         s.HasAccessToSystem,
         s.IsActive,
         s.IsDeleted,

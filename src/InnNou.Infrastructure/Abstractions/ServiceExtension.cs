@@ -38,6 +38,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IOrganizationService, OrganizationService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<ISupplierService, SupplierService>();
+            services.AddSingleton<ISupplierLogoStorage, LocalSupplierLogoStorage>();
 
             // Catalog services
             services.AddScoped<IUnitTypeService, UnitTypeService>();

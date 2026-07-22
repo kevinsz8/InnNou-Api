@@ -12,7 +12,7 @@ using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class SupplierService(IDbConnectionFactory connectionFactory, IMapper mapper) : ISupplierService
+public class SupplierService(IDbConnectionFactory connectionFactory, IMapper mapper, ISupplierLogoStorage logoStorage) : ISupplierService
 {
     private const string SupplierRoleNormalizedName = "SUPPLIER";
     private const string NoAccessEmailDomain = "@no-access.innou.internal";
@@ -337,6 +337,99 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         }
     }
 
+    // Ordinary-field edit authorization (name/contact info/logo, never IsGlobal/ownership/
+    // access) — see EditSupplierAsync's own comment on the deliberate read/write asymmetry this
+    // encodes. Shared by EditSupplierAsync and the logo upload/delete methods below.
+    private bool CanEditOrdinaryFields(IRequestContext context, int supplierId, int? currentOwnerOrganizationId)
+    {
+        var isOwnSupplierLogin = context.SupplierId.HasValue && context.SupplierId.Value == supplierId;
+        var isExactOwnerStaff = context.RoleLevel >= StaffRoleLevel
+            && currentOwnerOrganizationId.HasValue
+            && context.OrganizationId == currentOwnerOrganizationId;
+
+        return context.RoleLevel >= SuperAdminRoleLevel || isOwnSupplierLogin || isExactOwnerStaff;
+    }
+
+    private static bool IsValidImageSignature(Stream stream, string fileExtension)
+    {
+        if (!stream.CanSeek)
+            return true; // best-effort only; skip if the stream can't be rewound
+
+        var header = new byte[12];
+        var originalPosition = stream.Position;
+        stream.Position = 0;
+        var bytesRead = stream.Read(header, 0, header.Length);
+        stream.Position = originalPosition;
+
+        if (bytesRead < 4)
+            return false;
+
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".png" => header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47,
+            ".jpg" or ".jpeg" => header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF,
+            ".webp" => bytesRead >= 12
+                && header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46 // "RIFF"
+                && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50, // "WEBP"
+            _ => false
+        };
+    }
+
+    public async Task<SupplierDto?> UploadLogoAsync(Guid supplierToken, Stream fileStream, string fileExtension, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<Supplier>(
+            "sp_Supplier_GetByToken", new { SupplierToken = supplierToken }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        var currentOwner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+            "sp_OrganizationSupplier_GetActiveBySupplierId", new { SupplierId = existing.SupplierId }, commandType: CommandType.StoredProcedure);
+
+        if (!CanEditOrdinaryFields(context, existing.SupplierId, currentOwner?.OrganizationId))
+            throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
+
+        if (!IsValidImageSignature(fileStream, fileExtension))
+            throw new ApiException(ErrorCodes.SupplierLogoInvalidFile, "The uploaded file is not a valid PNG, JPEG, or WEBP image.", 400);
+
+        var logoUrl = await logoStorage.SaveAsync(supplierToken, fileStream, fileExtension, cancellationToken);
+
+        var updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
+            "sp_Supplier_SetLogoUrl",
+            new { SupplierToken = supplierToken, LogoUrl = logoUrl, LastUpdatedUtc = DateTime.UtcNow, LastUpdatedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        return updated is null ? null : mapper.Map<SupplierDto>(updated);
+    }
+
+    public async Task<SupplierDto?> DeleteLogoAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<Supplier>(
+            "sp_Supplier_GetByToken", new { SupplierToken = supplierToken }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        var currentOwner = await connection.QueryFirstOrDefaultAsync<OrganizationSupplier>(
+            "sp_OrganizationSupplier_GetActiveBySupplierId", new { SupplierId = existing.SupplierId }, commandType: CommandType.StoredProcedure);
+
+        if (!CanEditOrdinaryFields(context, existing.SupplierId, currentOwner?.OrganizationId))
+            throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
+
+        await logoStorage.DeleteAsync(supplierToken, cancellationToken);
+
+        var updated = await connection.QueryFirstOrDefaultAsync<Supplier>(
+            "sp_Supplier_SetLogoUrl",
+            new { SupplierToken = supplierToken, LogoUrl = (string?)null, LastUpdatedUtc = DateTime.UtcNow, LastUpdatedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        return updated is null ? null : mapper.Map<SupplierDto>(updated);
+    }
+
     public async Task<SupplierDto?> EditSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -420,12 +513,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             // edit a child's private supplier's name/contact info; only SuperAdmin or that exact
             // organization's own Staff+ can. Do not "fix" this to match Warehouse/OrderTemplate's
             // symmetric read=write hierarchy scoping — it's intentional here.
-            var isOwnSupplierLogin = context.SupplierId.HasValue && context.SupplierId.Value == existing.SupplierId;
-            var isExactOwnerStaff = context.RoleLevel >= StaffRoleLevel
-                && currentOwnerOrganizationId.HasValue
-                && context.OrganizationId == currentOwnerOrganizationId;
-
-            if (context.RoleLevel < SuperAdminRoleLevel && !isOwnSupplierLogin && !isExactOwnerStaff)
+            if (!CanEditOrdinaryFields(context, existing.SupplierId, currentOwnerOrganizationId))
                 throw new ApiException(ErrorCodes.SupplierOutsideScope, "Cannot edit another supplier.", 403);
         }
 

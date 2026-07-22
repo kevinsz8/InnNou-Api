@@ -213,6 +213,7 @@ namespace InnNou.Infrastructure.Mapping
                 Country = s.Country,
                 IsGlobal = s.IsGlobal,
                 SupplierType = SupplierTypeCodes.ToCode(s.SupplierType),
+                LogoUrl = s.LogoUrl,
                 HasAccessToSystem = s.HasAccessToSystem,
                 IsActive = s.IsActive,
                 IsDeleted = s.IsDeleted,

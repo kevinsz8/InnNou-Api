@@ -59,7 +59,7 @@ BEGIN
     SELECT
         s.SupplierId, s.SupplierToken, s.Name, s.NormalizedName, s.LegalName, s.TaxId,
         s.Email, s.Phone, s.AddressLine1, s.AddressLine2, s.City, s.State,
-        s.PostalCode, s.Country, s.IsGlobal, st.Code AS SupplierType, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
+        s.PostalCode, s.Country, s.IsGlobal, st.Code AS SupplierType, s.LogoUrl, s.HasAccessToSystem, s.IsActive, s.IsDeleted,
         s.CreatedUtc, s.CreatedBy, s.LastUpdatedUtc, s.LastUpdatedBy, s.DeletedUtc, s.DeletedBy
     FROM dbo.Suppliers s
     JOIN dbo.SupplierTypes st ON st.SupplierTypeId = s.SupplierTypeId

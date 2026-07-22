@@ -29,6 +29,13 @@ namespace InnNou.API.Endpoints
             group.MapPost("/deleteSupplier", HandleDeleteSupplier)
                 .Produces<ApiResponse<DeleteSupplierCommandResponse>>(200);
 
+            group.MapPost("/uploadLogo", HandleUploadLogo)
+                .Produces<ApiResponse<UploadSupplierLogoCommandResponse>>(200)
+                .DisableAntiforgery();
+
+            group.MapPost("/deleteLogo", HandleDeleteLogo)
+                .Produces<ApiResponse<DeleteSupplierLogoCommandResponse>>(200);
+
             group.MapPost("/exportSuppliers", HandleExportSuppliers);
 
             group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
@@ -76,6 +83,47 @@ namespace InnNou.API.Endpoints
 
         private static async Task<IResult> HandleDeleteSupplier(
             [FromBody] DeleteSupplierCommandRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> HandleUploadLogo(
+            HttpRequest httpRequest,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            // Kestrel disables synchronous I/O by default — ReadFormAsync is the async-safe way
+            // to bind multipart form data (same pattern as bulkImportSuppliers).
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files["file"];
+
+            if (file is null || file.Length == 0)
+            {
+                var failure = ApiResponse<UploadSupplierLogoCommandResponse>.FailureResponse(
+                    ErrorCodes.SupplierLogoInvalidFile, "No file was uploaded.", 400);
+                return Results.Json(failure, statusCode: 400);
+            }
+
+            if (!Guid.TryParse(form["supplierToken"], out var supplierToken))
+            {
+                var failure = ApiResponse<UploadSupplierLogoCommandResponse>.FailureResponse(
+                    ErrorCodes.InvalidRequest, "supplierToken is required.", 400);
+                return Results.Json(failure, statusCode: 400);
+            }
+
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream, ct);
+
+            var request = new UploadSupplierLogoCommandRequest { SupplierToken = supplierToken, FileBytes = memoryStream.ToArray(), FileName = file.FileName };
+            var result = await mediator.Send(request, ct);
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> HandleDeleteLogo(
+            [FromBody] DeleteSupplierLogoCommandRequest request,
             IMediator mediator,
             CancellationToken ct)
         {

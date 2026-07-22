@@ -17,6 +17,11 @@ namespace InnNou.Domain.Dtos
         public string? Country { get; set; }
         public bool? IsGlobal { get; set; }
         public string? SupplierType { get; set; }
+
+        // Read-only, denormalized — the actual image file lives on local disk (see CLAUDE.md's
+        // "Supplier logo" note), set only via UploadLogoAsync/DeleteLogoAsync, never accepted as
+        // input on Create/Edit.
+        public string? LogoUrl { get; set; }
         public bool? HasAccessToSystem { get; set; }
         public string? LoginEmail { get; set; }
         public string? Password { get; set; }

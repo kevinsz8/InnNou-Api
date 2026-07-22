@@ -17,6 +17,7 @@ namespace InnNou.Application.Responses.Common
         public string? Country { get; set; }
         public bool IsGlobal { get; set; }
         public string SupplierType { get; set; } = default!;
+        public string? LogoUrl { get; set; }
         public bool HasAccessToSystem { get; set; }
         public bool IsActive { get; set; }
         public Guid? OrganizationToken { get; set; }

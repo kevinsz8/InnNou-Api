@@ -5,6 +5,7 @@ using InnNou.Infrastructure.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Security.Claims;
@@ -171,7 +172,16 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 app.UseCors();
 
-
+// Supplier logos — served straight off local disk (see CLAUDE.md's "Supplier logo" note),
+// deliberately unauthenticated (same as any other public brand-image asset an <img> tag needs
+// to load without attaching a JWT). Physical folder must match LocalSupplierLogoStorage exactly.
+var supplierLogosPath = SupplierLogoPaths.ResolvePhysicalBasePath(builder.Configuration);
+Directory.CreateDirectory(supplierLogosPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(supplierLogosPath),
+    RequestPath = SupplierLogoPaths.PublicUrlPrefix
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
