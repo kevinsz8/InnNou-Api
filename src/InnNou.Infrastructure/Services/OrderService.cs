@@ -661,12 +661,12 @@ public class OrderService(
                 if (string.IsNullOrWhiteSpace(purchaseOrder.SupplierEmail))
                     continue;
 
-                var supplierPdf = OrderConfirmationDocument.BuildSupplierPdf(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode);
+                var supplierPdf = OrderConfirmationDocument.BuildSupplierPdf(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", purchaseOrder.PurchaseOrderNumber, supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode);
                 await emailSender.SendAsync(new EmailMessage
                 {
                     ToAddress = purchaseOrder.SupplierEmail,
                     Subject = $"{OrderConfirmationLocalization.Label("NewPurchaseOrderHeading", purchaseOrder.SupplierLanguageCode)} — {organizationName}",
-                    HtmlBody = OrderConfirmationEmailContent.BuildSupplierEmailHtml(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode),
+                    HtmlBody = OrderConfirmationEmailContent.BuildSupplierEmailHtml(updatedOrder, organizationName, purchaseOrder.SupplierName ?? "Supplier", purchaseOrder.PurchaseOrderNumber, supplierLines, warehouseInfo, purchaseOrder.SupplierLanguageCode),
                     Attachments = [new EmailAttachment { FileName = "purchase-order.pdf", Content = supplierPdf }]
                 }, cancellationToken);
             }

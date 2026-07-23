@@ -617,6 +617,7 @@ namespace InnNou.Infrastructure.Mapping
             {
                 PurchaseOrderId = e.PurchaseOrderId,
                 PurchaseOrderToken = e.PurchaseOrderToken,
+                PurchaseOrderNumber = e.PurchaseOrderNumber,
                 OrderId = e.OrderId,
                 OrderToken = e.OrderToken,
                 SupplierId = e.SupplierId,

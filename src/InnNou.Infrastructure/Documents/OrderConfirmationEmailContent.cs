@@ -16,11 +16,14 @@ namespace InnNou.Infrastructure.Documents
         public static string BuildBuyerEmailHtml(Order order, string organizationName, List<OrderLine> lines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
             => Render(order, organizationName, OrderConfirmationLocalization.Label("OrderConfirmedHeading", languageCode), OrderConfirmationData.GroupBySupplier(lines), OrderConfirmationData.TotalsByCurrency(lines), warehouseInfo, languageCode);
 
-        public static string BuildSupplierEmailHtml(Order order, string organizationName, string supplierName, List<OrderLine> supplierLines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
+        // Shows the real PurchaseOrderNumber (PO-2026-00042) instead of the Order's own token
+        // slice — same reasoning as OrderConfirmationDocument.BuildSupplierPdf: the supplier
+        // should reference the number they actually received, not an internal cart-level id.
+        public static string BuildSupplierEmailHtml(Order order, string organizationName, string supplierName, string purchaseOrderNumber, List<OrderLine> supplierLines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
         {
             var totals = OrderConfirmationData.TotalsByCurrency(supplierLines);
             var group = new OrderConfirmationData.SupplierGroup { SupplierName = supplierName, Lines = supplierLines, SubtotalsByCurrency = totals };
-            return Render(order, organizationName, OrderConfirmationLocalization.Label("NewPurchaseOrderHeading", languageCode), [group], totals, warehouseInfo, languageCode);
+            return Render(order, organizationName, OrderConfirmationLocalization.Label("NewPurchaseOrderHeading", languageCode), [group], totals, warehouseInfo, languageCode, purchaseOrderNumber);
         }
 
         // Every header fact is a labeled row (Order #/Date/Organization/Warehouse/Address/
@@ -40,9 +43,9 @@ namespace InnNou.Infrastructure.Documents
                 """);
         }
 
-        private static string Render(Order order, string organizationName, string heading, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode)
+        private static string Render(Order order, string organizationName, string heading, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode, string? referenceOverride = null)
         {
-            var orderReference = order.OrderToken.ToString()[..8].ToUpperInvariant();
+            var orderReference = referenceOverride ?? order.OrderToken.ToString()[..8].ToUpperInvariant();
             var submittedUtc = order.SubmittedUtc ?? DateTime.UtcNow;
 
             var sb = new StringBuilder();

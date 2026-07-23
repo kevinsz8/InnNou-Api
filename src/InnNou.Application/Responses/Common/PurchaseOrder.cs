@@ -3,6 +3,7 @@ namespace InnNou.Application.Responses.Common
     public class PurchaseOrder
     {
         public Guid PurchaseOrderToken { get; set; }
+        public string PurchaseOrderNumber { get; set; } = default!;
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }
         public string? SupplierName { get; set; }

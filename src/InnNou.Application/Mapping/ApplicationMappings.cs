@@ -1173,6 +1173,7 @@ namespace InnNou.Application.Mapping
             mapper.Register<PurchaseOrderDto, CommonPurchaseOrder>(d => new CommonPurchaseOrder
             {
                 PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
                 OrderToken = d.OrderToken,
                 SupplierId = d.SupplierId,
                 SupplierName = d.SupplierName,

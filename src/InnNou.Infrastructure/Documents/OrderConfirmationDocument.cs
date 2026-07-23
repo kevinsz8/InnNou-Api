@@ -19,15 +19,20 @@ namespace InnNou.Infrastructure.Documents
         public static byte[] BuildFullOrderPdf(Order order, string organizationName, List<OrderLine> lines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
             => Render(order, organizationName, OrderConfirmationLocalization.Label("OrderConfirmationTitle", languageCode), OrderConfirmationData.GroupBySupplier(lines), OrderConfirmationData.TotalsByCurrency(lines), warehouseInfo, languageCode);
 
-        public static byte[] BuildSupplierPdf(Order order, string organizationName, string supplierName, List<OrderLine> supplierLines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
+        // Shows the real PurchaseOrderNumber (PO-2026-00042) instead of the Order's own token
+        // slice — this is what the supplier actually receives, and what they should reference
+        // back in a call/email about it, not an internal cart-level identifier they never see
+        // anywhere else.
+        public static byte[] BuildSupplierPdf(Order order, string organizationName, string supplierName, string purchaseOrderNumber, List<OrderLine> supplierLines, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode = "en")
         {
             var totals = OrderConfirmationData.TotalsByCurrency(supplierLines);
             var group = new OrderConfirmationData.SupplierGroup { SupplierName = supplierName, Lines = supplierLines, SubtotalsByCurrency = totals };
-            return Render(order, organizationName, OrderConfirmationLocalization.Label("PurchaseOrderTitle", languageCode), [group], totals, warehouseInfo, languageCode);
+            return Render(order, organizationName, OrderConfirmationLocalization.Label("PurchaseOrderTitle", languageCode), [group], totals, warehouseInfo, languageCode, purchaseOrderNumber);
         }
 
-        private static byte[] Render(Order order, string organizationName, string title, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode)
+        private static byte[] Render(Order order, string organizationName, string title, List<OrderConfirmationData.SupplierGroup> groups, Dictionary<string, decimal> grandTotals, OrderConfirmationData.WarehouseHeaderInfo? warehouseInfo, string? languageCode, string? referenceOverride = null)
         {
+            var orderReference = referenceOverride ?? order.OrderToken.ToString()[..8].ToUpperInvariant();
             var document = Document.Create(container =>
             {
                 container.Page(page =>
@@ -46,7 +51,7 @@ namespace InnNou.Infrastructure.Documents
                         // Contact/Phone/Email join the header, each value needs its own label to
                         // stay unambiguous. Rows for data the warehouse doesn't have on file are
                         // skipped entirely (LabeledLine no-ops on a blank value).
-                        LabeledLine(col, OrderConfirmationLocalization.Label("OrderNumberLabel", languageCode), order.OrderToken.ToString()[..8].ToUpperInvariant());
+                        LabeledLine(col, OrderConfirmationLocalization.Label("OrderNumberLabel", languageCode), orderReference);
                         LabeledLine(col, OrderConfirmationLocalization.Label("DateLabel", languageCode), $"{(order.SubmittedUtc ?? DateTime.UtcNow):yyyy-MM-dd HH:mm} UTC");
                         LabeledLine(col, OrderConfirmationLocalization.Label("OrganizationLabel", languageCode), organizationName);
                         LabeledLine(col, OrderConfirmationLocalization.Label("WarehouseLabel", languageCode), order.WarehouseName);

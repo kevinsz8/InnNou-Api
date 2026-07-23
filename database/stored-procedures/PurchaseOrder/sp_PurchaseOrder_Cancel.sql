@@ -34,7 +34,7 @@ BEGIN
     WHERE PurchaseOrderToken = @PurchaseOrderToken;
 
     SELECT
-        po.PurchaseOrderId, po.PurchaseOrderToken,
+        po.PurchaseOrderId, po.PurchaseOrderToken, po.PurchaseOrderNumber,
         po.OrderId, ord.OrderToken,
         po.SupplierId, s.Name AS SupplierName,
         po.OrganizationId, org.OrganizationToken,

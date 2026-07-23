@@ -4,6 +4,7 @@ namespace InnNou.Domain.Dtos
     {
         public int PurchaseOrderId { get; set; }
         public Guid PurchaseOrderToken { get; set; }
+        public string PurchaseOrderNumber { get; set; } = default!;
         public int OrderId { get; set; }
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }

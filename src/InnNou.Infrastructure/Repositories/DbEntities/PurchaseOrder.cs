@@ -6,6 +6,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
     {
         public int PurchaseOrderId { get; set; }
         public Guid PurchaseOrderToken { get; set; }
+
+        // Human-readable sequential number (PO-{Year}-{5-digit number}), assigned atomically at
+        // creation time from PurchaseOrderNumberCounters — scoped per Organization per calendar
+        // year, frozen from then on. See 20260723_PurchaseOrders_AddSequentialNumber.sql.
+        public string PurchaseOrderNumber { get; set; } = default!;
         public int OrderId { get; set; }
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }
