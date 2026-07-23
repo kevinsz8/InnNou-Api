@@ -279,6 +279,14 @@ namespace InnNou.Application.Common
         public const string PurchaseOrderRectificationEmpty = "PURCHASE_ORDER_RECTIFICATION_EMPTY";
         public const string PurchaseOrderRectificationInvalidQuantity = "PURCHASE_ORDER_RECTIFICATION_INVALID_QUANTITY";
 
+        // ConsolidatedPurchaseOrder (multi-property spend consolidation)
+        public const string ConsolidatedPurchaseOrderNotFound = "CONSOLIDATED_PURCHASE_ORDER_NOT_FOUND";
+        public const string ConsolidatedPurchaseOrderForbidden = "CONSOLIDATED_PURCHASE_ORDER_FORBIDDEN";
+        public const string ConsolidatedPurchaseOrderOrganizationNotFound = "CONSOLIDATED_PURCHASE_ORDER_ORGANIZATION_NOT_FOUND";
+        public const string ConsolidatedPurchaseOrderInvalidDateRange = "CONSOLIDATED_PURCHASE_ORDER_INVALID_DATE_RANGE";
+        public const string ConsolidatedPurchaseOrderEmpty = "CONSOLIDATED_PURCHASE_ORDER_EMPTY";
+        public const string ConsolidatedPurchaseOrderInvalidMember = "CONSOLIDATED_PURCHASE_ORDER_INVALID_MEMBER";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 

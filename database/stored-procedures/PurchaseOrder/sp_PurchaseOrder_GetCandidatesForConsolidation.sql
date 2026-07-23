@@ -3,21 +3,20 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 /* =============================================================
-   PURCHASEORDER - GET PAGED
-   Two visibility branches, same shape as ArticleService's
-   supplier-vs-organization catalog rule: @SupplierId set scopes to
-   the owning supplier's own purchase orders; otherwise the
-   organization-hierarchy branch applies (@RootOrganizationId = NULL
-   is unrestricted, SuperAdmin only).
+   PURCHASEORDER - GET CANDIDATES FOR CONSOLIDATION
+   Finds SENT PurchaseOrders from any descendant ASSOCIATE property of
+   @SuperAssociateOrganizationId, for a given Supplier and date range,
+   that aren't already claimed by an existing ConsolidatedPurchaseOrder
+   — same hierarchy-descent CTE shape as sp_Organization_GetByToken/
+   sp_PurchaseOrder_GetPaged. Only SENT orders are real commitments
+   worth negotiating over; CANCELLED ones are excluded.
    ============================================================= */
-CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetPaged
+CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetCandidatesForConsolidation
 (
-    @RootOrganizationId INT          = NULL,
-    @SupplierId         INT          = NULL,
-    @OrderId            INT          = NULL,
-    @StatusId            INT         = NULL,
-    @PageNumber         INT,
-    @PageSize           INT
+    @SupplierId                   INT,
+    @SuperAssociateOrganizationId INT,
+    @DateFrom                     DATE,
+    @DateTo                       DATE
 )
 AS
 BEGIN
@@ -27,7 +26,7 @@ BEGIN
     (
         SELECT o.OrganizationId
         FROM dbo.Organizations o
-        WHERE o.OrganizationId = @RootOrganizationId
+        WHERE o.OrganizationId = @SuperAssociateOrganizationId
 
         UNION ALL
 
@@ -43,8 +42,7 @@ BEGIN
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         pos.Code AS Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
         po.CreatedUtc, po.CreatedBy,
-        lc.LineCount,
-        COUNT(*) OVER() AS TotalCount
+        lc.LineCount
     FROM dbo.PurchaseOrder po
     JOIN dbo.[Order] ord              ON ord.OrderId        = po.OrderId
     JOIN dbo.Suppliers s              ON s.SupplierId       = po.SupplierId
@@ -52,15 +50,11 @@ BEGIN
     JOIN dbo.Warehouses w             ON w.WarehouseId      = po.WarehouseId
     JOIN dbo.PurchaseOrderStatuses pos ON pos.PurchaseOrderStatusId = po.PurchaseOrderStatusId
     CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.PurchaseOrderLine pol WHERE pol.PurchaseOrderId = po.PurchaseOrderId) lc
-    WHERE
-        (
-            (@SupplierId IS NOT NULL AND po.SupplierId = @SupplierId)
-            OR (@SupplierId IS NULL AND (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = po.OrganizationId)))
-        )
-        AND (@OrderId IS NULL OR po.OrderId = @OrderId)
-        AND (@StatusId IS NULL OR po.PurchaseOrderStatusId = @StatusId)
-    ORDER BY po.CreatedUtc DESC
-    OFFSET (@PageNumber - 1) * @PageSize ROWS
-    FETCH NEXT @PageSize ROWS ONLY;
+    WHERE po.SupplierId = @SupplierId
+      AND pos.Code = 'SENT'
+      AND EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = po.OrganizationId)
+      AND CAST(po.SentUtc AS DATE) BETWEEN @DateFrom AND @DateTo
+      AND NOT EXISTS (SELECT 1 FROM dbo.ConsolidatedPurchaseOrderMembers m WHERE m.PurchaseOrderId = po.PurchaseOrderId)
+    ORDER BY org.Name, po.SentUtc;
 END;
 GO

@@ -29,6 +29,8 @@ using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Purcha
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
 using PurchaseOrderRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderRectification;
 using PurchaseOrderLineRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLineRectification;
+using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
+using ConsolidatedPurchaseOrderMemberEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrderMember;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
 using OrderTemplateLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplateLine;
 using CountryEntity = InnNou.Infrastructure.Repositories.DbEntities.Country;
@@ -624,6 +626,7 @@ namespace InnNou.Infrastructure.Mapping
                 SupplierName = e.SupplierName,
                 OrganizationId = e.OrganizationId,
                 OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
                 WarehouseId = e.WarehouseId,
                 WarehouseToken = e.WarehouseToken,
                 WarehouseName = e.WarehouseName,
@@ -634,6 +637,40 @@ namespace InnNou.Infrastructure.Mapping
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LineCount = e.LineCount
+            });
+
+            mapper.Register<ConsolidatedPurchaseOrderEntity, ConsolidatedPurchaseOrderDto>(e => new ConsolidatedPurchaseOrderDto
+            {
+                ConsolidatedPurchaseOrderToken = e.ConsolidatedPurchaseOrderToken,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                SuperAssociateOrganizationToken = e.SuperAssociateOrganizationToken,
+                SuperAssociateOrganizationName = e.SuperAssociateOrganizationName,
+                Title = e.Title,
+                Notes = e.Notes,
+                DateRangeFrom = e.DateRangeFrom,
+                DateRangeTo = e.DateRangeTo,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                MemberCount = e.MemberCount
+            });
+
+            mapper.Register<ConsolidatedPurchaseOrderMemberEntity, ConsolidatedPurchaseOrderMemberDto>(e => new ConsolidatedPurchaseOrderMemberDto
+            {
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                PurchaseOrderNumber = e.PurchaseOrderNumber,
+                OrderToken = e.OrderToken,
+                SupplierId = e.SupplierId,
+                SupplierName = e.SupplierName,
+                OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                Status = PurchaseOrderStatusCodes.ToCode(e.Status),
+                SentUtc = e.SentUtc,
+                LineCount = e.LineCount,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
             });
 
             mapper.Register<OrderTemplateLineEntity, OrderTemplateLineDto>(e => new OrderTemplateLineDto

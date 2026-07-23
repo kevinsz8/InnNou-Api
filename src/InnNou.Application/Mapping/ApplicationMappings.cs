@@ -30,6 +30,8 @@ using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
 using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
 using CommonPurchaseOrderRectification = InnNou.Application.Responses.Common.PurchaseOrderRectification;
 using CommonPurchaseOrderLineRectification = InnNou.Application.Responses.Common.PurchaseOrderLineRectification;
+using CommonConsolidatedPurchaseOrder = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrder;
+using CommonConsolidatedPurchaseOrderMember = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrderMember;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
 using CommonFamilyApprovalThreshold = InnNou.Application.Responses.Common.FamilyApprovalThreshold;
 using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
@@ -1178,6 +1180,7 @@ namespace InnNou.Application.Mapping
                 SupplierId = d.SupplierId,
                 SupplierName = d.SupplierName,
                 OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
                 WarehouseToken = d.WarehouseToken,
                 WarehouseName = d.WarehouseName,
                 Status = d.Status,
@@ -1187,6 +1190,43 @@ namespace InnNou.Application.Mapping
                 CreatedUtc = d.CreatedUtc,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonPurchaseOrderLine>(d.Lines)
+            });
+
+            // ConsolidatedPurchaseOrderMember (registered before ConsolidatedPurchaseOrder since
+            // it embeds a List<CommonConsolidatedPurchaseOrderMember>)
+            mapper.Register<ConsolidatedPurchaseOrderMemberDto, CommonConsolidatedPurchaseOrderMember>(d => new CommonConsolidatedPurchaseOrderMember
+            {
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                OrderToken = d.OrderToken,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                Status = d.Status,
+                SentUtc = d.SentUtc,
+                LineCount = d.LineCount,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<ConsolidatedPurchaseOrderDto, CommonConsolidatedPurchaseOrder>(d => new CommonConsolidatedPurchaseOrder
+            {
+                ConsolidatedPurchaseOrderToken = d.ConsolidatedPurchaseOrderToken,
+                SupplierId = d.SupplierId,
+                SupplierName = d.SupplierName,
+                SuperAssociateOrganizationToken = d.SuperAssociateOrganizationToken,
+                SuperAssociateOrganizationName = d.SuperAssociateOrganizationName,
+                Title = d.Title,
+                Notes = d.Notes,
+                DateRangeFrom = d.DateRangeFrom,
+                DateRangeTo = d.DateRangeTo,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                MemberCount = d.MemberCount,
+                Members = mapper.MapList<CommonConsolidatedPurchaseOrderMember>(d.Members)
             });
 
             // OrderTemplateLine (registered before OrderTemplate since it embeds a List<CommonOrderTemplateLine>)

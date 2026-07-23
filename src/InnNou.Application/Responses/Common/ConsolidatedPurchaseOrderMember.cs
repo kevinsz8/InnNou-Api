@@ -1,6 +1,6 @@
 namespace InnNou.Application.Responses.Common
 {
-    public class PurchaseOrder
+    public class ConsolidatedPurchaseOrderMember
     {
         public Guid PurchaseOrderToken { get; set; }
         public string PurchaseOrderNumber { get; set; } = default!;
@@ -13,10 +13,8 @@ namespace InnNou.Application.Responses.Common
         public string? WarehouseName { get; set; }
         public string Status { get; set; } = default!;
         public DateTime SentUtc { get; set; }
-        public DateTime? CancelledUtc { get; set; }
-        public string? CancelledBy { get; set; }
-        public DateTime CreatedUtc { get; set; }
         public int LineCount { get; set; }
-        public List<PurchaseOrderLine> Lines { get; set; } = [];
+        public DateTime CreatedUtc { get; set; }
+        public string? CreatedBy { get; set; }
     }
 }

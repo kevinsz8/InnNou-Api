@@ -11,6 +11,7 @@ namespace InnNou.Domain.Dtos
         public string? SupplierName { get; set; }
         public int OrganizationId { get; set; }
         public Guid OrganizationToken { get; set; }
+        public string? OrganizationName { get; set; }
         public int WarehouseId { get; set; }
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }

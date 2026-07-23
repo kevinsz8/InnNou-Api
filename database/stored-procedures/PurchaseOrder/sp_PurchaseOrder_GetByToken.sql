@@ -17,7 +17,7 @@ BEGIN
         po.PurchaseOrderId, po.PurchaseOrderToken, po.PurchaseOrderNumber,
         po.OrderId, ord.OrderToken,
         po.SupplierId, s.Name AS SupplierName,
-        po.OrganizationId, org.OrganizationToken,
+        po.OrganizationId, org.OrganizationToken, org.Name AS OrganizationName,
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         pos.Code AS Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
         po.CreatedUtc, po.CreatedBy
