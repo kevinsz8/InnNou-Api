@@ -9,6 +9,7 @@ using InnNou.Infrastructure.Documents;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Data.Common;
@@ -20,7 +21,8 @@ public class OrderService(
     IMapper mapper,
     IOrderPdfStorage orderPdfStorage,
     IEmailSender emailSender,
-    ILogger<OrderService> logger) : IOrderService
+    ILogger<OrderService> logger,
+    IConfiguration configuration) : IOrderService
 {
     private sealed class OrderPageRow : Order { public int TotalCount { get; set; } }
 
@@ -492,7 +494,7 @@ public class OrderService(
         // otherwise be stuck in PENDING_APPROVAL forever — sp_OrderApprovalStep_Approve refuses
         // to re-approve a non-PENDING step, so there'd be no way back in. Re-submitting picks up
         // exactly where the failed auto-completion left off.
-        if (order.Status == OrderStatus.PendingApproval)
+        if (order.Status == OrderStatus.Pending_Approval)
         {
             var existingSteps = await GetApprovalStepsAsync(connection, order.OrderId);
             if (existingSteps.Count > 0 && existingSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
@@ -781,11 +783,68 @@ public class OrderService(
         if (pendingOrder is null)
             return null;
 
+        var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
+
         var dto = mapper.Map<OrderDto>(pendingOrder);
         dto.Lines = mapper.MapList<OrderLineDto>(lines);
         dto.LineCount = dto.Lines.Count;
-        dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, order.OrderId));
+        dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(allSteps);
+
+        // Email only the immediately-actionable step per triggered Family — Level 1 is always
+        // present whenever any level triggers (EvaluateApprovalRequirementAsync returns every
+        // level up to the highest crossed), so a fresh PENDING Level-1 row is always "your
+        // turn" right now. Filtering on Status == Pending (not just Level == 1) matters
+        // because a rejected-then-resubmitted order can have older terminal rows at the same
+        // Level for the same Family (see .claude/OrderApprovalModule.md's "no unique
+        // constraint" note) — Best-effort/non-blocking, same convention as
+        // SendOrderConfirmationAsync.
+        var newlyActionableSteps = allSteps.Where(s => s.Level == 1 && s.Status == OrderApprovalStepStatus.Pending).ToList();
+        if (newlyActionableSteps.Count > 0)
+        {
+            var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, order.OrganizationToken);
+            foreach (var step in newlyActionableSteps)
+                await SendApprovalRequestEmailAsync(connection, step, order, organizationName, organizationLanguageCode, cancellationToken);
+        }
+
         return dto;
+    }
+
+    // Shared by the authenticated Approve path and the anonymous email-token Approve path —
+    // calls sp_OrderApprovalStep_Approve, then either auto-completes the submission (every
+    // step now APPROVED) or emails the next-level sibling for the SAME Family, if one is now
+    // unblocked. `context` stamps CreatedBy/LastUpdatedBy on any resulting PurchaseOrder rows
+    // and the buyer confirmation email — the anonymous caller passes a synthetic context built
+    // from the approver's own frozen identity (see EmailApprovalRequestContext below), so the
+    // audit trail reads identically to an in-app approval.
+    private async Task<OrderApprovalStep> ApproveStepAndAdvanceAsync(DbConnection connection, OrderApprovalStep step, Order order, IRequestContext context, CancellationToken cancellationToken)
+    {
+        var approved = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_Approve",
+            new { OrderApprovalStepToken = step.OrderApprovalStepToken, DecidedBy = context.ActorUserToken.ToString() },
+            commandType: CommandType.StoredProcedure);
+
+        if (approved is null)
+            throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
+
+        // Auto-complete the submission the moment every required step for this Order is
+        // APPROVED — confirmed with the user, no second manual Submit click.
+        var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
+        if (allSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
+        {
+            var lines = await GetLinesAsync(connection, order.OrderId);
+            await CompleteSubmissionAsync(connection, order, lines, context, cancellationToken);
+        }
+        else
+        {
+            var nextStep = allSteps.FirstOrDefault(s => s.FamilyId == approved.FamilyId && s.Level == approved.Level + 1 && s.Status == OrderApprovalStepStatus.Pending);
+            if (nextStep is not null)
+            {
+                var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, order.OrganizationToken);
+                await SendApprovalRequestEmailAsync(connection, nextStep, order, organizationName, organizationLanguageCode, cancellationToken);
+            }
+        }
+
+        return approved;
     }
 
     public async Task<OrderApprovalStepDto?> ApproveOrderApprovalStepAsync(Guid stepToken, IRequestContext context, CancellationToken cancellationToken)
@@ -803,24 +862,153 @@ public class OrderService(
 
         await EnsureCanDecideStepAsync(connection, context, step);
 
-        var approved = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
-            "sp_OrderApprovalStep_Approve",
-            new { OrderApprovalStepToken = stepToken, DecidedBy = context.ActorUserToken.ToString() },
-            commandType: CommandType.StoredProcedure);
-
-        if (approved is null)
-            throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
-
-        // Auto-complete the submission the moment every required step for this Order is
-        // APPROVED — confirmed with the user, no second manual Submit click.
-        var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
-        if (allSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
-        {
-            var lines = await GetLinesAsync(connection, order.OrderId);
-            await CompleteSubmissionAsync(connection, order, lines, context, cancellationToken);
-        }
+        var approved = await ApproveStepAndAdvanceAsync(connection, step, order, context, cancellationToken);
 
         return mapper.Map<OrderApprovalStepDto>(approved);
+    }
+
+    // Anonymous single-use email-approval link — see .claude/OrderApprovalModule.md. The token
+    // itself is the entire authorization; every failure mode gets its own specific
+    // ApiException/ErrorCode so the confirmation page can show a precise, friendly message
+    // instead of a generic error.
+    public async Task<OrderApprovalEmailPreviewDto> GetApprovalStepPreviewByEmailTokenAsync(Guid emailToken, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var step = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_GetByEmailToken", new { EmailApprovalToken = emailToken }, commandType: CommandType.StoredProcedure);
+
+        if (step is null)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenNotFound, "This approval link is not valid.", 404);
+
+        // Expired/AlreadyUsed/AlreadyDecided are normal, informative outcomes for a one-click
+        // link — not application errors — so they're a Status field on a 200 response, not a
+        // FailureResponse (unlike the mutating Approve call below, where they are).
+        var status =
+            step.EmailApprovalTokenUsedUtc is not null ? "AlreadyUsed" :
+            step.EmailApprovalTokenExpiresUtc is null || step.EmailApprovalTokenExpiresUtc < DateTime.UtcNow ? "Expired" :
+            step.Status != OrderApprovalStepStatus.Pending ? "AlreadyDecided" :
+            "Ready";
+
+        return new OrderApprovalEmailPreviewDto
+        {
+            Status = status,
+            OrganizationName = step.OrganizationName ?? "—",
+            WarehouseName = step.WarehouseName ?? "—",
+            FamilyCode = step.FamilyCode,
+            Level = step.Level,
+            ThresholdAmount = step.ThresholdAmount,
+            ActualFamilyAmount = step.ActualFamilyAmount,
+            CurrencyCode = step.CurrencyCode,
+            OrderReference = step.OrderToken.ToString()[..8].ToUpperInvariant()
+        };
+    }
+
+    public async Task<OrderApprovalEmailApproveResultDto> ApproveOrderApprovalStepByEmailTokenAsync(Guid emailToken, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var step = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_GetByEmailToken", new { EmailApprovalToken = emailToken }, commandType: CommandType.StoredProcedure);
+
+        if (step is null)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenNotFound, "This approval link is not valid.", 404);
+
+        if (step.EmailApprovalTokenUsedUtc is not null)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenAlreadyUsed, "This approval link has already been used.", 409);
+
+        if (step.EmailApprovalTokenExpiresUtc is null || step.EmailApprovalTokenExpiresUtc < DateTime.UtcNow)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenExpired, "This approval link has expired. Please sign in to the system instead.", 410);
+
+        if (step.Status != OrderApprovalStepStatus.Pending)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenStepAlreadyDecided, "This approval request has already been resolved.", 409);
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = step.OrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null || order.Status != OrderStatus.Pending_Approval)
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenStepAlreadyDecided, "This order is no longer awaiting approval.", 409);
+
+        // Same "your turn" gate EnsureCanDecideStepAsync applies for the authenticated path —
+        // reimplemented here since there's no IRequestContext-based caller to authorize; the
+        // token itself already proves who's deciding.
+        var siblingSteps = await GetApprovalStepsAsync(connection, step.OrderId);
+        if (siblingSteps.Any(s => s.FamilyId == step.FamilyId && s.Level < step.Level && s.Status != OrderApprovalStepStatus.Approved))
+            throw new ApiException(ErrorCodes.OrderApprovalEmailTokenPriorLevelPending, "An earlier level for this Family must be approved first.", 409);
+
+        var anonymousContext = new EmailApprovalRequestContext(step.ApproverUserToken);
+        var approved = await ApproveStepAndAdvanceAsync(connection, step, order, anonymousContext, cancellationToken);
+
+        await connection.ExecuteAsync(
+            "sp_OrderApprovalStep_MarkEmailTokenUsed", new { OrderApprovalStepToken = step.OrderApprovalStepToken }, commandType: CommandType.StoredProcedure);
+
+        var allStepsAfter = await GetApprovalStepsAsync(connection, step.OrderId);
+
+        return new OrderApprovalEmailApproveResultDto
+        {
+            FamilyCode = approved.FamilyCode,
+            Level = approved.Level,
+            OrderFullyApproved = allStepsAfter.All(s => s.Status == OrderApprovalStepStatus.Approved)
+        };
+    }
+
+    // Minimal IRequestContext for the anonymous email-token approval path — there is no HTTP
+    // session/JWT to read claims from, but there IS a real, known identity: the approver the
+    // step was frozen to. Using their own UserToken as ActorUserToken/EffectiveUserToken means
+    // CreatedBy/LastUpdatedBy on any resulting PurchaseOrder rows (and the buyer confirmation
+    // email) read identically to an in-app approval. RoleLevel stays 0 since nothing downstream
+    // in this call chain needs role-based authorization — the email token itself already was
+    // the authorization.
+    private sealed class EmailApprovalRequestContext(Guid approverUserToken) : IRequestContext
+    {
+        public Guid ActorUserToken => approverUserToken;
+        public Guid EffectiveUserToken => approverUserToken;
+        public int? OrganizationId => null;
+        public string? OrganizationTypeCode => null;
+        public int? SupplierId => null;
+        public int RoleLevel => 0;
+        public int ActorRoleLevel => 0;
+        public int? ActorOrganizationId => null;
+        public bool IsAuthenticated => false;
+        public bool IsImpersonating => false;
+    }
+
+    // Sends the "your turn to approve" email for a single OrderApprovalStep — issues a fresh
+    // single-use anonymous token (7-day expiry, confirmed with the user) via
+    // sp_OrderApprovalStep_IssueEmailToken, then builds and sends the HTML via
+    // OrderApprovalEmailContent. Best-effort/non-blocking, same convention as
+    // SendOrderConfirmationAsync — an SMTP outage here must never fail the Submit/Approve call
+    // that triggered it.
+    private async Task SendApprovalRequestEmailAsync(IDbConnection connection, OrderApprovalStep step, Order order, string organizationName, string? organizationLanguageCode, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var approverEmail = await GetUserEmailAsync(connection, step.ApproverUserToken);
+            if (string.IsNullOrWhiteSpace(approverEmail))
+                return;
+
+            var emailToken = Guid.NewGuid();
+            var expiresUtc = DateTime.UtcNow.AddDays(7);
+
+            await connection.ExecuteAsync(
+                "sp_OrderApprovalStep_IssueEmailToken",
+                new { OrderApprovalStepToken = step.OrderApprovalStepToken, EmailApprovalToken = emailToken, ExpiresUtc = expiresUtc },
+                commandType: CommandType.StoredProcedure);
+
+            var frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:5173";
+            var approvalLink = $"{frontendBaseUrl}/approve-order/{emailToken}";
+
+            await emailSender.SendAsync(new EmailMessage
+            {
+                ToAddress = approverEmail,
+                Subject = $"{OrderApprovalEmailLocalization.Label("ApprovalNeededHeading", organizationLanguageCode)} — {step.FamilyCode}",
+                HtmlBody = OrderApprovalEmailContent.BuildApprovalRequestEmailHtml(order, organizationName, step, approvalLink, frontendBaseUrl, organizationLanguageCode)
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Approval-request email failed for OrderApprovalStep {OrderApprovalStepToken}", step.OrderApprovalStepToken);
+        }
     }
 
     public async Task<OrderApprovalStepDto?> RejectOrderApprovalStepAsync(Guid stepToken, string reason, IRequestContext context, CancellationToken cancellationToken)
@@ -944,10 +1132,10 @@ public class OrderService(
 
         // A submitter withdrawing a request stuck in PENDING_APPROVAL is a reasonable capability
         // — same as a rejection, this voids any still-PENDING steps first.
-        if (order.Status is not (OrderStatus.Draft or OrderStatus.PendingApproval))
+        if (order.Status is not (OrderStatus.Draft or OrderStatus.Pending_Approval))
             throw new ApiException(ErrorCodes.OrderNotCancellable, "Only a draft or pending-approval order can be cancelled.", 409);
 
-        if (order.Status == OrderStatus.PendingApproval)
+        if (order.Status == OrderStatus.Pending_Approval)
             await connection.ExecuteAsync(
                 "sp_OrderApprovalStep_CancelPendingForOrder",
                 new { order.OrderId, DecidedBy = context.ActorUserToken.ToString() },

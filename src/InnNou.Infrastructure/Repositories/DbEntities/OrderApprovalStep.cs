@@ -27,5 +27,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? RejectionReason { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+
+        // Internal-use only, resolved by sp_OrderApprovalStep_GetByEmailToken — the anonymous
+        // single-use email-approval token, distinct from OrderApprovalStepToken (which is used
+        // by the authenticated flow). Never mapped onto OrderApprovalStepDto/the wire response,
+        // same convention as PurchaseOrder.SupplierEmail/SupplierLanguageCode.
+        public Guid? EmailApprovalToken { get; set; }
+        public DateTime? EmailApprovalTokenExpiresUtc { get; set; }
+        public DateTime? EmailApprovalTokenUsedUtc { get; set; }
     }
 }

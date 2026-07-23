@@ -41,5 +41,10 @@ namespace InnNou.Application.Common.Interfaces
         Task<OrderApprovalStepDto?> ApproveOrderApprovalStepAsync(Guid stepToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderApprovalStepDto?> RejectOrderApprovalStepAsync(Guid stepToken, string reason, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<OrderApprovalStepDto>> GetPendingApprovalStepsAsync(int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+
+        // Anonymous single-use email-approval link — no IRequestContext, the token itself is
+        // the entire authorization. See .claude/OrderApprovalModule.md.
+        Task<OrderApprovalEmailPreviewDto> GetApprovalStepPreviewByEmailTokenAsync(Guid emailToken, CancellationToken cancellationToken);
+        Task<OrderApprovalEmailApproveResultDto> ApproveOrderApprovalStepByEmailTokenAsync(Guid emailToken, CancellationToken cancellationToken);
     }
 }

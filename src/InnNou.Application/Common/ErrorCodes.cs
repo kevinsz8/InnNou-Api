@@ -253,6 +253,13 @@ namespace InnNou.Application.Common
         public const string OrderApprovalStepAlreadyDecided = "ORDER_APPROVAL_STEP_ALREADY_DECIDED";
         public const string OrderApprovalStepPriorLevelPending = "ORDER_APPROVAL_STEP_PRIOR_LEVEL_PENDING";
 
+        // OrderApprovalEmailToken — anonymous single-use email-approval link
+        public const string OrderApprovalEmailTokenNotFound = "ORDER_APPROVAL_EMAIL_TOKEN_NOT_FOUND";
+        public const string OrderApprovalEmailTokenExpired = "ORDER_APPROVAL_EMAIL_TOKEN_EXPIRED";
+        public const string OrderApprovalEmailTokenAlreadyUsed = "ORDER_APPROVAL_EMAIL_TOKEN_ALREADY_USED";
+        public const string OrderApprovalEmailTokenStepAlreadyDecided = "ORDER_APPROVAL_EMAIL_TOKEN_STEP_ALREADY_DECIDED";
+        public const string OrderApprovalEmailTokenPriorLevelPending = "ORDER_APPROVAL_EMAIL_TOKEN_PRIOR_LEVEL_PENDING";
+
         // OrderTemplate
         public const string OrderTemplateNotFound = "ORDER_TEMPLATE_NOT_FOUND";
         public const string OrderTemplateLineNotFound = "ORDER_TEMPLATE_LINE_NOT_FOUND";

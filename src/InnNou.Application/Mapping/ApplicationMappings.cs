@@ -1075,6 +1075,26 @@ namespace InnNou.Application.Mapping
                 CreatedUtc = d.CreatedUtc
             });
 
+            // Anonymous single-use email-approval — see .claude/OrderApprovalModule.md
+            mapper.Register<OrderApprovalEmailPreviewDto, OrderApprovalEmailPreviewResponse>(d => new OrderApprovalEmailPreviewResponse
+            {
+                Status = d.Status,
+                OrganizationName = d.OrganizationName,
+                WarehouseName = d.WarehouseName,
+                FamilyCode = d.FamilyCode,
+                Level = d.Level,
+                ThresholdAmount = d.ThresholdAmount,
+                ActualFamilyAmount = d.ActualFamilyAmount,
+                CurrencyCode = d.CurrencyCode,
+                OrderReference = d.OrderReference
+            });
+            mapper.Register<OrderApprovalEmailApproveResultDto, OrderApprovalEmailApproveResultResponse>(d => new OrderApprovalEmailApproveResultResponse
+            {
+                FamilyCode = d.FamilyCode,
+                Level = d.Level,
+                OrderFullyApproved = d.OrderFullyApproved
+            });
+
             mapper.Register<FamilyApprovalThresholdDto, CommonFamilyApprovalThreshold>(d => new CommonFamilyApprovalThreshold
             {
                 FamilyApprovalThresholdToken = d.FamilyApprovalThresholdToken,
