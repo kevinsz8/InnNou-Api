@@ -36,5 +36,10 @@ namespace InnNou.Domain.Dtos
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
+
+        // Effective values (Quantity/UnitPrice/CurrencyCode above already reflect the latest
+        // APPLIED rectification, if any — see sp_PurchaseOrderLine_GetEffective). True when the
+        // latest applied rectification for this line was a full cancellation.
+        public bool IsCancelled { get; set; }
     }
 }

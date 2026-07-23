@@ -28,6 +28,8 @@ using CommonOrder = InnNou.Application.Responses.Common.Order;
 using CommonOrderLine = InnNou.Application.Responses.Common.OrderLine;
 using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
 using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
+using CommonPurchaseOrderRectification = InnNou.Application.Responses.Common.PurchaseOrderRectification;
+using CommonPurchaseOrderLineRectification = InnNou.Application.Responses.Common.PurchaseOrderLineRectification;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
 using CommonFamilyApprovalThreshold = InnNou.Application.Responses.Common.FamilyApprovalThreshold;
 using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
@@ -1049,7 +1051,41 @@ namespace InnNou.Application.Mapping
                 CategoryCode = d.CategoryCode,
                 SubCategoryCode = d.SubCategoryCode,
                 Notes = d.Notes,
-                CreatedUtc = d.CreatedUtc
+                CreatedUtc = d.CreatedUtc,
+                IsCancelled = d.IsCancelled
+            });
+
+            // PurchaseOrderLineRectification (registered before PurchaseOrderRectification since
+            // it embeds a List<CommonPurchaseOrderLineRectification>)
+            mapper.Register<PurchaseOrderLineRectificationDto, CommonPurchaseOrderLineRectification>(d => new CommonPurchaseOrderLineRectification
+            {
+                PurchaseOrderLineRectificationToken = d.PurchaseOrderLineRectificationToken,
+                PurchaseOrderLineToken = d.PurchaseOrderLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                Action = d.Action,
+                PreviousQuantity = d.PreviousQuantity,
+                NewQuantity = d.NewQuantity,
+                PreviousUnitPrice = d.PreviousUnitPrice,
+                NewUnitPrice = d.NewUnitPrice,
+                PreviousCurrencyCode = d.PreviousCurrencyCode,
+                NewCurrencyCode = d.NewCurrencyCode,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<PurchaseOrderRectificationDto, CommonPurchaseOrderRectification>(d => new CommonPurchaseOrderRectification
+            {
+                PurchaseOrderRectificationToken = d.PurchaseOrderRectificationToken,
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                SequenceNumber = d.SequenceNumber,
+                Reason = d.Reason,
+                Notes = d.Notes,
+                Status = d.Status,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                AppliedUtc = d.AppliedUtc,
+                Lines = mapper.MapList<CommonPurchaseOrderLineRectification>(d.Lines)
             });
 
             // OrderApprovalStep (registered before Order since it embeds a List<CommonOrderApprovalStep>)

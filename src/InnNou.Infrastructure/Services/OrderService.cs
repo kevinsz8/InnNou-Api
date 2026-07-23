@@ -826,6 +826,28 @@ public class OrderService(
         if (approved is null)
             throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
 
+        // A rectification-triggered step never participates in the Order's own submission
+        // auto-complete below — it's scoped to its own batch (TriggeringPurchaseOrderRectificationId),
+        // never the Order's full approval history, which can include unrelated, already-terminal
+        // steps from the original Submit or an earlier rectification. See
+        // .claude/PurchaseOrderRectificationModule.md.
+        if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
+        {
+            var rectificationSteps = (await GetApprovalStepsAsync(connection, order.OrderId))
+                .Where(s => s.TriggeringPurchaseOrderRectificationId == approved.TriggeringPurchaseOrderRectificationId)
+                .ToList();
+
+            if (rectificationSteps.Count > 0 && rectificationSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
+            {
+                await connection.ExecuteAsync(
+                    "sp_PurchaseOrderRectification_SetStatus",
+                    new { PurchaseOrderRectificationId = approved.TriggeringPurchaseOrderRectificationId.Value, Status = PurchaseOrderRectificationStatusCodes.Applied },
+                    commandType: CommandType.StoredProcedure);
+            }
+
+            return approved;
+        }
+
         // Auto-complete the submission the moment every required step for this Order is
         // APPROVED — confirmed with the user, no second manual Submit click.
         var allSteps = await GetApprovalStepsAsync(connection, order.OrderId);
@@ -1020,6 +1042,30 @@ public class OrderService(
             return null;
 
         await EnsureCanDecideStepAsync(connection, context, step);
+
+        // A rectification-triggered step is rejected independently of the Order itself — the
+        // Order stays exactly as it is (already SUBMITTED); only the proposed correction is
+        // discarded. Uses a dedicated SP so the sibling-cancel is scoped to this rectification's
+        // own batch, never every pending step for the whole OrderId (two different
+        // PurchaseOrders split from the same Order can each have their own rectification pending
+        // approval at once). See .claude/PurchaseOrderRectificationModule.md.
+        if (step.TriggeringPurchaseOrderRectificationId.HasValue)
+        {
+            var rejectedRectificationStep = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+                "sp_OrderApprovalStep_RejectRectificationStep",
+                new { OrderApprovalStepToken = stepToken, RejectionReason = reason, DecidedBy = context.ActorUserToken.ToString() },
+                commandType: CommandType.StoredProcedure);
+
+            if (rejectedRectificationStep is null)
+                throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
+
+            await connection.ExecuteAsync(
+                "sp_PurchaseOrderRectification_SetStatus",
+                new { PurchaseOrderRectificationId = step.TriggeringPurchaseOrderRectificationId.Value, Status = PurchaseOrderRectificationStatusCodes.Rejected },
+                commandType: CommandType.StoredProcedure);
+
+            return mapper.Map<OrderApprovalStepDto>(rejectedRectificationStep);
+        }
 
         var rejected = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
             "sp_OrderApprovalStep_Reject",

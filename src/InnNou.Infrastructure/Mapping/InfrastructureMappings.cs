@@ -27,6 +27,8 @@ using OrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Order;
 using OrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderLine;
 using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrder;
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
+using PurchaseOrderRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderRectification;
+using PurchaseOrderLineRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLineRectification;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
 using OrderTemplateLineEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplateLine;
 using CountryEntity = InnNou.Infrastructure.Repositories.DbEntities.Country;
@@ -557,7 +559,38 @@ namespace InnNou.Infrastructure.Mapping
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LastUpdatedUtc = e.LastUpdatedUtc,
-                LastUpdatedBy = e.LastUpdatedBy
+                LastUpdatedBy = e.LastUpdatedBy,
+                IsCancelled = e.IsCancelled
+            });
+
+            mapper.Register<PurchaseOrderRectificationEntity, PurchaseOrderRectificationDto>(e => new PurchaseOrderRectificationDto
+            {
+                PurchaseOrderRectificationToken = e.PurchaseOrderRectificationToken,
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                SequenceNumber = e.SequenceNumber,
+                Reason = e.Reason,
+                Notes = e.Notes,
+                Status = PurchaseOrderRectificationStatusCodes.ToCode(e.Status),
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                AppliedUtc = e.AppliedUtc
+            });
+
+            mapper.Register<PurchaseOrderLineRectificationEntity, PurchaseOrderLineRectificationDto>(e => new PurchaseOrderLineRectificationDto
+            {
+                PurchaseOrderLineRectificationToken = e.PurchaseOrderLineRectificationToken,
+                PurchaseOrderLineToken = e.PurchaseOrderLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                Action = e.Action,
+                PreviousQuantity = e.PreviousQuantity,
+                NewQuantity = e.NewQuantity,
+                PreviousUnitPrice = e.PreviousUnitPrice,
+                NewUnitPrice = e.NewUnitPrice,
+                PreviousCurrencyCode = e.PreviousCurrencyCode,
+                NewCurrencyCode = e.NewCurrencyCode,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
             });
 
             mapper.Register<OrderEntity, OrderDto>(e => new OrderDto

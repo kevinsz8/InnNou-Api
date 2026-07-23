@@ -20,7 +20,7 @@ BEGIN
         s.FamilyId, s.FamilyCode, s.Level, s.ThresholdAmount, s.ActualFamilyAmount, s.CurrencyCode,
         s.ApproverUserId, u.UserToken AS ApproverUserToken, u.FirstName + ' ' + u.LastName AS ApproverName,
         oass.Code AS Status, s.DecidedUtc, s.DecidedBy, s.RejectionReason,
-        s.CreatedUtc, s.CreatedBy,
+        s.CreatedUtc, s.CreatedBy, s.TriggeringPurchaseOrderRectificationId,
         COUNT(*) OVER() AS TotalCount
     FROM OrderApprovalSteps s
     JOIN [Order] ord      ON ord.OrderId        = s.OrderId

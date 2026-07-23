@@ -35,5 +35,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid? EmailApprovalToken { get; set; }
         public DateTime? EmailApprovalTokenExpiresUtc { get; set; }
         public DateTime? EmailApprovalTokenUsedUtc { get; set; }
+
+        // NULL when this step was created by the original Order.Submit evaluation (unchanged,
+        // existing behavior). Set when a PurchaseOrderRectification's own re-evaluation crossed
+        // a not-yet-approved threshold level — see .claude/PurchaseOrderRectificationModule.md.
+        // OrderService.ApproveStepAndAdvanceAsync/RejectOrderApprovalStepAsync branch on this so
+        // a rectification's batch is scoped independently of the Order's own submission-completion
+        // logic and never confused with it.
+        public int? TriggeringPurchaseOrderRectificationId { get; set; }
     }
 }

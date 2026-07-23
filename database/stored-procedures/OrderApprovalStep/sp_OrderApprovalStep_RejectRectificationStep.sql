@@ -2,10 +2,12 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
--- Rejecting ANY step reverts the whole Order — every other still-PENDING step for the same
--- OrderId is cancelled in the same call, so a fresh Submit attempt later starts a clean batch
--- (no separate "batch id" needed — see 20260724_OrderApprovalSteps_Create.sql's header note).
-CREATE OR ALTER PROCEDURE sp_OrderApprovalStep_Reject
+-- Same shape as sp_OrderApprovalStep_Reject, but the sibling-cancel is scoped to
+-- TriggeringPurchaseOrderRectificationId instead of the whole OrderId — two different
+-- PurchaseOrders split from the same Order can each have their own rectification pending
+-- approval at the same time, and rejecting one must never cancel the other's still-pending
+-- steps. See .claude/PurchaseOrderRectificationModule.md.
+CREATE OR ALTER PROCEDURE sp_OrderApprovalStep_RejectRectificationStep
     @OrderApprovalStepToken UNIQUEIDENTIFIER,
     @RejectionReason        NVARCHAR(500),
     @DecidedBy              VARCHAR(150)
@@ -14,10 +16,12 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @PendingStatusId INT = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'PENDING');
-    DECLARE @OrderId INT;
-    SELECT @OrderId = OrderId FROM OrderApprovalSteps WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND OrderApprovalStepStatusId = @PendingStatusId;
+    DECLARE @TriggeringPurchaseOrderRectificationId INT;
+    SELECT @TriggeringPurchaseOrderRectificationId = TriggeringPurchaseOrderRectificationId
+    FROM OrderApprovalSteps
+    WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND OrderApprovalStepStatusId = @PendingStatusId;
 
-    IF @OrderId IS NULL
+    IF @TriggeringPurchaseOrderRectificationId IS NULL
     BEGIN
         RAISERROR('ORDER_APPROVAL_STEP_ALREADY_DECIDED', 16, 1);
         RETURN;
@@ -34,7 +38,7 @@ BEGIN
     SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'CANCELLED'),
            DecidedUtc                = SYSUTCDATETIME(),
            DecidedBy                 = @DecidedBy
-    WHERE  OrderId = @OrderId
+    WHERE  TriggeringPurchaseOrderRectificationId = @TriggeringPurchaseOrderRectificationId
       AND  OrderApprovalStepStatusId = @PendingStatusId;
 
     SELECT

@@ -7,6 +7,7 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using System.Data;
+using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -36,9 +37,9 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return canAccess == 1;
     }
 
-    // Write visibility (Cancel) — only a caller whose own organization is ASSOCIATE may cancel;
-    // SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE are
-    // read-only, mirrors OrderService.CanManageOrganizationAsync.
+    // Write visibility (Cancel/Rectify) — only a caller whose own organization is ASSOCIATE may
+    // write; SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE
+    // are read-only, mirrors OrderService.CanManageOrganizationAsync.
     private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
@@ -55,10 +56,16 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return canAccess == 1;
     }
 
-    private static async Task<List<PurchaseOrderLine>> GetLinesForPurchaseOrderAsync(IDbConnection connection, int purchaseOrderId)
+    // Always resolves EFFECTIVE values (post any APPLIED rectification) — see
+    // sp_PurchaseOrderLine_GetEffective. Narrowed to a single PurchaseOrder via @PurchaseOrderId;
+    // @OrderId is still required by the SP (it scopes the "latest APPLIED rectification" lookup
+    // exactly the same way regardless of caller, no behavioral difference here).
+    private static async Task<List<PurchaseOrderLine>> GetLinesForPurchaseOrderAsync(IDbConnection connection, PurchaseOrder purchaseOrder)
     {
         var lines = await connection.QueryAsync<PurchaseOrderLine>(
-            "sp_PurchaseOrderLine_GetByPurchaseOrderId", new { PurchaseOrderId = purchaseOrderId }, commandType: CommandType.StoredProcedure);
+            "sp_PurchaseOrderLine_GetEffective",
+            new { purchaseOrder.OrderId, purchaseOrder.PurchaseOrderId },
+            commandType: CommandType.StoredProcedure);
         return lines.ToList();
     }
 
@@ -164,7 +171,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         var dto = mapper.Map<PurchaseOrderDto>(purchaseOrder);
         dto.Lines = mapper.MapList<PurchaseOrderLineDto>(
-            await GetLinesForPurchaseOrderAsync(connection, purchaseOrder.PurchaseOrderId));
+            await GetLinesForPurchaseOrderAsync(connection, purchaseOrder));
         dto.LineCount = dto.Lines.Count;
         return dto;
     }
@@ -199,8 +206,332 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         var dto = mapper.Map<PurchaseOrderDto>(updated);
         dto.Lines = mapper.MapList<PurchaseOrderLineDto>(
-            await GetLinesForPurchaseOrderAsync(connection, updated.PurchaseOrderId));
+            await GetLinesForPurchaseOrderAsync(connection, updated));
         dto.LineCount = dto.Lines.Count;
+        return dto;
+    }
+
+    private sealed class ValidatedRectificationLine
+    {
+        public required PurchaseOrderLine Line { get; init; }
+        public required string Action { get; init; }
+        public decimal? NewQuantity { get; init; }
+        public decimal? NewUnitPrice { get; init; }
+        public string? NewCurrencyCode { get; init; }
+    }
+
+    private sealed class TriggeredRectificationApprovalStep
+    {
+        public int FamilyId { get; set; }
+        public string FamilyCode { get; set; } = default!;
+        public int Level { get; set; }
+        public decimal ThresholdAmount { get; set; }
+        public decimal ActualFamilyAmount { get; set; }
+        public int ApproverUserId { get; set; }
+    }
+
+    public async Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_GetByToken", new { PurchaseOrderToken = purchaseOrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (purchaseOrder is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+            throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot rectify a purchase order outside your scope.", 403);
+
+        if (purchaseOrder.Status != PurchaseOrderStatus.Sent)
+            throw new ApiException(ErrorCodes.PurchaseOrderNotSent, "Only a sent purchase order can be rectified.", 409);
+
+        if (lines.Count == 0)
+            throw new ApiException(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified.", 400);
+
+        if (!PurchaseOrderRectificationReasonCodes.TryFromCode(reason, out var normalizedReason))
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid rectification reason.", 400);
+
+        // Effective lines across the WHOLE originating Order (every sibling PurchaseOrder) — needed
+        // both to validate each requested line belongs to THIS PurchaseOrder and isn't already
+        // cancelled, and to recompute each affected Family's total for the approval-threshold
+        // check below against the same scope the original Submit evaluation used. See
+        // .claude/PurchaseOrderRectificationModule.md.
+        var allOrderLines = (await connection.QueryAsync<PurchaseOrderLine>(
+            "sp_PurchaseOrderLine_GetEffective", new { purchaseOrder.OrderId, PurchaseOrderId = (int?)null }, commandType: CommandType.StoredProcedure)).ToList();
+
+        var thisPoLinesByToken = allOrderLines
+            .Where(l => l.PurchaseOrderId == purchaseOrder.PurchaseOrderId)
+            .ToDictionary(l => l.PurchaseOrderLineToken);
+
+        var validatedLines = new List<ValidatedRectificationLine>();
+
+        foreach (var input in lines)
+        {
+            if (!thisPoLinesByToken.TryGetValue(input.PurchaseOrderLineToken, out var line))
+                throw new ApiException(ErrorCodes.PurchaseOrderLineNotFound, $"Purchase order line '{input.PurchaseOrderLineToken}' does not belong to this purchase order.", 404);
+
+            if (line.IsCancelled)
+                throw new ApiException(ErrorCodes.PurchaseOrderLineAlreadyCancelled, $"The line for article '{line.ArticleName}' is already cancelled.", 409);
+
+            if (input.Cancel)
+            {
+                validatedLines.Add(new ValidatedRectificationLine { Line = line, Action = PurchaseOrderRectificationLineActionCodes.LineCancelled });
+                continue;
+            }
+
+            if (!input.NewQuantity.HasValue || input.NewQuantity.Value <= 0)
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive NewQuantity is required for article '{line.ArticleName}'.", 400);
+            if (!input.NewUnitPrice.HasValue || input.NewUnitPrice.Value <= 0)
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive NewUnitPrice is required for article '{line.ArticleName}'.", 400);
+
+            var newCurrencyCode = string.IsNullOrWhiteSpace(input.NewCurrencyCode) ? line.CurrencyCode : input.NewCurrencyCode.Trim().ToUpperInvariant();
+
+            validatedLines.Add(new ValidatedRectificationLine
+            {
+                Line = line,
+                Action = PurchaseOrderRectificationLineActionCodes.QuantityPriceChange,
+                NewQuantity = input.NewQuantity,
+                NewUnitPrice = input.NewUnitPrice,
+                NewCurrencyCode = newCurrencyCode
+            });
+        }
+
+        // Recompute each affected Family's total across the WHOLE Order using effective values,
+        // with this rectification's proposed changes overlaid on top of the lines they touch —
+        // same evaluation shape as OrderService.EvaluateApprovalRequirementAsync. Only levels not
+        // already APPROVED for this (OrderId, FamilyId) trigger a fresh step — an earlier
+        // Submit's or an earlier rectification's already-cleared levels stay cleared.
+        var proposedByLineId = validatedLines.ToDictionary(v => v.Line.PurchaseOrderLineId);
+
+        var currencyParams = new DynamicParameters();
+        currencyParams.Add("@OrganizationId", purchaseOrder.OrganizationId);
+        currencyParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
+        await connection.ExecuteAsync("sp_Organization_ResolveCurrencyCode", currencyParams, commandType: CommandType.StoredProcedure);
+        var orgCurrencyCode = currencyParams.Get<string?>("@CurrencyCode");
+
+        var familyTotals = new Dictionary<int, decimal>();
+        if (orgCurrencyCode is not null)
+        {
+            foreach (var line in allOrderLines)
+            {
+                if (!line.FamilyId.HasValue)
+                    continue;
+
+                var isCancelled = line.IsCancelled;
+                var quantity = line.Quantity;
+                var unitPrice = line.UnitPrice;
+                var currencyCode = line.CurrencyCode;
+
+                if (proposedByLineId.TryGetValue(line.PurchaseOrderLineId, out var proposed))
+                {
+                    isCancelled = proposed.Action == PurchaseOrderRectificationLineActionCodes.LineCancelled;
+                    if (!isCancelled)
+                    {
+                        quantity = proposed.NewQuantity!.Value;
+                        unitPrice = proposed.NewUnitPrice!.Value;
+                        currencyCode = proposed.NewCurrencyCode!;
+                    }
+                }
+
+                if (isCancelled || currencyCode != orgCurrencyCode)
+                    continue;
+
+                familyTotals[line.FamilyId.Value] = familyTotals.GetValueOrDefault(line.FamilyId.Value) + quantity * unitPrice;
+            }
+        }
+
+        var existingSteps = (await connection.QueryAsync<OrderApprovalStep>(
+            "sp_OrderApprovalStep_GetByOrderId", new { purchaseOrder.OrderId }, commandType: CommandType.StoredProcedure)).ToList();
+
+        var newSteps = new List<TriggeredRectificationApprovalStep>();
+
+        foreach (var (familyId, total) in familyTotals)
+        {
+            var configuredLevels = (await connection.QueryAsync<FamilyApprovalThreshold>(
+                "sp_FamilyApprovalThreshold_GetPaged",
+                new { OrganizationId = purchaseOrder.OrganizationId, PageNumber = 1, PageSize = MaxPageSize, FamilyId = familyId, IncludeInactive = false },
+                commandType: CommandType.StoredProcedure))
+                .OrderBy(t => t.Level)
+                .ToList();
+
+            var highestTriggeredLevel = configuredLevels.Where(t => total >= t.ThresholdAmount).Select(t => (int?)t.Level).DefaultIfEmpty().Max();
+            if (!highestTriggeredLevel.HasValue)
+                continue;
+
+            var alreadyApprovedLevels = existingSteps
+                .Where(s => s.FamilyId == familyId && s.Status == OrderApprovalStepStatus.Approved)
+                .Select(s => s.Level)
+                .ToHashSet();
+
+            foreach (var level in configuredLevels.Where(t => t.Level <= highestTriggeredLevel.Value && !alreadyApprovedLevels.Contains(t.Level)))
+            {
+                newSteps.Add(new TriggeredRectificationApprovalStep
+                {
+                    FamilyId = familyId,
+                    FamilyCode = level.FamilyCode,
+                    Level = level.Level,
+                    ThresholdAmount = level.ThresholdAmount,
+                    ActualFamilyAmount = total,
+                    ApproverUserId = level.ApproverUserId
+                });
+            }
+        }
+
+        var needsApproval = newSteps.Count > 0;
+        var initialStatus = needsApproval ? PurchaseOrderRectificationStatusCodes.PendingApproval : PurchaseOrderRectificationStatusCodes.Applied;
+        var actor = context.ActorUserToken.ToString();
+
+        // Header + lines (+ approval steps, if triggered) are inserted atomically — a partial
+        // write here would leave an inconsistent rectification (e.g. a header with no lines).
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var headerParams = new DynamicParameters();
+            headerParams.Add("@PurchaseOrderRectificationToken", Guid.NewGuid());
+            headerParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
+            headerParams.Add("@Reason", normalizedReason);
+            headerParams.Add("@Notes", notes);
+            headerParams.Add("@Status", initialStatus);
+            headerParams.Add("@CreatedBy", actor);
+
+            var header = await connection.QueryFirstOrDefaultAsync<PurchaseOrderRectification>(
+                "sp_PurchaseOrderRectification_Create", headerParams, transaction, commandType: CommandType.StoredProcedure);
+
+            if (header is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            if (!needsApproval)
+            {
+                // Immediately applied — stamp AppliedUtc via the same SetStatus SP the
+                // approved-later path uses, keeping one code path for "materialize this
+                // rectification" regardless of whether approval was required.
+                header = await connection.QueryFirstOrDefaultAsync<PurchaseOrderRectification>(
+                    "sp_PurchaseOrderRectification_SetStatus",
+                    new { header.PurchaseOrderRectificationId, Status = PurchaseOrderRectificationStatusCodes.Applied },
+                    transaction, commandType: CommandType.StoredProcedure) ?? header;
+            }
+
+            foreach (var validated in validatedLines)
+            {
+                var lineParams = new DynamicParameters();
+                lineParams.Add("@PurchaseOrderLineRectificationToken", Guid.NewGuid());
+                lineParams.Add("@PurchaseOrderRectificationId", header.PurchaseOrderRectificationId);
+                lineParams.Add("@PurchaseOrderLineId", validated.Line.PurchaseOrderLineId);
+                lineParams.Add("@Action", validated.Action);
+                lineParams.Add("@PreviousQuantity", validated.Line.Quantity);
+                lineParams.Add("@NewQuantity", validated.NewQuantity);
+                lineParams.Add("@PreviousUnitPrice", validated.Line.UnitPrice);
+                lineParams.Add("@NewUnitPrice", validated.NewUnitPrice);
+                lineParams.Add("@PreviousCurrencyCode", validated.Line.CurrencyCode);
+                lineParams.Add("@NewCurrencyCode", validated.NewCurrencyCode);
+                lineParams.Add("@CreatedBy", actor);
+
+                await connection.ExecuteAsync("sp_PurchaseOrderLineRectification_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            if (needsApproval)
+            {
+                foreach (var step in newSteps)
+                {
+                    var stepParams = new DynamicParameters();
+                    stepParams.Add("@OrderApprovalStepToken", Guid.NewGuid());
+                    stepParams.Add("@OrderId", purchaseOrder.OrderId);
+                    stepParams.Add("@FamilyId", step.FamilyId);
+                    stepParams.Add("@FamilyCode", step.FamilyCode);
+                    stepParams.Add("@Level", step.Level);
+                    stepParams.Add("@ThresholdAmount", step.ThresholdAmount);
+                    stepParams.Add("@ActualFamilyAmount", step.ActualFamilyAmount);
+                    stepParams.Add("@CurrencyCode", orgCurrencyCode);
+                    stepParams.Add("@ApproverUserId", step.ApproverUserId);
+                    stepParams.Add("@CreatedBy", actor);
+                    stepParams.Add("@TriggeringPurchaseOrderRectificationId", header.PurchaseOrderRectificationId);
+                    await connection.ExecuteAsync("sp_OrderApprovalStep_Create", stepParams, transaction, commandType: CommandType.StoredProcedure);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+
+            var dto = mapper.Map<PurchaseOrderRectificationDto>(header);
+            dto.Lines = mapper.MapList<PurchaseOrderLineRectificationDto>(
+                await connection.QueryAsync<PurchaseOrderLineRectification>(
+                    "sp_PurchaseOrderLineRectification_GetByRectificationId", new { header.PurchaseOrderRectificationId }, commandType: CommandType.StoredProcedure));
+
+            return dto;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<List<PurchaseOrderRectificationDto>> GetRectificationsAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_GetByToken", new { PurchaseOrderToken = purchaseOrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (purchaseOrder is null)
+            return [];
+
+        var canView = context.SupplierId.HasValue
+            ? context.SupplierId.Value == purchaseOrder.SupplierId
+            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
+
+        if (!canView)
+            return [];
+
+        var headers = (await connection.QueryAsync<PurchaseOrderRectification>(
+            "sp_PurchaseOrderRectification_GetByPurchaseOrderId", new { purchaseOrder.PurchaseOrderId }, commandType: CommandType.StoredProcedure)).ToList();
+
+        var result = new List<PurchaseOrderRectificationDto>();
+        foreach (var header in headers)
+        {
+            var dto = mapper.Map<PurchaseOrderRectificationDto>(header);
+            dto.Lines = mapper.MapList<PurchaseOrderLineRectificationDto>(
+                await connection.QueryAsync<PurchaseOrderLineRectification>(
+                    "sp_PurchaseOrderLineRectification_GetByRectificationId", new { header.PurchaseOrderRectificationId }, commandType: CommandType.StoredProcedure));
+            result.Add(dto);
+        }
+
+        return result;
+    }
+
+    public async Task<PurchaseOrderRectificationDto?> GetRectificationByTokenAsync(Guid rectificationToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var header = await connection.QueryFirstOrDefaultAsync<PurchaseOrderRectification>(
+            "sp_PurchaseOrderRectification_GetByToken", new { PurchaseOrderRectificationToken = rectificationToken }, commandType: CommandType.StoredProcedure);
+
+        if (header is null)
+            return null;
+
+        var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_GetByToken", new { header.PurchaseOrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (purchaseOrder is null)
+            return null;
+
+        var canView = context.SupplierId.HasValue
+            ? context.SupplierId.Value == purchaseOrder.SupplierId
+            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
+
+        if (!canView)
+            return null;
+
+        var dto = mapper.Map<PurchaseOrderRectificationDto>(header);
+        dto.Lines = mapper.MapList<PurchaseOrderLineRectificationDto>(
+            await connection.QueryAsync<PurchaseOrderLineRectification>(
+                "sp_PurchaseOrderLineRectification_GetByRectificationId", new { header.PurchaseOrderRectificationId }, commandType: CommandType.StoredProcedure));
+
         return dto;
     }
 }

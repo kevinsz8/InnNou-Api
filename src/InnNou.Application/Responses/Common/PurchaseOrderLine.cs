@@ -19,5 +19,6 @@ namespace InnNou.Application.Responses.Common
         public string? SubCategoryCode { get; set; }
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
+        public bool IsCancelled { get; set; }
     }
 }

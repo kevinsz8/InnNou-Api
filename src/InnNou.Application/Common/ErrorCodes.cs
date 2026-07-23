@@ -272,6 +272,13 @@ namespace InnNou.Application.Common
         public const string PurchaseOrderForbidden = "PURCHASE_ORDER_FORBIDDEN";
         public const string PurchaseOrderNotSent = "PURCHASE_ORDER_NOT_SENT";
 
+        // PurchaseOrderRectification ("rectificacion de pedido")
+        public const string PurchaseOrderLineNotFound = "PURCHASE_ORDER_LINE_NOT_FOUND";
+        public const string PurchaseOrderLineAlreadyCancelled = "PURCHASE_ORDER_LINE_ALREADY_CANCELLED";
+        public const string PurchaseOrderRectificationNotFound = "PURCHASE_ORDER_RECTIFICATION_NOT_FOUND";
+        public const string PurchaseOrderRectificationEmpty = "PURCHASE_ORDER_RECTIFICATION_EMPTY";
+        public const string PurchaseOrderRectificationInvalidQuantity = "PURCHASE_ORDER_RECTIFICATION_INVALID_QUANTITY";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 
