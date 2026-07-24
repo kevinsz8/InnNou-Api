@@ -309,6 +309,18 @@ namespace InnNou.Application.Common
         public const string InventoryArticleNotFound = "INVENTORY_ARTICLE_NOT_FOUND";
         public const string InventoryInvalidAdjustment = "INVENTORY_INVALID_ADJUSTMENT";
 
+        // ParLevel (par levels / suggested replenishment)
+        public const string ParLevelNotFound = "PAR_LEVEL_NOT_FOUND";
+        public const string ParLevelForbidden = "PAR_LEVEL_FORBIDDEN";
+        public const string ParLevelWarehouseNotFound = "PAR_LEVEL_WAREHOUSE_NOT_FOUND";
+        public const string ParLevelArticleNotFound = "PAR_LEVEL_ARTICLE_NOT_FOUND";
+        public const string ParLevelAlreadyExists = "PAR_LEVEL_ALREADY_EXISTS";
+        public const string ParLevelInvalidQuantity = "PAR_LEVEL_INVALID_QUANTITY";
+        public const string ParLevelBaseRequired = "PAR_LEVEL_BASE_REQUIRED";
+        public const string ParLevelOverrideNotFound = "PAR_LEVEL_OVERRIDE_NOT_FOUND";
+        public const string ParLevelOverrideInvalidDateRange = "PAR_LEVEL_OVERRIDE_INVALID_DATE_RANGE";
+        public const string ParLevelOverrideOverlap = "PAR_LEVEL_OVERRIDE_OVERLAP";
+
         // ConsolidatedPurchaseOrder (multi-property spend consolidation)
         public const string ConsolidatedPurchaseOrderNotFound = "CONSOLIDATED_PURCHASE_ORDER_NOT_FOUND";
         public const string ConsolidatedPurchaseOrderForbidden = "CONSOLIDATED_PURCHASE_ORDER_FORBIDDEN";

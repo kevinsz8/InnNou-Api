@@ -36,6 +36,10 @@ using CommonStockLevel = InnNou.Application.Responses.Common.StockLevel;
 using CommonInventoryMovement = InnNou.Application.Responses.Common.InventoryMovement;
 using CommonInventoryTransfer = InnNou.Application.Responses.Common.InventoryTransfer;
 using CommonInventoryTransferLine = InnNou.Application.Responses.Common.InventoryTransferLine;
+using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
+using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
+using CommonParLevelEffective = InnNou.Application.Responses.Common.ParLevelEffective;
+using CommonBelowParRow = InnNou.Application.Responses.Common.BelowParRow;
 using CommonConsolidatedPurchaseOrder = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrder;
 using CommonConsolidatedPurchaseOrderMember = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrderMember;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
@@ -1186,6 +1190,70 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonInventoryTransferLine>(d.Lines)
+            });
+
+            mapper.Register<ParLevelDto, CommonParLevel>(d => new CommonParLevel
+            {
+                ParLevelToken = d.ParLevelToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                MinimumQuantity = d.MinimumQuantity,
+                ReorderQuantity = d.ReorderQuantity,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            mapper.Register<ParLevelOverrideDto, CommonParLevelOverride>(d => new CommonParLevelOverride
+            {
+                ParLevelOverrideToken = d.ParLevelOverrideToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                Type = d.Type,
+                Label = d.Label,
+                MinimumQuantity = d.MinimumQuantity,
+                ReorderQuantity = d.ReorderQuantity,
+                StartMonth = d.StartMonth,
+                StartDay = d.StartDay,
+                EndMonth = d.EndMonth,
+                EndDay = d.EndDay,
+                StartDate = d.StartDate,
+                EndDate = d.EndDate,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<ParLevelEffectiveDto, CommonParLevelEffective>(d => new CommonParLevelEffective
+            {
+                BaseMinimumQuantity = d.BaseMinimumQuantity,
+                BaseReorderQuantity = d.BaseReorderQuantity,
+                EffectiveMinimumQuantity = d.EffectiveMinimumQuantity,
+                EffectiveReorderQuantity = d.EffectiveReorderQuantity,
+                EffectiveSource = d.EffectiveSource,
+                EffectiveOverrideToken = d.EffectiveOverrideToken,
+                EffectiveOverrideLabel = d.EffectiveOverrideLabel
+            });
+
+            mapper.Register<BelowParRowDto, CommonBelowParRow>(d => new CommonBelowParRow
+            {
+                ParLevelToken = d.ParLevelToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                LeadTimeDays = d.LeadTimeDays,
+                SupplierName = d.SupplierName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityOnHand = d.QuantityOnHand,
+                EffectiveMinimumQuantity = d.EffectiveMinimumQuantity,
+                EffectiveReorderQuantity = d.EffectiveReorderQuantity,
+                EffectiveSource = d.EffectiveSource,
+                OverrideLabel = d.OverrideLabel
             });
 
             // OrderApprovalStep (registered before Order since it embeds a List<CommonOrderApprovalStep>)

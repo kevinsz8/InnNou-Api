@@ -33,6 +33,10 @@ using GoodsReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsRe
 using GoodsReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceiptLine;
 using StockLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.StockLevel;
 using InventoryMovementEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryMovement;
+using ParLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.ParLevel;
+using ParLevelOverrideEntity = InnNou.Infrastructure.Repositories.DbEntities.ParLevelOverride;
+using ParLevelEffectiveEntity = InnNou.Infrastructure.Repositories.DbEntities.ParLevelEffective;
+using ParLevelBelowParRowEntity = InnNou.Infrastructure.Repositories.DbEntities.ParLevelBelowParRow;
 using InventoryTransferEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransfer;
 using InventoryTransferLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransferLine;
 using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
@@ -687,6 +691,70 @@ namespace InnNou.Infrastructure.Mapping
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LineCount = e.LineCount
+            });
+
+            mapper.Register<ParLevelEntity, ParLevelDto>(e => new ParLevelDto
+            {
+                ParLevelToken = e.ParLevelToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                MinimumQuantity = e.MinimumQuantity,
+                ReorderQuantity = e.ReorderQuantity,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<ParLevelOverrideEntity, ParLevelOverrideDto>(e => new ParLevelOverrideDto
+            {
+                ParLevelOverrideToken = e.ParLevelOverrideToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                Type = ParLevelOverrideTypeCodes.ToCode(e.Type),
+                Label = e.Label,
+                MinimumQuantity = e.MinimumQuantity,
+                ReorderQuantity = e.ReorderQuantity,
+                StartMonth = e.StartMonth,
+                StartDay = e.StartDay,
+                EndMonth = e.EndMonth,
+                EndDay = e.EndDay,
+                StartDate = e.StartDate,
+                EndDate = e.EndDate,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<ParLevelEffectiveEntity, ParLevelEffectiveDto>(e => new ParLevelEffectiveDto
+            {
+                BaseMinimumQuantity = e.BaseMinimumQuantity,
+                BaseReorderQuantity = e.BaseReorderQuantity,
+                EffectiveMinimumQuantity = e.EffectiveMinimumQuantity,
+                EffectiveReorderQuantity = e.EffectiveReorderQuantity,
+                EffectiveSource = e.EffectiveSource,
+                EffectiveOverrideToken = e.EffectiveOverrideToken,
+                EffectiveOverrideLabel = e.EffectiveOverrideLabel
+            });
+
+            mapper.Register<ParLevelBelowParRowEntity, BelowParRowDto>(e => new BelowParRowDto
+            {
+                ParLevelToken = e.ParLevelToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                LeadTimeDays = e.LeadTimeDays,
+                SupplierName = e.SupplierName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityOnHand = e.QuantityOnHand,
+                EffectiveMinimumQuantity = e.EffectiveMinimumQuantity,
+                EffectiveReorderQuantity = e.EffectiveReorderQuantity,
+                EffectiveSource = e.EffectiveSource,
+                OverrideLabel = e.OverrideLabel
             });
 
             mapper.Register<OrderEntity, OrderDto>(e => new OrderDto
