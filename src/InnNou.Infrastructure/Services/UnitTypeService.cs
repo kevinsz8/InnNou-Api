@@ -1,10 +1,12 @@
 using Dapper;
+using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -86,8 +88,15 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
         p.Add("@UnitTypeToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", "API");
-        var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
-            "sp_UnitType_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<UnitTypeDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
+                "sp_UnitType_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitTypeDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("UNIT_TYPE_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitTypeSystemReadonly, "A system-defined unit type cannot be deactivated.", 400);
+        }
     }
 }

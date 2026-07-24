@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -96,9 +97,16 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@SubFamilyToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", "API");
-        var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
-            "sp_SubFamily_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<SubFamilyDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
+                "sp_SubFamily_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubFamilyDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("SUB_FAMILY_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.SubFamilySystemReadonly, "A system-defined sub-family cannot be deactivated.", 400);
+        }
     }
 
     public async Task<BulkImportSubFamilyResultDto> BulkImportSubFamiliesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)

@@ -143,6 +143,7 @@ namespace InnNou.Application.Common
         public const string FamilyBulkImportTooManyRows = "FAMILY_BULK_IMPORT_TOO_MANY_ROWS";
         public const string FamilyBulkImportRowInvalid = "FAMILY_BULK_IMPORT_ROW_INVALID";
         public const string FamilyBulkImportRowFailed = "FAMILY_BULK_IMPORT_ROW_FAILED";
+        public const string FamilySystemReadonly = "FAMILY_SYSTEM_READONLY";
 
         // SubFamily
         public const string SubFamilyNotFound = "SUB_FAMILY_NOT_FOUND";
@@ -153,6 +154,7 @@ namespace InnNou.Application.Common
         public const string SubFamilyBulkImportTooManyRows = "SUB_FAMILY_BULK_IMPORT_TOO_MANY_ROWS";
         public const string SubFamilyBulkImportRowInvalid = "SUB_FAMILY_BULK_IMPORT_ROW_INVALID";
         public const string SubFamilyBulkImportRowFailed = "SUB_FAMILY_BULK_IMPORT_ROW_FAILED";
+        public const string SubFamilySystemReadonly = "SUB_FAMILY_SYSTEM_READONLY";
 
         // Category
         public const string CategoryNotFound = "CATEGORY_NOT_FOUND";
@@ -166,6 +168,7 @@ namespace InnNou.Application.Common
         public const string CategoryCreateForbidden = "CATEGORY_CREATE_FORBIDDEN";
         public const string CategoryOutsideScope = "CATEGORY_OUTSIDE_SCOPE";
         public const string CategoryOrganizationNotFound = "CATEGORY_ORGANIZATION_NOT_FOUND";
+        public const string CategorySystemReadonly = "CATEGORY_SYSTEM_READONLY";
 
         // SubCategory
         public const string SubCategoryNotFound = "SUB_CATEGORY_NOT_FOUND";
@@ -177,16 +180,19 @@ namespace InnNou.Application.Common
         public const string SubCategoryBulkImportRowInvalid = "SUB_CATEGORY_BULK_IMPORT_ROW_INVALID";
         public const string SubCategoryBulkImportRowFailed = "SUB_CATEGORY_BULK_IMPORT_ROW_FAILED";
         public const string SubCategoryOutsideScope = "SUB_CATEGORY_OUTSIDE_SCOPE";
+        public const string SubCategorySystemReadonly = "SUB_CATEGORY_SYSTEM_READONLY";
 
         // UnitType
         public const string UnitTypeNotFound = "UNIT_TYPE_NOT_FOUND";
         public const string UnitTypeCodeExists = "UNIT_TYPE_CODE_EXISTS";
         public const string UnitTypeCreateFailed = "UNIT_TYPE_CREATE_FAILED";
+        public const string UnitTypeSystemReadonly = "UNIT_TYPE_SYSTEM_READONLY";
 
         // UnitOfMeasure
         public const string UnitOfMeasureNotFound = "UNIT_OF_MEASURE_NOT_FOUND";
         public const string UnitOfMeasureCodeExists = "UNIT_OF_MEASURE_CODE_EXISTS";
         public const string UnitOfMeasureCreateFailed = "UNIT_OF_MEASURE_CREATE_FAILED";
+        public const string UnitOfMeasureSystemReadonly = "UNIT_OF_MEASURE_SYSTEM_READONLY";
         public const string PurchaseUnitNotFound = "PURCHASE_UNIT_NOT_FOUND";
         public const string ContentUnitNotFound = "CONTENT_UNIT_NOT_FOUND";
         public const string BaseUnitNotFound = "BASE_UNIT_NOT_FOUND";

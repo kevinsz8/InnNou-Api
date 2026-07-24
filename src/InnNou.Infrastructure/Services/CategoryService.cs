@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -181,9 +182,16 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         p.Add("@CategoryToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Category>(
-            "sp_Category_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<CategoryDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Category>(
+                "sp_Category_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<CategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("CATEGORY_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.CategorySystemReadonly, "A system-defined category cannot be deactivated.", 400);
+        }
     }
 
     public async Task<BulkImportCategoryResultDto> BulkImportCategoriesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)

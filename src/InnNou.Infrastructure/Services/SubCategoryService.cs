@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -141,9 +142,16 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         p.Add("@SubCategoryToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
-            "sp_SubCategory_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<SubCategoryDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+                "sp_SubCategory_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubCategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("SUB_CATEGORY_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.SubCategorySystemReadonly, "A system-defined sub-category cannot be deactivated.", 400);
+        }
     }
 
     public async Task<BulkImportSubCategoryResultDto> BulkImportSubCategoriesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)

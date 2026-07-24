@@ -1,10 +1,12 @@
 using Dapper;
+using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -93,8 +95,15 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
         p.Add("@UnitOfMeasureToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", "API");
-        var row = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
-            "sp_UnitOfMeasure_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<UnitOfMeasureDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+                "sp_UnitOfMeasure_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitOfMeasureDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("UNIT_OF_MEASURE_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitOfMeasureSystemReadonly, "A system-defined unit of measure cannot be deactivated.", 400);
+        }
     }
 }
