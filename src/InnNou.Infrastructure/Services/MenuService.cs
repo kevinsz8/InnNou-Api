@@ -9,13 +9,14 @@ namespace InnNou.Infrastructure.Services;
 
 public class MenuService(IDbConnectionFactory connectionFactory) : IMenuService
 {
-    public async Task<List<MenuItemDto>> GetVisibleForContextAsync(int roleLevel, int? organizationId, int? supplierId, CancellationToken cancellationToken = default)
+    public async Task<List<MenuItemDto>> GetVisibleForContextAsync(int roleLevel, int? organizationId, int? supplierId, string? organizationTypeCode, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@RoleLevel", roleLevel);
         p.Add("@OrganizationId", organizationId);
         p.Add("@SupplierId", supplierId);
+        p.Add("@OrganizationTypeCode", organizationTypeCode);
         var rows = (await connection.QueryAsync<MenuItem>(
             "sp_MenuItem_GetVisibleForContext", p, commandType: CommandType.StoredProcedure)).ToList();
 

@@ -12,7 +12,7 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetMyMenuQueryResponse>> Handle(GetMyMenuQueryRequest request, CancellationToken cancellationToken)
         {
-            var items = await menuService.GetVisibleForContextAsync(context.RoleLevel, context.OrganizationId, context.SupplierId, cancellationToken);
+            var items = await menuService.GetVisibleForContextAsync(context.RoleLevel, context.OrganizationId, context.SupplierId, context.OrganizationTypeCode, cancellationToken);
 
             return ApiResponse<GetMyMenuQueryResponse>.SuccessResponse(
                 new GetMyMenuQueryResponse { Items = mapper.MapList<Responses.Common.MenuItem>(items) }, 200);
