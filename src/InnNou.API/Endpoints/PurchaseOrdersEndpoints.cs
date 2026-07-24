@@ -24,6 +24,11 @@ public class PurchaseOrdersEndpoints : ICarterModule
         group.MapPost("/rectify",            HandleRectify).Produces<ApiResponse<CreatePurchaseOrderRectificationCommandResponse>>(201);
         group.MapPost("/getRectifications",  HandleGetRectifications).Produces<ApiResponse<GetPurchaseOrderRectificationsQueryResponse>>(200);
         group.MapPost("/getRectificationByToken", HandleGetRectificationByToken).Produces<ApiResponse<GetPurchaseOrderRectificationByTokenQueryResponse>>(200);
+
+        // Goods Receipts ("recepcion de mercaderia") — see .claude/GoodsReceiptsModule.md.
+        group.MapPost("/receiveGoods",           HandleReceiveGoods).Produces<ApiResponse<CreateGoodsReceiptCommandResponse>>(201);
+        group.MapPost("/getGoodsReceipts",       HandleGetGoodsReceipts).Produces<ApiResponse<GetGoodsReceiptsQueryResponse>>(200);
+        group.MapPost("/getGoodsReceiptByToken", HandleGetGoodsReceiptByToken).Produces<ApiResponse<GetGoodsReceiptByTokenQueryResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetPurchaseOrdersQueryRequest request, ISender sender, CancellationToken ct)
@@ -57,6 +62,24 @@ public class PurchaseOrdersEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleGetRectificationByToken([FromBody] GetPurchaseOrderRectificationByTokenQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleReceiveGoods([FromBody] CreateGoodsReceiptCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Json(result, statusCode: result.StatusCode ?? 201) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleGetGoodsReceipts([FromBody] GetGoodsReceiptsQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleGetGoodsReceiptByToken([FromBody] GetGoodsReceiptByTokenQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

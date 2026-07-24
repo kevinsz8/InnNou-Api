@@ -4,12 +4,16 @@ SET QUOTED_IDENTIFIER ON;
 GO
 /* =============================================================
    PURCHASEORDER - GET CANDIDATES FOR CONSOLIDATION
-   Finds SENT PurchaseOrders from any descendant ASSOCIATE property of
-   @SuperAssociateOrganizationId, for a given Supplier and date range,
-   that aren't already claimed by an existing ConsolidatedPurchaseOrder
-   — same hierarchy-descent CTE shape as sp_Organization_GetByToken/
-   sp_PurchaseOrder_GetPaged. Only SENT orders are real commitments
-   worth negotiating over; CANCELLED ones are excluded.
+   Finds non-cancelled PurchaseOrders (SENT, PARTIALLY_RECEIVED, or RECEIVED
+   — anything that represents a real, committed spend) from any descendant
+   ASSOCIATE property of @SuperAssociateOrganizationId, for a given Supplier
+   and date range, that aren't already claimed by an existing
+   ConsolidatedPurchaseOrder — same hierarchy-descent CTE shape as
+   sp_Organization_GetByToken/sp_PurchaseOrder_GetPaged. Excludes only
+   CANCELLED (not real spend). Was SENT-only until Goods Receipts (2026-07-26)
+   added PARTIALLY_RECEIVED/RECEIVED — a PO that has since started or
+   finished receiving is still real spend worth negotiating over, so it must
+   not silently drop out of the candidates list the moment it's received.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetCandidatesForConsolidation
 (
@@ -51,7 +55,7 @@ BEGIN
     JOIN dbo.PurchaseOrderStatuses pos ON pos.PurchaseOrderStatusId = po.PurchaseOrderStatusId
     CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.PurchaseOrderLine pol WHERE pol.PurchaseOrderId = po.PurchaseOrderId) lc
     WHERE po.SupplierId = @SupplierId
-      AND pos.Code = 'SENT'
+      AND pos.Code <> 'CANCELLED'
       AND EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = po.OrganizationId)
       AND CAST(po.SentUtc AS DATE) BETWEEN @DateFrom AND @DateTo
       AND NOT EXISTS (SELECT 1 FROM dbo.ConsolidatedPurchaseOrderMembers m WHERE m.PurchaseOrderId = po.PurchaseOrderId)

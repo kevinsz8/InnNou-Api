@@ -30,6 +30,8 @@ using CommonPurchaseOrder = InnNou.Application.Responses.Common.PurchaseOrder;
 using CommonPurchaseOrderLine = InnNou.Application.Responses.Common.PurchaseOrderLine;
 using CommonPurchaseOrderRectification = InnNou.Application.Responses.Common.PurchaseOrderRectification;
 using CommonPurchaseOrderLineRectification = InnNou.Application.Responses.Common.PurchaseOrderLineRectification;
+using CommonGoodsReceipt = InnNou.Application.Responses.Common.GoodsReceipt;
+using CommonGoodsReceiptLine = InnNou.Application.Responses.Common.GoodsReceiptLine;
 using CommonConsolidatedPurchaseOrder = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrder;
 using CommonConsolidatedPurchaseOrderMember = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrderMember;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
@@ -1088,6 +1090,40 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 AppliedUtc = d.AppliedUtc,
                 Lines = mapper.MapList<CommonPurchaseOrderLineRectification>(d.Lines)
+            });
+
+            // GoodsReceiptLine (registered before GoodsReceipt since it embeds a List<CommonGoodsReceiptLine>)
+            mapper.Register<GoodsReceiptLineDto, CommonGoodsReceiptLine>(d => new CommonGoodsReceiptLine
+            {
+                GoodsReceiptLineToken = d.GoodsReceiptLineToken,
+                PurchaseOrderLineToken = d.PurchaseOrderLineToken,
+                OrderedQuantity = d.OrderedQuantity,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                QuantityAccepted = d.QuantityAccepted,
+                QuantityCourtesy = d.QuantityCourtesy,
+                QuantityRejected = d.QuantityRejected,
+                RejectionReason = d.RejectionReason,
+                LotNumber = d.LotNumber,
+                ExpirationDate = d.ExpirationDate,
+                SerialNumber = d.SerialNumber,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<GoodsReceiptDto, CommonGoodsReceipt>(d => new CommonGoodsReceipt
+            {
+                GoodsReceiptToken = d.GoodsReceiptToken,
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonGoodsReceiptLine>(d.Lines)
             });
 
             // OrderApprovalStep (registered before Order since it embeds a List<CommonOrderApprovalStep>)

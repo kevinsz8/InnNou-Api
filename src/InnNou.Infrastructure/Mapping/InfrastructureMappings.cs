@@ -29,6 +29,8 @@ using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Purcha
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
 using PurchaseOrderRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderRectification;
 using PurchaseOrderLineRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLineRectification;
+using GoodsReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceipt;
+using GoodsReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceiptLine;
 using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
 using ConsolidatedPurchaseOrderMemberEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrderMember;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
@@ -591,6 +593,38 @@ namespace InnNou.Infrastructure.Mapping
                 NewUnitPrice = e.NewUnitPrice,
                 PreviousCurrencyCode = e.PreviousCurrencyCode,
                 NewCurrencyCode = e.NewCurrencyCode,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<GoodsReceiptEntity, GoodsReceiptDto>(e => new GoodsReceiptDto
+            {
+                GoodsReceiptToken = e.GoodsReceiptToken,
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                PurchaseOrderNumber = e.PurchaseOrderNumber,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
+            });
+
+            mapper.Register<GoodsReceiptLineEntity, GoodsReceiptLineDto>(e => new GoodsReceiptLineDto
+            {
+                GoodsReceiptLineToken = e.GoodsReceiptLineToken,
+                PurchaseOrderLineToken = e.PurchaseOrderLineToken,
+                OrderedQuantity = e.OrderedQuantity,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                QuantityAccepted = e.QuantityAccepted,
+                QuantityCourtesy = e.QuantityCourtesy,
+                QuantityRejected = e.QuantityRejected,
+                RejectionReason = e.RejectionReason,
+                LotNumber = e.LotNumber,
+                ExpirationDate = e.ExpirationDate,
+                SerialNumber = e.SerialNumber,
+                Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
             });
