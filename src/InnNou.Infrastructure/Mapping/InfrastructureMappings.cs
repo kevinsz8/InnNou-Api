@@ -31,6 +31,10 @@ using PurchaseOrderRectificationEntity = InnNou.Infrastructure.Repositories.DbEn
 using PurchaseOrderLineRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLineRectification;
 using GoodsReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceipt;
 using GoodsReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceiptLine;
+using StockLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.StockLevel;
+using InventoryMovementEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryMovement;
+using InventoryTransferEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransfer;
+using InventoryTransferLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransferLine;
 using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
 using ConsolidatedPurchaseOrderMemberEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrderMember;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
@@ -627,6 +631,62 @@ namespace InnNou.Infrastructure.Mapping
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<StockLevelEntity, StockLevelDto>(e => new StockLevelDto
+            {
+                StockLevelToken = e.StockLevelToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierName = e.SupplierName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityOnHand = e.QuantityOnHand,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<InventoryMovementEntity, InventoryMovementDto>(e => new InventoryMovementDto
+            {
+                InventoryMovementToken = e.InventoryMovementToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                Type = InventoryMovementTypeCodes.ToCode(e.Type),
+                Quantity = e.Quantity,
+                GoodsReceiptToken = e.GoodsReceiptToken,
+                InventoryTransferToken = e.InventoryTransferToken,
+                Reason = e.Reason,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InventoryTransferLineEntity, InventoryTransferLineDto>(e => new InventoryTransferLineDto
+            {
+                InventoryTransferLineToken = e.InventoryTransferLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                Quantity = e.Quantity,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InventoryTransferEntity, InventoryTransferDto>(e => new InventoryTransferDto
+            {
+                InventoryTransferToken = e.InventoryTransferToken,
+                FromWarehouseToken = e.FromWarehouseToken,
+                FromWarehouseName = e.FromWarehouseName,
+                ToWarehouseToken = e.ToWarehouseToken,
+                ToWarehouseName = e.ToWarehouseName,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
             });
 
             mapper.Register<OrderEntity, OrderDto>(e => new OrderDto

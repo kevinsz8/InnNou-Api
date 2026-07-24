@@ -294,6 +294,21 @@ namespace InnNou.Application.Common
         public const string GoodsReceiptSerialNumberRequired = "GOODS_RECEIPT_SERIAL_NUMBER_REQUIRED";
         public const string GoodsReceiptRejectionReasonRequired = "GOODS_RECEIPT_REJECTION_REASON_REQUIRED";
 
+        // Inventory
+        public const string InventoryForbidden = "INVENTORY_FORBIDDEN";
+        public const string InventoryWarehouseNotFound = "INVENTORY_WAREHOUSE_NOT_FOUND";
+        public const string InventoryWarehouseNotInventoriable = "INVENTORY_WAREHOUSE_NOT_INVENTORIABLE";
+        public const string InventoryWarehouseCannotAdjust = "INVENTORY_WAREHOUSE_CANNOT_ADJUST";
+        public const string InventoryWarehouseCannotTransferOut = "INVENTORY_WAREHOUSE_CANNOT_TRANSFER_OUT";
+        public const string InventoryWarehouseCannotReceiveTransfers = "INVENTORY_WAREHOUSE_CANNOT_RECEIVE_TRANSFERS";
+        public const string InventoryTransferSameWarehouse = "INVENTORY_TRANSFER_SAME_WAREHOUSE";
+        public const string InventoryTransferCrossOrganization = "INVENTORY_TRANSFER_CROSS_ORGANIZATION";
+        public const string InventoryTransferEmpty = "INVENTORY_TRANSFER_EMPTY";
+        public const string InventoryTransferNotFound = "INVENTORY_TRANSFER_NOT_FOUND";
+        public const string InventoryNegativeStockNotAllowed = "INVENTORY_NEGATIVE_STOCK_NOT_ALLOWED";
+        public const string InventoryArticleNotFound = "INVENTORY_ARTICLE_NOT_FOUND";
+        public const string InventoryInvalidAdjustment = "INVENTORY_INVALID_ADJUSTMENT";
+
         // ConsolidatedPurchaseOrder (multi-property spend consolidation)
         public const string ConsolidatedPurchaseOrderNotFound = "CONSOLIDATED_PURCHASE_ORDER_NOT_FOUND";
         public const string ConsolidatedPurchaseOrderForbidden = "CONSOLIDATED_PURCHASE_ORDER_FORBIDDEN";

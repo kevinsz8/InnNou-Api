@@ -676,7 +676,35 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 lineParams.Add("@Notes", validated.Input.Notes);
                 lineParams.Add("@CreatedBy", actor);
 
-                await connection.ExecuteAsync("sp_GoodsReceiptLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+                var receiptLine = await connection.QueryFirstOrDefaultAsync<GoodsReceiptLine>(
+                    "sp_GoodsReceiptLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+
+                // Stock effect — the RECEIPT trigger Inventory's own module doc describes. Both
+                // Accepted and Courtesy are real physical stock regardless of billing; Rejected
+                // never touches stock. Skipped entirely (not a failure) when the warehouse
+                // doesn't track inventory — receiving is still recorded in GoodsReceipt itself,
+                // stock tracking is an optional side effect. See .claude/InventoryModule.md.
+                var stockDelta = validated.Input.QuantityAccepted + validated.Input.QuantityCourtesy;
+                if (warehouse.IsInventoriable && stockDelta > 0 && receiptLine is not null)
+                {
+                    await connection.ExecuteAsync(
+                        "sp_StockLevel_ApplyDelta",
+                        new { warehouse.WarehouseId, validated.Line.ArticleId, Delta = stockDelta, ActorBy = actor },
+                        transaction, commandType: CommandType.StoredProcedure);
+
+                    var movementParams = new DynamicParameters();
+                    movementParams.Add("@InventoryMovementToken", Guid.NewGuid());
+                    movementParams.Add("@WarehouseId", warehouse.WarehouseId);
+                    movementParams.Add("@ArticleId", validated.Line.ArticleId);
+                    movementParams.Add("@Type", InventoryMovementTypeCodes.Receipt);
+                    movementParams.Add("@Quantity", stockDelta);
+                    movementParams.Add("@GoodsReceiptLineId", receiptLine.GoodsReceiptLineId);
+                    movementParams.Add("@InventoryTransferLineId", (int?)null);
+                    movementParams.Add("@Reason", (string?)null);
+                    movementParams.Add("@CreatedBy", actor);
+
+                    await connection.ExecuteAsync("sp_InventoryMovement_Create", movementParams, transaction, commandType: CommandType.StoredProcedure);
+                }
             }
 
             await connection.ExecuteAsync(

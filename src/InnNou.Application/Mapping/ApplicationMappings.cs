@@ -32,6 +32,10 @@ using CommonPurchaseOrderRectification = InnNou.Application.Responses.Common.Pur
 using CommonPurchaseOrderLineRectification = InnNou.Application.Responses.Common.PurchaseOrderLineRectification;
 using CommonGoodsReceipt = InnNou.Application.Responses.Common.GoodsReceipt;
 using CommonGoodsReceiptLine = InnNou.Application.Responses.Common.GoodsReceiptLine;
+using CommonStockLevel = InnNou.Application.Responses.Common.StockLevel;
+using CommonInventoryMovement = InnNou.Application.Responses.Common.InventoryMovement;
+using CommonInventoryTransfer = InnNou.Application.Responses.Common.InventoryTransfer;
+using CommonInventoryTransferLine = InnNou.Application.Responses.Common.InventoryTransferLine;
 using CommonConsolidatedPurchaseOrder = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrder;
 using CommonConsolidatedPurchaseOrderMember = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrderMember;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
@@ -1124,6 +1128,64 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonGoodsReceiptLine>(d.Lines)
+            });
+
+            mapper.Register<StockLevelDto, CommonStockLevel>(d => new CommonStockLevel
+            {
+                StockLevelToken = d.StockLevelToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierName = d.SupplierName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityOnHand = d.QuantityOnHand,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            mapper.Register<InventoryMovementDto, CommonInventoryMovement>(d => new CommonInventoryMovement
+            {
+                InventoryMovementToken = d.InventoryMovementToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                Type = d.Type,
+                Quantity = d.Quantity,
+                GoodsReceiptToken = d.GoodsReceiptToken,
+                InventoryTransferToken = d.InventoryTransferToken,
+                Reason = d.Reason,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            // InventoryTransferLine (registered before InventoryTransfer since it embeds a List<CommonInventoryTransferLine>)
+            mapper.Register<InventoryTransferLineDto, CommonInventoryTransferLine>(d => new CommonInventoryTransferLine
+            {
+                InventoryTransferLineToken = d.InventoryTransferLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                Quantity = d.Quantity,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<InventoryTransferDto, CommonInventoryTransfer>(d => new CommonInventoryTransfer
+            {
+                InventoryTransferToken = d.InventoryTransferToken,
+                FromWarehouseToken = d.FromWarehouseToken,
+                FromWarehouseName = d.FromWarehouseName,
+                ToWarehouseToken = d.ToWarehouseToken,
+                ToWarehouseName = d.ToWarehouseName,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonInventoryTransferLine>(d.Lines)
             });
 
             // OrderApprovalStep (registered before Order since it embeds a List<CommonOrderApprovalStep>)

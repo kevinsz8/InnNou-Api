@@ -67,6 +67,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IZoneService, ZoneService>();
             services.AddScoped<ISupplierDeliveryZoneService, SupplierDeliveryZoneService>();
             services.AddScoped<IFamilyApprovalThresholdService, FamilyApprovalThresholdService>();
+            services.AddScoped<IInventoryService, InventoryService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();
