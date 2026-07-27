@@ -42,6 +42,7 @@ namespace InnNou.Domain.Dtos
         public bool CanSellItems { get; set; }
         public bool CanAdjustInventory { get; set; }
         public bool CanReceiveReturns { get; set; }
+        public bool CanCountInventory { get; set; }
         public bool TrackLotNumbers { get; set; }
         public bool TrackExpirationDates { get; set; }
         public bool TrackSerialNumbers { get; set; }

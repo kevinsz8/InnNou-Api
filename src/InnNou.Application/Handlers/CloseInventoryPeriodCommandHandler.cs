@@ -1,0 +1,28 @@
+using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
+using InnNou.Application.Requests;
+using InnNou.Application.Responses;
+using InnNou.Shared.Mapping;
+using MediatR;
+
+namespace InnNou.Application.Handlers
+{
+    public class CloseInventoryPeriodCommandHandler(IInventoryPeriodService inventoryPeriodService, IMapper mapper, IRequestContext context)
+        : IRequestHandler<CloseInventoryPeriodCommandRequest, ApiResponse<CloseInventoryPeriodCommandResponse>>
+    {
+        public async Task<ApiResponse<CloseInventoryPeriodCommandResponse>> Handle(CloseInventoryPeriodCommandRequest request, CancellationToken cancellationToken)
+        {
+            if (request.InventoryPeriodToken == Guid.Empty)
+                return ApiResponse<CloseInventoryPeriodCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "InventoryPeriodToken is required.", 400);
+
+            var result = await inventoryPeriodService.CloseAsync(request.InventoryPeriodToken, context, cancellationToken);
+            if (result is null)
+                return ApiResponse<CloseInventoryPeriodCommandResponse>.FailureResponse(ErrorCodes.InventoryPeriodNotFound, "Inventory period not found.", 404);
+
+            return ApiResponse<CloseInventoryPeriodCommandResponse>.SuccessResponse(new CloseInventoryPeriodCommandResponse
+            {
+                InventoryPeriod = mapper.Map<Responses.Common.InventoryPeriod>(result)
+            });
+        }
+    }
+}

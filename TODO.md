@@ -13,6 +13,7 @@
 - **Módulo Pedidos / Orders** — backend **y frontend** completos (el frontend era lo único marcado pendiente en la nota original). Ver `.claude/OrdersModule.md` + `.claude/OrdersGoodsReceiptsOverview.md`. Desde entonces el módulo creció con Rectificaciones, Aprobaciones, PDF/email, numeración secuencial, copia e importación de líneas — todo documentado en sus propios `.claude/*Module.md`.
 - **Inventory** (`StockLevels`+`InventoryMovements`, Receipt/Adjustment/Transfer) — construido 2026-07-27, ver `.claude/InventoryModule.md`. Cierra el ciclo Purchasing → Receiving → Inventory que esta nota daba por "familia futura" en la sección de contexto de abajo.
 - **Niveles de par / reposición sugerida** — **construido 2026-07-28**, ver `.claude/ParLevelsModule.md`. Base par level por Warehouse+Article, más overrides de temporada (rango mes/día recurrente, con wrap-around de fin de año) y de evento puntual (fecha literal, prioridad EVENT > SEASONAL > BASE) — ambos confirmados en la conversación de diseño, incluido el override de evento que el usuario pidió meter desde el arranque aunque no todos lo usen. `LeadTimeDays` se muestra tal cual en la lista "Below Par", sin inventar un score de urgencia (no hay datos de consumo todavía). Verificado en vivo con Playwright: resolución de prioridad, rechazo de overlap del mismo tipo, aceptación de overlap cruzado, y cascade-delete del base hacia sus overrides.
+- **Aperturas de inventario / Inventory Periods** — **construido 2026-07-27** (backend), ver `.claude/InventoryPeriodsModule.md`. Reemplaza y amplía lo que el punto 3 de abajo sugería: en vez de un conteo cíclico parcial sin cerrar el almacén, el usuario pidió una máquina de estados por Warehouse (`OPEN → IN_PROGRESS → PRE_CLOSED → CLOSED`, conteo completo obligatorio para cerrar, reapertura solo del período más reciente) — esto resolvió de paso el problema original de "reportes por fecha" sin necesitar ningún mecanismo de congelamiento por fecha (el cierre siempre es "ahora"). Verificado en vivo por API (curl): apertura, transición automática de estado, freeze de Ajustes/Transferencias durante el conteo, cierre con variance real y reversión al reabrir. Frontend pendiente (no se pudo clonar `InnNou-Web` en esa sesión).
 
 **Factura** sigue sin construir en absoluto — ver el punto 5 más abajo, que retoma esto.
 
@@ -41,13 +42,15 @@ Investigado 2026-07-28. Confirmado como práctica estándar: un RMA completo cub
 
 ---
 
-## 3. Conteo cíclico / stocktake estructurado (cierra otro gap real en Inventory)
+## 3. Conteo cíclico / stocktake estructurado — COMPLETADO, ver arriba
 
-Investigado 2026-07-28. Confirmado como práctica estándar de la industria (WISK, Apicbase, Fast Inventory): conteo cíclico (contar una porción del catálogo por vez, sin cerrar el almacén) es el método preferido sobre un conteo total anual; el flujo típico es contar físicamente, comparar contra el "teórico" (el balance del sistema), y reconciliar posteando **un solo ajuste por variance con trazabilidad completa**, no ediciones sueltas.
+Investigado 2026-07-28 (WISK, Apicbase, Fast Inventory research original, resumida más abajo). El sketch original de este punto sugería un conteo cíclico parcial sin cerrar el almacén; en la sesión de construcción (2026-07-27→28) el usuario pidió explícitamente algo más completo — una máquina de estados por Warehouse con conteo íntegro obligatorio para cerrar y reapertura controlada — ver **"Aperturas de inventario / Inventory Periods"** en la sección Completados de arriba y `.claude/InventoryPeriodsModule.md` para el diseño final, que reemplaza este sketch.
 
-**Por qué esto es "cerrar el flujo actual", no un módulo nuevo:** `InventoryService.CreateAdjustmentAsync` (`.claude/InventoryModule.md`) ya cubre el ajuste manual línea por línea — lo que falta es la envoltura de **sesión de conteo**:
-- Un `InventoryCount`/`InventoryCountLine` (header + líneas) por Warehouse: se abre una sesión, se lista el subconjunto de artículos a contar (todos, o filtrado por Family/Category), se registra `QuantityCounted` por línea, y al cerrar la sesión el sistema calcula `Variance = QuantityCounted - QuantityOnHand` y postea un `ADJUSTMENT` por cada línea con variance ≠ 0 — reusando `sp_StockLevel_ApplyDelta`/`sp_InventoryMovement_Create` tal cual existen hoy, no una ruta de escritura nueva.
-- Esto es genuinamente la pieza que falta para que Inventory sea "cerrable" en la práctica (hoy si alguien hace un conteo físico completo, tendría que crear N ajustes manuales sueltos sin ningún registro de que fueron parte del mismo conteo).
+<details><summary>Investigación original (referencia histórica)</summary>
+
+Confirmado como práctica estándar de la industria: conteo cíclico (contar una porción del catálogo por vez, sin cerrar el almacén) es el método preferido sobre un conteo total anual; el flujo típico es contar físicamente, comparar contra el "teórico" (el balance del sistema), y reconciliar posteando un solo ajuste por variance con trazabilidad completa, no ediciones sueltas. `InventoryService.CreateAdjustmentAsync` ya cubría el ajuste manual línea por línea — lo que faltaba era la envoltura de sesión de conteo, que terminó construyéndose como el diseño más completo de "Inventory Periods" en vez de esta versión más ligera.
+
+</details>
 
 ---
 

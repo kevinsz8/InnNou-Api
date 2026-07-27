@@ -58,6 +58,20 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         return canAccess == 1;
     }
 
+    // A warehouse mid-count (IN_PROGRESS/PRE_CLOSED — see IInventoryPeriodService) blocks
+    // discretionary Adjustments/Transfers so the physical count isn't invalidated by stock moving
+    // under the counters' feet. OPEN does not block (counting hasn't started yet); Goods Receipts
+    // are deliberately exempted (a physical delivery can't be turned away) — see
+    // .claude/InventoryPeriodsModule.md's "Design decisions" section for the tradeoff.
+    private static async Task EnsureNoActiveCountInProgressAsync(IDbConnection connection, int warehouseId, string warehouseLabel)
+    {
+        var active = await connection.QueryFirstOrDefaultAsync<InventoryPeriod>(
+            "sp_InventoryPeriod_GetActiveByWarehouseId", new { WarehouseId = warehouseId }, commandType: CommandType.StoredProcedure);
+
+        if (active is not null && active.Status is InventoryPeriodStatus.In_Progress or InventoryPeriodStatus.Pre_Closed)
+            throw new ApiException(ErrorCodes.InventoryWarehouseCountInProgress, $"{warehouseLabel} has an inventory count in progress — adjustments and transfers are blocked until it closes.", 409);
+    }
+
     public async Task<StockLevelDto?> CreateAdjustmentAsync(Guid warehouseToken, Guid articleToken, decimal deltaQuantity, string reason, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -76,6 +90,8 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         if (!warehouse.CanAdjustInventory)
             throw new ApiException(ErrorCodes.InventoryWarehouseCannotAdjust, "This warehouse is not configured to adjust inventory.", 400);
+
+        await EnsureNoActiveCountInProgressAsync(connection, warehouse.WarehouseId, "This warehouse");
 
         if (deltaQuantity == 0)
             throw new ApiException(ErrorCodes.InventoryInvalidAdjustment, "The adjustment quantity cannot be zero.", 400);
@@ -181,6 +197,9 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         if (!toWarehouse.CanReceiveTransfers)
             throw new ApiException(ErrorCodes.InventoryWarehouseCannotReceiveTransfers, "The destination warehouse is not configured to receive transfers.", 400);
+
+        await EnsureNoActiveCountInProgressAsync(connection, fromWarehouse.WarehouseId, "The source warehouse");
+        await EnsureNoActiveCountInProgressAsync(connection, toWarehouse.WarehouseId, "The destination warehouse");
 
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.InventoryTransferEmpty, "At least one line must be transferred.", 400);

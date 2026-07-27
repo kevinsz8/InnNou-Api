@@ -58,6 +58,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@CanSellItems", dto.CanSellItems);
         p.Add("@CanAdjustInventory", dto.CanAdjustInventory);
         p.Add("@CanReceiveReturns", dto.CanReceiveReturns);
+        p.Add("@CanCountInventory", dto.CanCountInventory);
         p.Add("@TrackLotNumbers", dto.TrackLotNumbers);
         p.Add("@TrackExpirationDates", dto.TrackExpirationDates);
         p.Add("@TrackSerialNumbers", dto.TrackSerialNumbers);

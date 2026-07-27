@@ -36,6 +36,8 @@ using CommonStockLevel = InnNou.Application.Responses.Common.StockLevel;
 using CommonInventoryMovement = InnNou.Application.Responses.Common.InventoryMovement;
 using CommonInventoryTransfer = InnNou.Application.Responses.Common.InventoryTransfer;
 using CommonInventoryTransferLine = InnNou.Application.Responses.Common.InventoryTransferLine;
+using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPeriod;
+using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
 using CommonParLevelEffective = InnNou.Application.Responses.Common.ParLevelEffective;
@@ -788,6 +790,7 @@ namespace InnNou.Application.Mapping
                 CanSellItems = r.CanSellItems,
                 CanAdjustInventory = r.CanAdjustInventory,
                 CanReceiveReturns = r.CanReceiveReturns,
+                CanCountInventory = r.CanCountInventory,
                 TrackLotNumbers = r.TrackLotNumbers,
                 TrackExpirationDates = r.TrackExpirationDates,
                 TrackSerialNumbers = r.TrackSerialNumbers,
@@ -818,6 +821,7 @@ namespace InnNou.Application.Mapping
                 CanSellItems = r.CanSellItems,
                 CanAdjustInventory = r.CanAdjustInventory,
                 CanReceiveReturns = r.CanReceiveReturns,
+                CanCountInventory = r.CanCountInventory,
                 TrackLotNumbers = r.TrackLotNumbers,
                 TrackExpirationDates = r.TrackExpirationDates,
                 TrackSerialNumbers = r.TrackSerialNumbers,
@@ -854,6 +858,7 @@ namespace InnNou.Application.Mapping
                 CanSellItems = d.CanSellItems,
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
+                CanCountInventory = d.CanCountInventory,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -891,6 +896,7 @@ namespace InnNou.Application.Mapping
                 CanSellItems = d.CanSellItems,
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
+                CanCountInventory = d.CanCountInventory,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -928,6 +934,7 @@ namespace InnNou.Application.Mapping
                 CanSellItems = d.CanSellItems,
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
+                CanCountInventory = d.CanCountInventory,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -1161,6 +1168,7 @@ namespace InnNou.Application.Mapping
                 Quantity = d.Quantity,
                 GoodsReceiptToken = d.GoodsReceiptToken,
                 InventoryTransferToken = d.InventoryTransferToken,
+                InventoryPeriodCountToken = d.InventoryPeriodCountToken,
                 Reason = d.Reason,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
@@ -1190,6 +1198,39 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonInventoryTransferLine>(d.Lines)
+            });
+
+            // InventoryPeriodCountDto registered before InventoryPeriodDto since it embeds a List<CommonInventoryPeriodCount>
+            mapper.Register<InventoryPeriodCountDto, CommonInventoryPeriodCount>(d => new CommonInventoryPeriodCount
+            {
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                OpeningQuantity = d.OpeningQuantity,
+                CountedQuantity = d.CountedQuantity,
+                SystemQuantityAtClose = d.SystemQuantityAtClose,
+                VarianceQuantity = d.VarianceQuantity,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            mapper.Register<InventoryPeriodDto, CommonInventoryPeriod>(d => new CommonInventoryPeriod
+            {
+                InventoryPeriodToken = d.InventoryPeriodToken,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                Status = d.Status,
+                StartDate = d.StartDate,
+                ClosedUtc = d.ClosedUtc,
+                ClosedBy = d.ClosedBy,
+                ReopenedUtc = d.ReopenedUtc,
+                ReopenedBy = d.ReopenedBy,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonInventoryPeriodCount>(d.Lines)
             });
 
             mapper.Register<ParLevelDto, CommonParLevel>(d => new CommonParLevel

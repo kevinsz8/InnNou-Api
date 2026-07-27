@@ -314,6 +314,19 @@ namespace InnNou.Application.Common
         public const string InventoryNegativeStockNotAllowed = "INVENTORY_NEGATIVE_STOCK_NOT_ALLOWED";
         public const string InventoryArticleNotFound = "INVENTORY_ARTICLE_NOT_FOUND";
         public const string InventoryInvalidAdjustment = "INVENTORY_INVALID_ADJUSTMENT";
+        public const string InventoryWarehouseCountInProgress = "INVENTORY_WAREHOUSE_COUNT_IN_PROGRESS";
+
+        // InventoryPeriod (state-machine counting periods — OPEN/IN_PROGRESS/PRE_CLOSED/CLOSED)
+        public const string InventoryPeriodNotFound = "INVENTORY_PERIOD_NOT_FOUND";
+        public const string InventoryPeriodAlreadyOpen = "INVENTORY_PERIOD_ALREADY_OPEN";
+        public const string InventoryPeriodWarehouseCannotCount = "INVENTORY_PERIOD_WAREHOUSE_CANNOT_COUNT";
+        public const string InventoryPeriodArticleNotInPeriod = "INVENTORY_PERIOD_ARTICLE_NOT_IN_PERIOD";
+        public const string InventoryPeriodInvalidCount = "INVENTORY_PERIOD_INVALID_COUNT";
+        public const string InventoryPeriodIncomplete = "INVENTORY_PERIOD_INCOMPLETE";
+        public const string InventoryPeriodAlreadyClosed = "INVENTORY_PERIOD_ALREADY_CLOSED";
+        public const string InventoryPeriodNotClosed = "INVENTORY_PERIOD_NOT_CLOSED";
+        public const string InventoryPeriodNotMostRecent = "INVENTORY_PERIOD_NOT_MOST_RECENT";
+        public const string InventoryPeriodReopenForbidden = "INVENTORY_PERIOD_REOPEN_FORBIDDEN";
 
         // ParLevel (par levels / suggested replenishment)
         public const string ParLevelNotFound = "PAR_LEVEL_NOT_FOUND";

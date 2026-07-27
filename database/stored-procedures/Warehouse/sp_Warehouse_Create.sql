@@ -31,6 +31,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_Create
     @CanSellItems                  BIT,
     @CanAdjustInventory            BIT,
     @CanReceiveReturns             BIT,
+    @CanCountInventory             BIT,
     @TrackLotNumbers               BIT,
     @TrackExpirationDates          BIT,
     @TrackSerialNumbers            BIT,
@@ -57,7 +58,7 @@ BEGIN
         WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
         AddressLine1, AddressLine2, City, State, PostalCode, Country, ZoneId,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
-        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns,
+        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns, CanCountInventory,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
         IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
         IsActive, IsDeleted, CreatedUtc, CreatedBy
@@ -67,7 +68,7 @@ BEGIN
         @WarehouseToken, @OrganizationId, @Name, @NormalizedName, @Code, @Description,
         @AddressLine1, @AddressLine2, @City, @State, @PostalCode, @Country, @ZoneId,
         @IsInventoriable, @CanReceivePurchases, @CanReceiveTransfers, @CanTransferOut,
-        @CanConsumeInventory, @CanProduceItems, @CanSellItems, @CanAdjustInventory, @CanReceiveReturns,
+        @CanConsumeInventory, @CanProduceItems, @CanSellItems, @CanAdjustInventory, @CanReceiveReturns, @CanCountInventory,
         @TrackLotNumbers, @TrackExpirationDates, @TrackSerialNumbers, @RequireApproval,
         @IsDefaultReceivingWarehouse, @IsDefaultConsumptionWarehouse, @IsMainWarehouse,
         1, 0, @CreatedUtc, @CreatedBy
@@ -78,7 +79,7 @@ BEGIN
         w.AddressLine1, w.AddressLine2, w.City, w.State, w.PostalCode, w.Country,
         w.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
         w.IsInventoriable, w.CanReceivePurchases, w.CanReceiveTransfers, w.CanTransferOut,
-        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns,
+        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory,
         w.TrackLotNumbers, w.TrackExpirationDates, w.TrackSerialNumbers, w.RequireApproval,
         w.IsDefaultReceivingWarehouse, w.IsDefaultConsumptionWarehouse, w.IsMainWarehouse,
         w.IsActive, w.IsDeleted, w.CreatedUtc, w.CreatedBy, w.LastUpdatedUtc, w.LastUpdatedBy, w.DeletedUtc, w.DeletedBy

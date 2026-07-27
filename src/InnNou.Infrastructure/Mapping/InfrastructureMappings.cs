@@ -480,6 +480,7 @@ namespace InnNou.Infrastructure.Mapping
                 CanSellItems = e.CanSellItems,
                 CanAdjustInventory = e.CanAdjustInventory,
                 CanReceiveReturns = e.CanReceiveReturns,
+                CanCountInventory = e.CanCountInventory,
                 TrackLotNumbers = e.TrackLotNumbers,
                 TrackExpirationDates = e.TrackExpirationDates,
                 TrackSerialNumbers = e.TrackSerialNumbers,
@@ -664,6 +665,7 @@ namespace InnNou.Infrastructure.Mapping
                 Quantity = e.Quantity,
                 GoodsReceiptToken = e.GoodsReceiptToken,
                 InventoryTransferToken = e.InventoryTransferToken,
+                InventoryPeriodCountToken = e.InventoryPeriodCountToken,
                 Reason = e.Reason,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
@@ -687,6 +689,38 @@ namespace InnNou.Infrastructure.Mapping
                 FromWarehouseName = e.FromWarehouseName,
                 ToWarehouseToken = e.ToWarehouseToken,
                 ToWarehouseName = e.ToWarehouseName,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
+            });
+
+            // InventoryPeriodCount registered before InventoryPeriod since it embeds a List<InventoryPeriodCountDto>
+            mapper.Register<InventoryPeriodCount, InventoryPeriodCountDto>(e => new InventoryPeriodCountDto
+            {
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                OpeningQuantity = e.OpeningQuantity,
+                CountedQuantity = e.CountedQuantity,
+                SystemQuantityAtClose = e.SystemQuantityAtClose,
+                VarianceQuantity = e.VarianceQuantity,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<InventoryPeriod, InventoryPeriodDto>(e => new InventoryPeriodDto
+            {
+                InventoryPeriodToken = e.InventoryPeriodToken,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                Status = InventoryPeriodStatusCodes.ToCode(e.Status),
+                StartDate = e.StartDate,
+                ClosedUtc = e.ClosedUtc,
+                ClosedBy = e.ClosedBy,
+                ReopenedUtc = e.ReopenedUtc,
+                ReopenedBy = e.ReopenedBy,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
