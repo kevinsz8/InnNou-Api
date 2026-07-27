@@ -38,6 +38,10 @@ using CommonInventoryTransfer = InnNou.Application.Responses.Common.InventoryTra
 using CommonInventoryTransferLine = InnNou.Application.Responses.Common.InventoryTransferLine;
 using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPeriod;
 using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
+using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
+using CommonMonthlySpend = InnNou.Application.Responses.Common.MonthlySpend;
+using CommonOrderStatusMonthCount = InnNou.Application.Responses.Common.OrderStatusMonthCount;
+using CommonRecentActivityItem = InnNou.Application.Responses.Common.RecentActivityItem;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
 using CommonParLevelEffective = InnNou.Application.Responses.Common.ParLevelEffective;
@@ -1231,6 +1235,43 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonInventoryPeriodCount>(d.Lines)
+            });
+
+            mapper.Register<MonthlySpendDto, CommonMonthlySpend>(d => new CommonMonthlySpend
+            {
+                Year = d.Year,
+                Month = d.Month,
+                Total = d.Total
+            });
+
+            mapper.Register<RecentActivityItemDto, CommonRecentActivityItem>(d => new CommonRecentActivityItem
+            {
+                ActivityType = d.ActivityType,
+                ReferenceLabel = d.ReferenceLabel,
+                ActorName = d.ActorName,
+                OccurredUtc = d.OccurredUtc
+            });
+
+            mapper.Register<OrderStatusMonthCountDto, CommonOrderStatusMonthCount>(d => new CommonOrderStatusMonthCount
+            {
+                Year = d.Year,
+                Month = d.Month,
+                StatusCode = d.StatusCode,
+                Count = d.Count
+            });
+
+            mapper.Register<DashboardSummaryDto, CommonDashboardSummary>(d => new CommonDashboardSummary
+            {
+                PendingApprovalsCount = d.PendingApprovalsCount,
+                BelowParCount = d.BelowParCount,
+                SpendThisMonth = d.SpendThisMonth,
+                SpendLastMonth = d.SpendLastMonth,
+                SpendCurrencyCode = d.SpendCurrencyCode,
+                MonthlySpend = mapper.MapList<CommonMonthlySpend>(d.MonthlySpend),
+                OrderCountsByMonth = mapper.MapList<CommonOrderStatusMonthCount>(d.OrderCountsByMonth),
+                ActiveUserCount = d.ActiveUserCount,
+                ActiveOrganizationCount = d.ActiveOrganizationCount,
+                RecentActivity = mapper.MapList<CommonRecentActivityItem>(d.RecentActivity)
             });
 
             mapper.Register<ParLevelDto, CommonParLevel>(d => new CommonParLevel

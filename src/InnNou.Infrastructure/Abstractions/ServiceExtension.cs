@@ -70,6 +70,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IInventoryService, InventoryService>();
             services.AddScoped<IInventoryPeriodService, InventoryPeriodService>();
             services.AddScoped<IParLevelService, ParLevelService>();
+            services.AddScoped<IDashboardService, DashboardService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();
