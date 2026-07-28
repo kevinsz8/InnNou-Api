@@ -7,7 +7,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetArticlesQueryHandler(IArticleService articleService, ISupplierService supplierService, IFamilyService familyService, ISubFamilyService subFamilyService, IOrganizationService organizationService, IMapper mapper, IRequestContext context)
+    public class GetArticlesQueryHandler(IArticleService articleService, ISupplierService supplierService, IFamilyService familyService, ISubFamilyService subFamilyService, ICategoryService categoryService, ISubCategoryService subCategoryService, IOrganizationService organizationService, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetArticlesQueryRequest, ApiResponse<GetArticlesQueryResponse>>
     {
         public async Task<ApiResponse<GetArticlesQueryResponse>> Handle(GetArticlesQueryRequest request, CancellationToken cancellationToken)
@@ -52,7 +52,25 @@ namespace InnNou.Application.Handlers
                 subFamilyId = subFamily.SubFamilyId;
             }
 
-            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, request.SearchText, request.IncludeInactive, request.FavoritesOnly, organizationId, context, cancellationToken);
+            int? categoryId = null;
+            if (request.CategoryToken.HasValue)
+            {
+                var category = await categoryService.GetByTokenAsync(request.CategoryToken.Value, context, cancellationToken);
+                if (category is null)
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);
+                categoryId = category.CategoryId;
+            }
+
+            int? subCategoryId = null;
+            if (request.SubCategoryToken.HasValue)
+            {
+                var subCategory = await subCategoryService.GetByTokenAsync(request.SubCategoryToken.Value, context, cancellationToken);
+                if (subCategory is null)
+                    return ApiResponse<GetArticlesQueryResponse>.FailureResponse(ErrorCodes.SubCategoryNotFound, "Sub-category not found.", 404);
+                subCategoryId = subCategory.SubCategoryId;
+            }
+
+            var result = await articleService.GetPagedAsync(request.PageNumber, request.PageSize, supplierId, familyId, subFamilyId, categoryId, subCategoryId, request.SearchText, request.IncludeInactive, request.FavoritesOnly, organizationId, context, cancellationToken);
             var totalPages = result.TotalPages;
             var response = new GetArticlesQueryResponse
             {

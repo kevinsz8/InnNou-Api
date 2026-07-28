@@ -37,7 +37,7 @@ public class ArticleService(
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
-    public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, string? searchText, bool includeInactive, bool favoritesOnly, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, string? searchText, bool includeInactive, bool favoritesOnly, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -71,6 +71,8 @@ public class ArticleService(
         p.Add("@SupplierId", effectiveSupplierId);
         p.Add("@FamilyId", familyId);
         p.Add("@SubFamilyId", subFamilyId);
+        p.Add("@CategoryId", categoryId);
+        p.Add("@SubCategoryId", subCategoryId);
         p.Add("@SearchText", searchText);
         p.Add("@IncludeInactive", includeInactive);
         // organizationId lets a caller resolve favorites against an organization other than
@@ -904,7 +906,7 @@ public class ArticleService(
         // No supplierId/familyId/subFamilyId filter here — GetPagedAsync's own visibility rule
         // already forces a supplier-scoped caller to their own catalog; an Admin+ caller exports
         // the full catalog, matching the single-row read scope.
-        var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, searchText, includeInactive, false, null, context, cancellationToken);
+        var articles = await GetPagedAsync(1, MaxExportRows, null, null, null, null, null, searchText, includeInactive, false, null, context, cancellationToken);
 
         // GetPagedAsync deliberately leaves PackagingLevels empty (avoids an N+1 per row on the
         // catalog-browse path) — export needs the full chain, so it's fetched here in one batched

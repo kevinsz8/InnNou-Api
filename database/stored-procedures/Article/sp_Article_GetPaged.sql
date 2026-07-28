@@ -5,6 +5,8 @@ CREATE OR ALTER PROCEDURE sp_Article_GetPaged
     @SupplierId        INT           = NULL,
     @FamilyId          INT           = NULL,
     @SubFamilyId       INT           = NULL,
+    @CategoryId        INT           = NULL,
+    @SubCategoryId     INT           = NULL,
     @SearchText        VARCHAR(200)  = NULL,
     @IncludeInactive   BIT           = 0,
     @OrganizationId    INT           = NULL,
@@ -147,6 +149,8 @@ BEGIN
       AND  (@SupplierId  IS NULL OR a.SupplierId  = @SupplierId)
       AND  (@FamilyId    IS NULL OR a.FamilyId    = @FamilyId)
       AND  (@SubFamilyId IS NULL OR a.SubFamilyId = @SubFamilyId)
+      AND  (@CategoryId    IS NULL OR ec.CategoryId    = @CategoryId)
+      AND  (@SubCategoryId IS NULL OR ec.SubCategoryId = @SubCategoryId)
       AND  (@SearchText  IS NULL OR
             a.NormalizedName LIKE '%' + UPPER(@SearchText) + '%' OR
             a.SupplierSku    LIKE '%' + @SearchText + '%' OR

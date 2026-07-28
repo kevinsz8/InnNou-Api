@@ -11,6 +11,8 @@ namespace InnNou.Application.Requests
         public Guid? SupplierToken { get; set; }
         public Guid? FamilyToken { get; set; }
         public Guid? SubFamilyToken { get; set; }
+        public Guid? CategoryToken { get; set; }
+        public Guid? SubCategoryToken { get; set; }
         public string? SearchText { get; set; }
         public bool IncludeInactive { get; set; } = false;
         public bool FavoritesOnly { get; set; } = false;
