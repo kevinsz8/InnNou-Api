@@ -9,6 +9,10 @@ namespace InnNou.Application.Responses.Common
         public string? ArticleName { get; set; }
         public string? SupplierName { get; set; }
         public string? PurchaseUnitCode { get; set; }
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? SubCategoryCode { get; set; }
         public decimal QuantityOnHand { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

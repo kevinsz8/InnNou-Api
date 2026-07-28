@@ -16,6 +16,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }
 
+        // Live-resolved (not frozen) — same reasoning as OrderLine's own Family/SubFamily/
+        // Category/SubCategory: this only backs search/filter, not historical reporting.
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         // Denominated in Article.PurchaseUnitId — same unit every OrderLine/PurchaseOrderLine/
         // GoodsReceiptLine quantity already uses.
         public decimal QuantityOnHand { get; set; }

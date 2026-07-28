@@ -328,7 +328,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         }
     }
 
-    public async Task<PagedResult<StockLevelDto>> GetStockLevelsAsync(Guid? warehouseToken, Guid? articleToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<StockLevelDto>> GetStockLevelsAsync(Guid? warehouseToken, Guid? articleToken, string? searchText, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -377,6 +377,11 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@WarehouseId", warehouseId);
         p.Add("@ArticleId", articleId);
+        p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim());
+        p.Add("@FamilyId", familyId);
+        p.Add("@SubFamilyId", subFamilyId);
+        p.Add("@CategoryId", categoryId);
+        p.Add("@SubCategoryId", subCategoryId);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 

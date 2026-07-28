@@ -27,6 +27,6 @@ namespace InnNou.Application.Common.Interfaces
         Task<bool> DeleteOverrideAsync(Guid parLevelOverrideToken, IRequestContext context, CancellationToken cancellationToken);
 
         Task<ParLevelConfigurationDto?> GetConfigurationAsync(Guid warehouseToken, Guid articleToken, IRequestContext context, CancellationToken cancellationToken);
-        Task<PagedResult<BelowParRowDto>> GetBelowParAsync(Guid? warehouseToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<BelowParRowDto>> GetBelowParAsync(Guid? warehouseToken, string? searchText, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
     }
 }

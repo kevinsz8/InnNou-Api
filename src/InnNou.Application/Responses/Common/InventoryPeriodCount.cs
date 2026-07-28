@@ -4,6 +4,10 @@ namespace InnNou.Application.Responses.Common
     {
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? SubCategoryCode { get; set; }
         public decimal OpeningQuantity { get; set; }
         public decimal? CountedQuantity { get; set; }
         public decimal? SystemQuantityAtClose { get; set; }

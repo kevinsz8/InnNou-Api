@@ -19,6 +19,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }
 
+        // Live-resolved (not frozen) — same reasoning as StockLevel/OrderLine's own Family/
+        // SubFamily/Category/SubCategory: this only backs search/filter.
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         public decimal QuantityOnHand { get; set; }
         public decimal EffectiveMinimumQuantity { get; set; }
         public decimal EffectiveReorderQuantity { get; set; }

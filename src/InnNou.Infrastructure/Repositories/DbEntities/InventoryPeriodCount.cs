@@ -9,6 +9,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }
 
+        // Live-resolved (not frozen) — same reasoning as StockLevel/OrderLine's own Family/
+        // SubFamily/Category/SubCategory: this only backs search/filter within one period's
+        // own line list.
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+        public string? CategoryCode { get; set; }
+        public string? SubCategoryCode { get; set; }
+
         public decimal OpeningQuantity { get; set; }
         public decimal? CountedQuantity { get; set; }
         public decimal? SystemQuantityAtClose { get; set; }
