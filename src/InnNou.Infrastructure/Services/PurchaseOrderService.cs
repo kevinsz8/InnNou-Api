@@ -187,11 +187,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (existing is null)
             return null;
 
-        var canManage = context.SupplierId.HasValue
-            ? context.SupplierId.Value == existing.SupplierId
-            : await CanManageOrganizationAsync(connection, context, existing.OrganizationId);
-
-        if (!canManage)
+        // Deliberately no Supplier-bypass — this system is buyer-side only. A Supplier can read
+        // their own PurchaseOrders/GoodsReceipts but never write to them, same as
+        // CreateRectificationAsync and CreateGoodsReceiptAsync.
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot cancel a purchase order outside your scope.", 403);
 
         if (existing.Status != PurchaseOrderStatus.Sent)
