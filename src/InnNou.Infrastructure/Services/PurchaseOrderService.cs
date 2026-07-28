@@ -243,14 +243,27 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot rectify a purchase order outside your scope.", 403);
 
-        if (purchaseOrder.Status != PurchaseOrderStatus.Sent)
-            throw new ApiException(ErrorCodes.PurchaseOrderNotSent, "Only a sent purchase order can be rectified.", 409);
+        // A rectification is also allowed once receiving has started (not just SENT) — e.g. a
+        // supplier formally telling the buyer they can't fulfil the rest of an already-partially-
+        // delivered line. Each line's floor against what's already been accepted (below) is what
+        // keeps this safe; RECEIVED/CANCELLED purchase orders have nothing left to correct.
+        if (purchaseOrder.Status != PurchaseOrderStatus.Sent && purchaseOrder.Status != PurchaseOrderStatus.Partially_Received)
+            throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidStatus, "Only a sent or partially received purchase order can be rectified.", 409);
 
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified.", 400);
 
         if (!PurchaseOrderRectificationReasonCodes.TryFromCode(reason, out var normalizedReason))
             throw new ApiException(ErrorCodes.InvalidRequest, "Invalid rectification reason.", 400);
+
+        // Sum of QuantityAccepted per line across every GoodsReceipt already recorded against this
+        // PO — the floor a rectification can never cross. Same source CreateGoodsReceiptAsync uses.
+        var existingReceiptLines = (await connection.QueryAsync<GoodsReceiptLine>(
+            "sp_GoodsReceiptLine_GetByPurchaseOrderId", new { purchaseOrder.PurchaseOrderId }, commandType: CommandType.StoredProcedure)).ToList();
+
+        var alreadyAccepted = existingReceiptLines
+            .GroupBy(l => l.PurchaseOrderLineId)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.QuantityAccepted));
 
         // Effective lines across the WHOLE originating Order (every sibling PurchaseOrder) — needed
         // both to validate each requested line belongs to THIS PurchaseOrder and isn't already
@@ -274,8 +287,17 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             if (line.IsCancelled)
                 throw new ApiException(ErrorCodes.PurchaseOrderLineAlreadyCancelled, $"The line for article '{line.ArticleName}' is already cancelled.", 409);
 
+            var acceptedForLine = alreadyAccepted.GetValueOrDefault(line.PurchaseOrderLineId);
+
             if (input.Cancel)
             {
+                // A line with anything already accepted against it has already been physically
+                // received in part — cancelling it outright would misrepresent that receipt as
+                // never having happened. It can only be quantity-reduced (down to what was
+                // accepted, at minimum), never cancelled.
+                if (acceptedForLine > 0)
+                    throw new ApiException(ErrorCodes.PurchaseOrderRectificationBelowAccepted, $"Cannot cancel the line for article '{line.ArticleName}' — {acceptedForLine} has already been received against it.", 409);
+
                 validatedLines.Add(new ValidatedRectificationLine { Line = line, Action = PurchaseOrderRectificationLineActionCodes.LineCancelled });
                 continue;
             }
@@ -284,6 +306,11 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive NewQuantity is required for article '{line.ArticleName}'.", 400);
             if (!input.NewUnitPrice.HasValue || input.NewUnitPrice.Value <= 0)
                 throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive NewUnitPrice is required for article '{line.ArticleName}'.", 400);
+
+            // The floor that makes rectifying a partially-received PO safe: never below what's
+            // physically already in the building for this line.
+            if (input.NewQuantity.Value < acceptedForLine)
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationBelowAccepted, $"Cannot rectify article '{line.ArticleName}' to {input.NewQuantity.Value} — {acceptedForLine} has already been received against it.", 409);
 
             var newCurrencyCode = string.IsNullOrWhiteSpace(input.NewCurrencyCode) ? line.CurrencyCode : input.NewCurrencyCode.Trim().ToUpperInvariant();
 
@@ -415,6 +442,34 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                     "sp_PurchaseOrderRectification_SetStatus",
                     new { header.PurchaseOrderRectificationId, Status = PurchaseOrderRectificationStatusCodes.Applied },
                     transaction, commandType: CommandType.StoredProcedure) ?? header;
+
+                // A downward quantity correction (or cancelling a not-yet-received line) can
+                // retroactively close out a PARTIALLY_RECEIVED purchase order — recompute the
+                // exact same way CreateGoodsReceiptAsync does, against the rectified quantities
+                // instead of a new receipt. Only runs when the rectification is immediately
+                // applied (not pending approval) — the line quantities aren't actually effective
+                // yet otherwise, so there's nothing to recompute against.
+                var everyLineFullyAccepted = thisPoLinesByToken.Values
+                    .Where(l => !(proposedByLineId.TryGetValue(l.PurchaseOrderLineId, out var p) && p.Action == PurchaseOrderRectificationLineActionCodes.LineCancelled))
+                    .All(l =>
+                    {
+                        var effectiveQuantity = proposedByLineId.TryGetValue(l.PurchaseOrderLineId, out var p) && p.NewQuantity.HasValue
+                            ? p.NewQuantity.Value
+                            : l.Quantity;
+                        return alreadyAccepted.GetValueOrDefault(l.PurchaseOrderLineId) >= effectiveQuantity;
+                    });
+                var anyLineAccepted = thisPoLinesByToken.Values.Any(l => alreadyAccepted.GetValueOrDefault(l.PurchaseOrderLineId) > 0);
+
+                var newReceivingStatus = everyLineFullyAccepted
+                    ? PurchaseOrderStatusCodes.Received
+                    : anyLineAccepted
+                        ? PurchaseOrderStatusCodes.PartiallyReceived
+                        : PurchaseOrderStatusCodes.Sent;
+
+                await connection.ExecuteAsync(
+                    "sp_PurchaseOrder_SetStatus",
+                    new { PurchaseOrderToken = purchaseOrderToken, Status = newReceivingStatus },
+                    transaction, commandType: CommandType.StoredProcedure);
             }
 
             foreach (var validated in validatedLines)

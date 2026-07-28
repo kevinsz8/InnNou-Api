@@ -284,6 +284,8 @@ namespace InnNou.Application.Common
         public const string PurchaseOrderRectificationNotFound = "PURCHASE_ORDER_RECTIFICATION_NOT_FOUND";
         public const string PurchaseOrderRectificationEmpty = "PURCHASE_ORDER_RECTIFICATION_EMPTY";
         public const string PurchaseOrderRectificationInvalidQuantity = "PURCHASE_ORDER_RECTIFICATION_INVALID_QUANTITY";
+        public const string PurchaseOrderRectificationInvalidStatus = "PURCHASE_ORDER_RECTIFICATION_INVALID_STATUS";
+        public const string PurchaseOrderRectificationBelowAccepted = "PURCHASE_ORDER_RECTIFICATION_BELOW_ACCEPTED";
 
         // GoodsReceipt (recepcion de mercaderia)
         public const string GoodsReceiptNotFound = "GOODS_RECEIPT_NOT_FOUND";
