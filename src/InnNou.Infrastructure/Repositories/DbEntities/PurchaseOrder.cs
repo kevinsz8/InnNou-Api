@@ -36,6 +36,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public DateTime SentUtc { get; set; }
         public DateTime? CancelledUtc { get; set; }
         public string? CancelledBy { get; set; }
+
+        // "Caso B" — set only via CloseShortAsync, from PARTIALLY_RECEIVED. Never touches
+        // PurchaseOrderLine/Quantity, unlike a Rectification — see sp_PurchaseOrder_CloseShort.
+        public DateTime? ClosedShortUtc { get; set; }
+        public string? ClosedShortBy { get; set; }
+        public string? ClosedShortReason { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
 

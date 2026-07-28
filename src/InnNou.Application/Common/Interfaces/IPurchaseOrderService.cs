@@ -9,6 +9,13 @@ namespace InnNou.Application.Common.Interfaces
         Task<PurchaseOrderDto?> GetByTokenAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<PurchaseOrderDto?> CancelAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
 
+        // "Caso B" — closes a PARTIALLY_RECEIVED PurchaseOrder the buyer has stopped chasing
+        // (supplier won't send the rest, no mutual agreement to formally reduce the order — that's
+        // CreateRectificationAsync's job instead). Deliberately never touches PurchaseOrderLine/
+        // Quantity, unlike a Rectification — the shortfall must survive as a real fact for the
+        // future Supplier Scorecard's OTIF/rejection-rate KPIs, not be rewritten away.
+        Task<PurchaseOrderDto?> CloseShortAsync(Guid purchaseOrderToken, string reason, IRequestContext context, CancellationToken cancellationToken);
+
         // "Rectificacion de pedido" — post-send corrections to a SENT PurchaseOrder's lines
         // (quantity/price change or full line cancellation), distinct from Goods Receipts (what
         // physically arrived) and from a fiscal Factura Rectificativa. Append-only: a

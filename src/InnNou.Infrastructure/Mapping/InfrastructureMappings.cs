@@ -832,6 +832,9 @@ namespace InnNou.Infrastructure.Mapping
                 SentUtc = e.SentUtc,
                 CancelledUtc = e.CancelledUtc,
                 CancelledBy = e.CancelledBy,
+                ClosedShortUtc = e.ClosedShortUtc,
+                ClosedShortBy = e.ClosedShortBy,
+                ClosedShortReason = e.ClosedShortReason,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LineCount = e.LineCount

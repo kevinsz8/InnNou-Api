@@ -14,7 +14,8 @@ namespace InnNou.Application.Common
         Sent = 1,
         Cancelled = 2,
         Partially_Received = 3,
-        Received = 4
+        Received = 4,
+        Closed_Short = 5
     }
 
     public static class PurchaseOrderStatusCodes
@@ -23,6 +24,7 @@ namespace InnNou.Application.Common
         public const string Cancelled = "CANCELLED";
         public const string PartiallyReceived = "PARTIALLY_RECEIVED";
         public const string Received = "RECEIVED";
+        public const string ClosedShort = "CLOSED_SHORT";
 
         public static string ToCode(PurchaseOrderStatus status) => status switch
         {
@@ -30,6 +32,7 @@ namespace InnNou.Application.Common
             PurchaseOrderStatus.Cancelled => Cancelled,
             PurchaseOrderStatus.Partially_Received => PartiallyReceived,
             PurchaseOrderStatus.Received => Received,
+            PurchaseOrderStatus.Closed_Short => ClosedShort,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
         };
 
@@ -39,6 +42,7 @@ namespace InnNou.Application.Common
             Cancelled => PurchaseOrderStatus.Cancelled,
             PartiallyReceived => PurchaseOrderStatus.Partially_Received,
             Received => PurchaseOrderStatus.Received,
+            ClosedShort => PurchaseOrderStatus.Closed_Short,
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
 
@@ -52,6 +56,7 @@ namespace InnNou.Application.Common
                 case Cancelled: status = PurchaseOrderStatus.Cancelled; return true;
                 case PartiallyReceived: status = PurchaseOrderStatus.Partially_Received; return true;
                 case Received: status = PurchaseOrderStatus.Received; return true;
+                case ClosedShort: status = PurchaseOrderStatus.Closed_Short; return true;
                 default: status = default; return false;
             }
         }

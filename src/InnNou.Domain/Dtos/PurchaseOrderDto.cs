@@ -19,6 +19,9 @@ namespace InnNou.Domain.Dtos
         public DateTime SentUtc { get; set; }
         public DateTime? CancelledUtc { get; set; }
         public string? CancelledBy { get; set; }
+        public DateTime? ClosedShortUtc { get; set; }
+        public string? ClosedShortBy { get; set; }
+        public string? ClosedShortReason { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
 

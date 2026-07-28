@@ -42,6 +42,7 @@ BEGIN
         po.OrganizationId, org.OrganizationToken, org.Name AS OrganizationName,
         po.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         pos.Code AS Status, po.SentUtc, po.CancelledUtc, po.CancelledBy,
+        po.ClosedShortUtc, po.ClosedShortBy, po.ClosedShortReason,
         po.CreatedUtc, po.CreatedBy,
         lc.LineCount,
         COUNT(*) OVER() AS TotalCount

@@ -211,6 +211,42 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return dto;
     }
 
+    public async Task<PurchaseOrderDto?> CloseShortAsync(Guid purchaseOrderToken, string reason, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_GetByToken", new { PurchaseOrderToken = purchaseOrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (existing is null)
+            return null;
+
+        // Deliberately no Supplier-bypass, same as Cancel/Rectify/CreateGoodsReceipt — this
+        // system is buyer-side only.
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+            throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot close a purchase order outside your scope.", 403);
+
+        if (existing.Status != PurchaseOrderStatus.Partially_Received)
+            throw new ApiException(ErrorCodes.PurchaseOrderCloseShortNotAllowed, "Only a partially received purchase order can be closed as short.", 409);
+
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ApiException(ErrorCodes.PurchaseOrderCloseShortReasonRequired, "A reason is required to close a purchase order as short.", 400);
+
+        var updated = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_CloseShort",
+            new { PurchaseOrderToken = purchaseOrderToken, ClosedShortBy = context.ActorUserToken.ToString(), ClosedShortReason = reason.Trim() },
+            commandType: CommandType.StoredProcedure);
+
+        if (updated is null)
+            return null;
+
+        var dto = mapper.Map<PurchaseOrderDto>(updated);
+        dto.Lines = mapper.MapList<PurchaseOrderLineDto>(
+            await GetLinesForPurchaseOrderAsync(connection, updated));
+        dto.LineCount = dto.Lines.Count;
+        return dto;
+    }
+
     private sealed class ValidatedRectificationLine
     {
         public required PurchaseOrderLine Line { get; init; }

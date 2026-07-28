@@ -17,6 +17,10 @@ public class PurchaseOrdersEndpoints : ICarterModule
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetPurchaseOrderByTokenQueryResponse>>(200);
         group.MapPost("/cancel",     HandleCancel).Produces<ApiResponse<CancelPurchaseOrderCommandResponse>>(200);
 
+        // "Caso B" — closes a PARTIALLY_RECEIVED PurchaseOrder the buyer has stopped chasing,
+        // without touching PurchaseOrderLine/Quantity. See IPurchaseOrderService.CloseShortAsync.
+        group.MapPost("/closeShort", HandleCloseShort).Produces<ApiResponse<CloseShortPurchaseOrderCommandResponse>>(200);
+
         // Rectifications ("rectificacion de pedido") — see .claude/PurchaseOrderRectificationModule.md.
         // Approve/reject reuse the existing /orders/approveStep and /orders/rejectStep endpoints —
         // a rectification-triggered OrderApprovalStep is decided through the same unified flow an
@@ -44,6 +48,12 @@ public class PurchaseOrdersEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleCancel([FromBody] CancelPurchaseOrderCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleCloseShort([FromBody] CloseShortPurchaseOrderCommandRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

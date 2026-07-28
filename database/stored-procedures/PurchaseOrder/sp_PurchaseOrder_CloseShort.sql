@@ -3,14 +3,18 @@ GO
 SET QUOTED_IDENTIFIER ON;
 GO
 /* =============================================================
-   PURCHASEORDER - CANCEL
-   SENT -> CANCELLED only. Re-checks current status in the WHERE
-   itself (defense in depth), independent of the service-layer check.
+   PURCHASEORDER - CLOSE SHORT ("Caso B")
+   PARTIALLY_RECEIVED -> CLOSED_SHORT only. Re-checks current status
+   in the WHERE itself (defense in depth), independent of the
+   service-layer check. Never touches PurchaseOrderLine/Quantity —
+   see sp_PurchaseOrder_Cancel's own header comment for the same
+   "check twice" shape this mirrors.
    ============================================================= */
-CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_Cancel
+CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_CloseShort
 (
     @PurchaseOrderToken UNIQUEIDENTIFIER,
-    @CancelledBy        VARCHAR(150)
+    @ClosedShortBy      VARCHAR(150),
+    @ClosedShortReason  NVARCHAR(500)
 )
 AS
 BEGIN
@@ -19,18 +23,19 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM dbo.PurchaseOrder po
         JOIN dbo.PurchaseOrderStatuses pos ON pos.PurchaseOrderStatusId = po.PurchaseOrderStatusId
-        WHERE po.PurchaseOrderToken = @PurchaseOrderToken AND pos.Code = 'SENT'
+        WHERE po.PurchaseOrderToken = @PurchaseOrderToken AND pos.Code = 'PARTIALLY_RECEIVED'
     )
     BEGIN
-        RAISERROR('PURCHASE_ORDER_NOT_SENT', 16, 1);
+        RAISERROR('PURCHASE_ORDER_CLOSE_SHORT_NOT_ALLOWED', 16, 1);
         RETURN;
     END
 
     UPDATE dbo.PurchaseOrder
     SET
-        PurchaseOrderStatusId = (SELECT PurchaseOrderStatusId FROM dbo.PurchaseOrderStatuses WHERE Code = 'CANCELLED'),
-        CancelledUtc          = SYSUTCDATETIME(),
-        CancelledBy           = @CancelledBy
+        PurchaseOrderStatusId = (SELECT PurchaseOrderStatusId FROM dbo.PurchaseOrderStatuses WHERE Code = 'CLOSED_SHORT'),
+        ClosedShortUtc         = SYSUTCDATETIME(),
+        ClosedShortBy          = @ClosedShortBy,
+        ClosedShortReason      = @ClosedShortReason
     WHERE PurchaseOrderToken = @PurchaseOrderToken;
 
     SELECT

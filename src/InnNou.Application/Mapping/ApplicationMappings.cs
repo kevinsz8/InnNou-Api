@@ -1437,6 +1437,9 @@ namespace InnNou.Application.Mapping
                 SentUtc = d.SentUtc,
                 CancelledUtc = d.CancelledUtc,
                 CancelledBy = d.CancelledBy,
+                ClosedShortUtc = d.ClosedShortUtc,
+                ClosedShortBy = d.ClosedShortBy,
+                ClosedShortReason = d.ClosedShortReason,
                 CreatedUtc = d.CreatedUtc,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonPurchaseOrderLine>(d.Lines)

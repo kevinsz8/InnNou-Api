@@ -15,6 +15,9 @@ namespace InnNou.Application.Responses.Common
         public DateTime SentUtc { get; set; }
         public DateTime? CancelledUtc { get; set; }
         public string? CancelledBy { get; set; }
+        public DateTime? ClosedShortUtc { get; set; }
+        public string? ClosedShortBy { get; set; }
+        public string? ClosedShortReason { get; set; }
         public DateTime CreatedUtc { get; set; }
         public int LineCount { get; set; }
         public List<PurchaseOrderLine> Lines { get; set; } = [];
