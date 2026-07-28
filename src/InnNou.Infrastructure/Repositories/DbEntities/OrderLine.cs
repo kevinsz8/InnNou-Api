@@ -33,6 +33,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int? SubCategoryId { get; set; }
         public string? SubCategoryCode { get; set; }
 
+        // Unlike Category/SubCategory above, NOT frozen — resolved live from the Article's
+        // current Family/SubFamily on every read (see sp_OrderLine_GetByOrderId). Family/
+        // SubFamily is stable catalog structure, not the ownership-scoped BI classification
+        // model Category/SubCategory has, and this only backs in-page search/filter, not
+        // historical reporting, so a live join is simpler and more useful here.
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

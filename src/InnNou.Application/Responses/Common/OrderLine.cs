@@ -16,6 +16,8 @@ namespace InnNou.Application.Responses.Common
         public string CurrencyCode { get; set; } = default!;
         public string? CategoryCode { get; set; }
         public string? SubCategoryCode { get; set; }
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
     }

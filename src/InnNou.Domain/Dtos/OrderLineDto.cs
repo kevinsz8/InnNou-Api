@@ -29,6 +29,9 @@ namespace InnNou.Domain.Dtos
         public int? SubCategoryId { get; set; }
         public string? SubCategoryCode { get; set; }
 
+        public string? FamilyCode { get; set; }
+        public string? SubFamilyCode { get; set; }
+
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

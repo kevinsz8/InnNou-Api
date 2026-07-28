@@ -1051,6 +1051,8 @@ namespace InnNou.Application.Mapping
                 CurrencyCode = d.CurrencyCode,
                 CategoryCode = d.CategoryCode,
                 SubCategoryCode = d.SubCategoryCode,
+                FamilyCode = d.FamilyCode,
+                SubFamilyCode = d.SubFamilyCode,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc
             });

@@ -535,6 +535,8 @@ namespace InnNou.Infrastructure.Mapping
                 CategoryCode = e.CategoryCode,
                 SubCategoryId = e.SubCategoryId,
                 SubCategoryCode = e.SubCategoryCode,
+                FamilyCode = e.FamilyCode,
+                SubFamilyCode = e.SubFamilyCode,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
