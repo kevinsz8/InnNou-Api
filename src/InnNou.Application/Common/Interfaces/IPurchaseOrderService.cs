@@ -27,7 +27,6 @@ namespace InnNou.Application.Common.Interfaces
         // .claude/PurchaseOrderRectificationModule.md.
         Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<List<PurchaseOrderRectificationDto>> GetRectificationsAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
-        Task<PurchaseOrderRectificationDto?> GetRectificationByTokenAsync(Guid rectificationToken, IRequestContext context, CancellationToken cancellationToken);
 
         // Goods Receipts ("recepcion de mercaderia") — records what physically arrived against a
         // SENT/PARTIALLY_RECEIVED PurchaseOrder, referencing PurchaseOrderLine without ever
@@ -40,6 +39,5 @@ namespace InnNou.Application.Common.Interfaces
         // transaction. See .claude/GoodsReceiptsModule.md.
         Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<GoodsReceiptDto>> GetGoodsReceiptsAsync(Guid? purchaseOrderToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
-        Task<GoodsReceiptDto?> GetGoodsReceiptByTokenAsync(Guid goodsReceiptToken, IRequestContext context, CancellationToken cancellationToken);
     }
 }

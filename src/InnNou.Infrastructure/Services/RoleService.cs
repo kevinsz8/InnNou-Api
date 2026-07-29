@@ -16,18 +16,6 @@ public class RoleService(IDbConnectionFactory connectionFactory, IMapper mapper)
 
     private const int MaxPageSize = 100;
 
-    public async Task<RoleDto?> GetRoleByTokenAsync(Guid roleToken, IRequestContext context, CancellationToken cancellationToken)
-    {
-        await using var connection = connectionFactory.CreateConnection();
-
-        var role = await connection.QueryFirstOrDefaultAsync<Role>(
-            "sp_Role_GetByToken",
-            new { RoleToken = roleToken, MaxLevel = context.RoleLevel },
-            commandType: CommandType.StoredProcedure);
-
-        return role is null ? null : mapper.Map<RoleDto>(role);
-    }
-
     public async Task<PagedResult<RoleDto>> GetRolesAsync(
         int pageNumber,
         int pageSize,

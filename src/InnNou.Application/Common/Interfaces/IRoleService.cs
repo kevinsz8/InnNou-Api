@@ -6,6 +6,5 @@ namespace InnNou.Application.Common.Interfaces
     public interface IRoleService
     {
         Task<PagedResult<RoleDto>> GetRolesAsync(int pageNumber, int pageSize, string? searchField, string? searchText, bool includeInactive, IRequestContext context, CancellationToken cancellationToken);
-        Task<RoleDto?> GetRoleByTokenAsync(Guid roleToken, IRequestContext context, CancellationToken cancellationToken);
     }
 }

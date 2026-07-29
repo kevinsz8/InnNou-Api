@@ -595,37 +595,6 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return result;
     }
 
-    public async Task<PurchaseOrderRectificationDto?> GetRectificationByTokenAsync(Guid rectificationToken, IRequestContext context, CancellationToken cancellationToken)
-    {
-        await using var connection = connectionFactory.CreateConnection();
-
-        var header = await connection.QueryFirstOrDefaultAsync<PurchaseOrderRectification>(
-            "sp_PurchaseOrderRectification_GetByToken", new { PurchaseOrderRectificationToken = rectificationToken }, commandType: CommandType.StoredProcedure);
-
-        if (header is null)
-            return null;
-
-        var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
-            "sp_PurchaseOrder_GetByToken", new { header.PurchaseOrderToken }, commandType: CommandType.StoredProcedure);
-
-        if (purchaseOrder is null)
-            return null;
-
-        var canView = context.SupplierId.HasValue
-            ? context.SupplierId.Value == purchaseOrder.SupplierId
-            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
-
-        if (!canView)
-            return null;
-
-        var dto = mapper.Map<PurchaseOrderRectificationDto>(header);
-        dto.Lines = mapper.MapList<PurchaseOrderLineRectificationDto>(
-            await connection.QueryAsync<PurchaseOrderLineRectification>(
-                "sp_PurchaseOrderLineRectification_GetByRectificationId", new { header.PurchaseOrderRectificationId }, commandType: CommandType.StoredProcedure));
-
-        return dto;
-    }
-
     private sealed class ValidatedGoodsReceiptLine
     {
         public required PurchaseOrderLine Line { get; init; }
@@ -897,29 +866,4 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         };
     }
 
-    public async Task<GoodsReceiptDto?> GetGoodsReceiptByTokenAsync(Guid goodsReceiptToken, IRequestContext context, CancellationToken cancellationToken)
-    {
-        await using var connection = connectionFactory.CreateConnection();
-
-        var header = await connection.QueryFirstOrDefaultAsync<GoodsReceipt>(
-            "sp_GoodsReceipt_GetByToken", new { GoodsReceiptToken = goodsReceiptToken }, commandType: CommandType.StoredProcedure);
-
-        if (header is null)
-            return null;
-
-        var canView = context.SupplierId.HasValue
-            ? context.SupplierId.Value == header.SupplierId
-            : await CanReadOrganizationAsync(connection, context, header.OrganizationId);
-
-        if (!canView)
-            return null;
-
-        var dto = mapper.Map<GoodsReceiptDto>(header);
-        dto.Lines = mapper.MapList<GoodsReceiptLineDto>(
-            await connection.QueryAsync<GoodsReceiptLine>(
-                "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { header.GoodsReceiptId }, commandType: CommandType.StoredProcedure));
-        dto.LineCount = dto.Lines.Count;
-
-        return dto;
-    }
 }
