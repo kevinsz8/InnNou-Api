@@ -440,7 +440,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         };
     }
 
-    public async Task<PagedResult<InventoryTransferDto>> GetTransfersAsync(Guid? warehouseToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<InventoryTransferDto>> GetTransfersAsync(Guid? warehouseToken, int? organizationId, DateTime? fromDate, DateTime? toDate, Guid? articleToken, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -460,6 +460,16 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
             warehouseId = warehouse.WarehouseId;
         }
+        else if (organizationId.HasValue)
+        {
+            // Explicit organization override (see GetInventoryTransfersQueryRequest.OrganizationToken)
+            // — the Handler already validated this via GetOrganizationByTokenAsync, but re-checking
+            // here is the same defense-in-depth this service applies to every other scope resolution.
+            if (!await CanReadOrganizationAsync(connection, context, organizationId.Value))
+                return new PagedResult<InventoryTransferDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            rootOrganizationId = organizationId.Value;
+        }
         else if (context.RoleLevel >= SuperAdminRoleLevel)
         {
             rootOrganizationId = null; // unrestricted
@@ -473,9 +483,28 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             return new PagedResult<InventoryTransferDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
         }
 
+        int? articleId = null;
+        if (articleToken.HasValue)
+        {
+            var article = await connection.QueryFirstOrDefaultAsync<Article>(
+                "sp_Article_GetByToken", new { ArticleToken = articleToken.Value }, commandType: CommandType.StoredProcedure);
+
+            if (article is null)
+                return new PagedResult<InventoryTransferDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            articleId = article.ArticleId;
+        }
+
         var p = new DynamicParameters();
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@WarehouseId", warehouseId);
+        p.Add("@FromDate", fromDate?.Date);
+        p.Add("@ToDate", toDate?.Date);
+        p.Add("@ArticleId", articleId);
+        p.Add("@FamilyId", familyId);
+        p.Add("@SubFamilyId", subFamilyId);
+        p.Add("@CategoryId", categoryId);
+        p.Add("@SubCategoryId", subCategoryId);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 

@@ -15,7 +15,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<InventoryTransferDto?> CreateTransferAsync(Guid fromWarehouseToken, Guid toWarehouseToken, string? notes, List<CreateInventoryTransferLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<StockLevelDto>> GetStockLevelsAsync(Guid? warehouseToken, Guid? articleToken, string? searchText, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<InventoryMovementDto>> GetMovementsAsync(Guid warehouseToken, Guid? articleToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
-        Task<PagedResult<InventoryTransferDto>> GetTransfersAsync(Guid? warehouseToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<InventoryTransferDto>> GetTransfersAsync(Guid? warehouseToken, int? organizationId, DateTime? fromDate, DateTime? toDate, Guid? articleToken, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<InventoryTransferDto?> GetTransferByTokenAsync(Guid transferToken, IRequestContext context, CancellationToken cancellationToken);
     }
 }
