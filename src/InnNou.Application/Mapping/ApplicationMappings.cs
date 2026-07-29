@@ -40,7 +40,7 @@ using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPerio
 using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
 using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
 using CommonMonthlySpend = InnNou.Application.Responses.Common.MonthlySpend;
-using CommonOrderStatusMonthCount = InnNou.Application.Responses.Common.OrderStatusMonthCount;
+using CommonSupplierSpend = InnNou.Application.Responses.Common.SupplierSpend;
 using CommonRecentActivityItem = InnNou.Application.Responses.Common.RecentActivityItem;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
@@ -1262,12 +1262,11 @@ namespace InnNou.Application.Mapping
                 OccurredUtc = d.OccurredUtc
             });
 
-            mapper.Register<OrderStatusMonthCountDto, CommonOrderStatusMonthCount>(d => new CommonOrderStatusMonthCount
+            mapper.Register<SupplierSpendDto, CommonSupplierSpend>(d => new CommonSupplierSpend
             {
-                Year = d.Year,
-                Month = d.Month,
-                StatusCode = d.StatusCode,
-                Count = d.Count
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                Total = d.Total
             });
 
             mapper.Register<DashboardSummaryDto, CommonDashboardSummary>(d => new CommonDashboardSummary
@@ -1278,9 +1277,8 @@ namespace InnNou.Application.Mapping
                 SpendLastMonth = d.SpendLastMonth,
                 SpendCurrencyCode = d.SpendCurrencyCode,
                 MonthlySpend = mapper.MapList<CommonMonthlySpend>(d.MonthlySpend),
-                OrderCountsByMonth = mapper.MapList<CommonOrderStatusMonthCount>(d.OrderCountsByMonth),
-                ActiveUserCount = d.ActiveUserCount,
-                ActiveOrganizationCount = d.ActiveOrganizationCount,
+                OpenPurchaseOrdersAwaitingReceiptCount = d.OpenPurchaseOrdersAwaitingReceiptCount,
+                TopSuppliersBySpend = mapper.MapList<CommonSupplierSpend>(d.TopSuppliersBySpend),
                 RecentActivity = mapper.MapList<CommonRecentActivityItem>(d.RecentActivity)
             });
 

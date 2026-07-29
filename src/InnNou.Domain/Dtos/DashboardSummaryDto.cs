@@ -14,12 +14,13 @@ namespace InnNou.Domain.Dtos
 
         public List<MonthlySpendDto> MonthlySpend { get; set; } = [];
 
-        // Dense 7-month x 4-PurchaseOrderStatus grid (28 rows, zero-filled), built in
-        // DashboardService from the SP's sparse rows — see OrderStatusMonthCountDto.
-        public List<OrderStatusMonthCountDto> OrderCountsByMonth { get; set; } = [];
+        // SENT + PARTIALLY_RECEIVED PurchaseOrder count — "what's in transit right now",
+        // a current-state snapshot rather than a month-bucketed history.
+        public int OpenPurchaseOrdersAwaitingReceiptCount { get; set; }
 
-        public int ActiveUserCount { get; set; }
-        public int ActiveOrganizationCount { get; set; }
+        // Top 5 suppliers by spend this calendar month, already filtered to
+        // SpendCurrencyCode and trimmed in DashboardService — see SupplierSpendDto.
+        public List<SupplierSpendDto> TopSuppliersBySpend { get; set; } = [];
 
         public List<RecentActivityItemDto> RecentActivity { get; set; } = [];
     }

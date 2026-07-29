@@ -11,22 +11,7 @@ public class DashboardService(IDbConnectionFactory connectionFactory) : IDashboa
 {
     private const int SuperAdminRoleLevel = 100;
     private const int RecentActivityCount = 10;
-
-    // Every PurchaseOrderStatus code the grid always reports a (possibly zero) row for, so the
-    // frontend's toggle buttons never have to special-case a status with no data in the window.
-    private static readonly string[] AllPurchaseOrderStatusCodes =
-    [
-        PurchaseOrderStatusCodes.Sent,
-        PurchaseOrderStatusCodes.PartiallyReceived,
-        PurchaseOrderStatusCodes.Received,
-        PurchaseOrderStatusCodes.Cancelled
-    ];
-
-    private sealed class ActiveUserSummaryRow
-    {
-        public int ActiveUserCount { get; set; }
-        public int ActiveOrganizationCount { get; set; }
-    }
+    private const int TopSuppliersCount = 5;
 
     private sealed class SpendByMonthRow
     {
@@ -36,12 +21,12 @@ public class DashboardService(IDbConnectionFactory connectionFactory) : IDashboa
         public decimal Total { get; set; }
     }
 
-    private sealed class OrderCountByMonthByStatusRow
+    private sealed class SupplierSpendRow
     {
-        public int Year { get; set; }
-        public int Month { get; set; }
-        public string StatusCode { get; set; } = default!;
-        public int OrderCount { get; set; }
+        public Guid SupplierToken { get; set; }
+        public string SupplierName { get; set; } = default!;
+        public string CurrencyCode { get; set; } = default!;
+        public decimal Total { get; set; }
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(IRequestContext context, CancellationToken cancellationToken)
@@ -63,14 +48,14 @@ public class DashboardService(IDbConnectionFactory connectionFactory) : IDashboa
         var belowParCount = await connection.ExecuteScalarAsync<int>(
             "sp_Dashboard_GetBelowParCount", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure);
 
-        var activeUserSummary = await connection.QueryFirstOrDefaultAsync<ActiveUserSummaryRow>(
-            "sp_Dashboard_GetActiveUserSummary", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure);
+        var openPurchaseOrdersCount = await connection.ExecuteScalarAsync<int>(
+            "sp_Dashboard_GetOpenPurchaseOrdersCount", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure);
 
         var spendRows = (await connection.QueryAsync<SpendByMonthRow>(
             "sp_Dashboard_GetSpendByMonth", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure)).ToList();
 
-        var orderCountRows = (await connection.QueryAsync<OrderCountByMonthByStatusRow>(
-            "sp_Dashboard_GetOrderCountByMonthByStatus", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure)).ToList();
+        var supplierSpendRows = (await connection.QueryAsync<SupplierSpendRow>(
+            "sp_Dashboard_GetTopSuppliersBySpend", new { RootOrganizationId = rootOrganizationId }, commandType: CommandType.StoredProcedure)).ToList();
 
         var recentActivity = (await connection.QueryAsync<RecentActivityItemDto>(
             "sp_Dashboard_GetRecentActivity", new { RootOrganizationId = rootOrganizationId, Count = RecentActivityCount }, commandType: CommandType.StoredProcedure)).ToList();
@@ -110,19 +95,19 @@ public class DashboardService(IDbConnectionFactory connectionFactory) : IDashboa
             })
             .ToList();
 
-        // Dense 7-month x 4-status grid, zero-filled — same sparse-rows-in/dense-grid-out shape
-        // as monthlySpend above, so the frontend never needs to handle a missing combination.
-        var orderCountsByMonth = Enumerable.Range(0, 7)
-            .Select(i => now.AddMonths(-6 + i))
-            .SelectMany(d => AllPurchaseOrderStatusCodes.Select(statusCode => new OrderStatusMonthCountDto
+        // Same currency filter as monthlySpend above — a supplier billed in a currency
+        // other than the resolved headline currency never displaces a same-currency
+        // supplier from the top-5 trim.
+        var topSuppliersBySpend = supplierSpendRows
+            .Where(r => r.CurrencyCode == currencyCode)
+            .OrderByDescending(r => r.Total)
+            .Take(TopSuppliersCount)
+            .Select(r => new SupplierSpendDto
             {
-                Year = d.Year,
-                Month = d.Month,
-                StatusCode = statusCode,
-                Count = orderCountRows
-                    .Where(r => r.Year == d.Year && r.Month == d.Month && r.StatusCode == statusCode)
-                    .Sum(r => r.OrderCount)
-            }))
+                SupplierToken = r.SupplierToken,
+                SupplierName = r.SupplierName,
+                Total = r.Total
+            })
             .ToList();
 
         return new DashboardSummaryDto
@@ -133,9 +118,8 @@ public class DashboardService(IDbConnectionFactory connectionFactory) : IDashboa
             SpendLastMonth = monthlySpend[^2].Total,
             SpendCurrencyCode = currencyCode,
             MonthlySpend = monthlySpend,
-            OrderCountsByMonth = orderCountsByMonth,
-            ActiveUserCount = activeUserSummary?.ActiveUserCount ?? 0,
-            ActiveOrganizationCount = activeUserSummary?.ActiveOrganizationCount ?? 0,
+            OpenPurchaseOrdersAwaitingReceiptCount = openPurchaseOrdersCount,
+            TopSuppliersBySpend = topSuppliersBySpend,
             RecentActivity = recentActivity
         };
     }
