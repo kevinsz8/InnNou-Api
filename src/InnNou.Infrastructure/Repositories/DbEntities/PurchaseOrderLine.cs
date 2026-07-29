@@ -48,7 +48,6 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         // rectification for this line was a full cancellation. Quantity/UnitPrice/CurrencyCode
         // still reflect the last real values in that case (a cancelled line contributes nothing
         // to totals, but its historical unit price/quantity remain visible for the audit trail).
-        // Always false via sp_PurchaseOrderLine_GetByPurchaseOrderId (the raw, never-rectified read).
         public bool IsCancelled { get; set; }
     }
 }

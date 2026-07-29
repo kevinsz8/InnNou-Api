@@ -31,7 +31,7 @@ namespace InnNou.Domain.Dtos
         // to avoid N+1) can still show an accurate line count.
         public int LineCount { get; set; }
 
-        // Populated by PurchaseOrderService via sp_PurchaseOrderLine_GetByPurchaseOrderId —
+        // Populated by PurchaseOrderService via sp_PurchaseOrderLine_GetEffective —
         // its own independent snapshot rows, not a filtered view over OrderLine.
         public List<PurchaseOrderLineDto> Lines { get; set; } = [];
     }
