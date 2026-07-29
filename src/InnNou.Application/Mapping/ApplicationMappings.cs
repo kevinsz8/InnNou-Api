@@ -1140,6 +1140,7 @@ namespace InnNou.Application.Mapping
                 PurchaseOrderNumber = d.PurchaseOrderNumber,
                 WarehouseToken = d.WarehouseToken,
                 WarehouseName = d.WarehouseName,
+                DeliveryNoteNumber = d.DeliveryNoteNumber,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,

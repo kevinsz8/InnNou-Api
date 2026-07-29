@@ -20,6 +20,7 @@ namespace InnNou.Application.Requests
     public class CreateGoodsReceiptCommandRequest : IRequest<ApiResponse<CreateGoodsReceiptCommandResponse>>
     {
         public Guid PurchaseOrderToken { get; set; }
+        public string? DeliveryNoteNumber { get; set; }
         public string? Notes { get; set; }
         public List<CreateGoodsReceiptLineRequestItem> Lines { get; set; } = [];
     }

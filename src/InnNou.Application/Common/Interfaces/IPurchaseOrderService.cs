@@ -37,7 +37,7 @@ namespace InnNou.Application.Common.Interfaces
         // (damaged/wrong/short) are uncapped by design. Creating a receipt recomputes the
         // PurchaseOrder's status (SENT -> PARTIALLY_RECEIVED -> RECEIVED) in the same
         // transaction. See .claude/GoodsReceiptsModule.md.
-        Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
+        Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<GoodsReceiptDto>> GetGoodsReceiptsAsync(Guid? purchaseOrderToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
     }
 }

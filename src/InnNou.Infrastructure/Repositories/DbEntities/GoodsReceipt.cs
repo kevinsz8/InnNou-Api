@@ -12,12 +12,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int WarehouseId { get; set; }
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }
+        public string DeliveryNoteNumber { get; set; } = default!;
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
 
         // Only populated by sp_GoodsReceipt_GetPaged (a cheap CROSS APPLY COUNT, same convention
-        // as PurchaseOrder.LineCount); GetByToken/Create leave this at 0 and GoodsReceiptService
+        // as PurchaseOrder.LineCount); Create leaves this at 0 and PurchaseOrderService
         // overwrites it from the real hydrated Lines.Count instead.
         public int LineCount { get; set; }
     }

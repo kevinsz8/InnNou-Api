@@ -615,6 +615,7 @@ namespace InnNou.Infrastructure.Mapping
                 PurchaseOrderNumber = e.PurchaseOrderNumber,
                 WarehouseToken = e.WarehouseToken,
                 WarehouseName = e.WarehouseName,
+                DeliveryNoteNumber = e.DeliveryNoteNumber,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,

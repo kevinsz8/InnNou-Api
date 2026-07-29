@@ -295,6 +295,7 @@ namespace InnNou.Application.Common
         public const string GoodsReceiptPurchaseOrderNotReceivable = "GOODS_RECEIPT_PURCHASE_ORDER_NOT_RECEIVABLE";
         public const string GoodsReceiptWarehouseCannotReceive = "GOODS_RECEIPT_WAREHOUSE_CANNOT_RECEIVE";
         public const string GoodsReceiptEmpty = "GOODS_RECEIPT_EMPTY";
+        public const string GoodsReceiptDeliveryNoteNumberRequired = "GOODS_RECEIPT_DELIVERY_NOTE_NUMBER_REQUIRED";
         public const string GoodsReceiptLineNotFound = "GOODS_RECEIPT_LINE_NOT_FOUND";
         public const string GoodsReceiptLineEmpty = "GOODS_RECEIPT_LINE_EMPTY";
         public const string GoodsReceiptLineAlreadyCancelled = "GOODS_RECEIPT_LINE_ALREADY_CANCELLED";

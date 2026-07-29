@@ -7,6 +7,7 @@ namespace InnNou.Domain.Dtos
         public string PurchaseOrderNumber { get; set; } = default!;
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }
+        public string DeliveryNoteNumber { get; set; } = default!;
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

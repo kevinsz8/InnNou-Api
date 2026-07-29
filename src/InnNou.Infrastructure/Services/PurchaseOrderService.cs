@@ -601,7 +601,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         public required CreateGoodsReceiptLineInputDto Input { get; init; }
     }
 
-    public async Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -706,6 +706,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             headerParams.Add("@GoodsReceiptToken", Guid.NewGuid());
             headerParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
             headerParams.Add("@WarehouseId", purchaseOrder.WarehouseId);
+            headerParams.Add("@DeliveryNoteNumber", deliveryNoteNumber);
             headerParams.Add("@Notes", notes);
             headerParams.Add("@CreatedBy", actor);
 
