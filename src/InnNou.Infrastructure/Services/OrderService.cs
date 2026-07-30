@@ -145,7 +145,7 @@ public class OrderService(
         };
     }
 
-    public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -189,6 +189,8 @@ public class OrderService(
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@WarehouseId", warehouseId);
         p.Add("@StatusId", statusId);
+        p.Add("@FromDate", fromDate?.Date);
+        p.Add("@ToDate", toDate?.Date);
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 

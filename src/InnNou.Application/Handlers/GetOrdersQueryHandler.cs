@@ -13,7 +13,7 @@ namespace InnNou.Application.Handlers
         public async Task<ApiResponse<GetOrdersQueryResponse>> Handle(GetOrdersQueryRequest request, CancellationToken cancellationToken)
         {
             var result = await orderService.GetPagedAsync(
-                request.WarehouseToken, request.Status, request.PageNumber, request.PageSize, context, cancellationToken);
+                request.WarehouseToken, request.Status, request.FromDate, request.ToDate, request.PageNumber, request.PageSize, context, cancellationToken);
 
             var totalPages = result.TotalPages;
             var response = new GetOrdersQueryResponse

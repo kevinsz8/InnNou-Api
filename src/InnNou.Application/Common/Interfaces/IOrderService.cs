@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface IOrderService
     {
-        Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<OrderDto>> GetPagedAsync(Guid? warehouseToken, string? status, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> GetByTokenAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
 
         // Streams back the order-confirmation PDF generated best-effort at confirmation time

@@ -8,18 +8,27 @@ GO
    service always resolves a concrete organization for every other
    caller, same convention as sp_Organization_GetPaged /
    sp_Warehouse_GetPagedByOrganizationId.
+
+   @FromDate/@ToDate filter on CreatedUtc (inclusive both ends — @ToDate is
+   bumped a full day so a caller passing a bare date still captures every
+   order created that day regardless of time-of-day), same shape as
+   sp_InventoryTransfer_GetPaged's own date-range filter.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Order_GetPaged
 (
     @RootOrganizationId INT          = NULL,
     @WarehouseId        INT          = NULL,
     @StatusId            INT         = NULL,
+    @FromDate           DATE         = NULL,
+    @ToDate             DATE         = NULL,
     @PageNumber         INT,
     @PageSize           INT
 )
 AS
 BEGIN
     SET NOCOUNT ON;
+
+    DECLARE @ToDateExclusive DATETIME2 = CASE WHEN @ToDate IS NULL THEN NULL ELSE DATEADD(DAY, 1, CAST(@ToDate AS DATETIME2)) END;
 
     ;WITH OrganizationHierarchy AS
     (
@@ -49,6 +58,8 @@ BEGIN
         (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = o.OrganizationId))
         AND (@WarehouseId IS NULL OR o.WarehouseId = @WarehouseId)
         AND (@StatusId IS NULL OR o.OrderStatusId = @StatusId)
+        AND (@FromDate IS NULL OR o.CreatedUtc >= @FromDate)
+        AND (@ToDateExclusive IS NULL OR o.CreatedUtc < @ToDateExclusive)
     ORDER BY o.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;
