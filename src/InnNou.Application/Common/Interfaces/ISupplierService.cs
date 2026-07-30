@@ -10,6 +10,12 @@ namespace InnNou.Application.Common.Interfaces
         // the filter no-ops (e.g. the general admin Suppliers catalog page).
         Task<PagedResult<SupplierDto>> GetSuppliersAsync(int pageNumber, int pageSize, string? searchField, string? searchText, bool includeInactive, Guid? warehouseToken, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> GetSupplierByTokenAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken);
+
+        // Aggregates OTD/OTIF/rejection-rate/avg-lead-time over every GoodsReceiptLine received
+        // against this supplier within [fromDate, toDate] (both null = all time) — same read
+        // visibility as GetSupplierByTokenAsync (if you can see the supplier, you can see its
+        // scorecard). Null return means not found or not visible, same as GetSupplierByTokenAsync.
+        Task<SupplierScorecardDto?> GetScorecardAsync(Guid supplierToken, DateTime? fromDate, DateTime? toDate, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken);
         Task<SupplierDto?> EditSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteSupplierAsync(Guid supplierToken, IRequestContext context, CancellationToken cancellationToken);

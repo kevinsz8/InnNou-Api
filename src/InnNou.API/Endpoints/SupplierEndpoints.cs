@@ -20,6 +20,9 @@ namespace InnNou.API.Endpoints
             group.MapPost("/getSupplierByToken", HandleGetSupplierByToken)
                 .Produces<ApiResponse<GetSupplierByTokenQueryResponse>>(200);
 
+            group.MapPost("/getScorecard", HandleGetScorecard)
+                .Produces<ApiResponse<GetSupplierScorecardQueryResponse>>(200);
+
             group.MapPost("/createSupplier", HandleCreateSupplier)
                 .Produces<ApiResponse<CreateSupplierCommandResponse>>(201);
 
@@ -47,6 +50,15 @@ namespace InnNou.API.Endpoints
 
         private static async Task<IResult> HandleGetSupplierByToken(
             [FromBody] GetSupplierByTokenQueryRequest request,
+            IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> HandleGetScorecard(
+            [FromBody] GetSupplierScorecardQueryRequest request,
             IMediator mediator,
             CancellationToken ct)
         {

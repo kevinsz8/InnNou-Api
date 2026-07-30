@@ -172,6 +172,52 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         return canAccess == 1 ? mapper.Map<SupplierDto>(existing) : null;
     }
 
+    private sealed class ScorecardRawRow
+    {
+        public int TotalReceiptLines { get; set; }
+        public decimal? TotalAccepted { get; set; }
+        public decimal? TotalCourtesy { get; set; }
+        public decimal? TotalRejected { get; set; }
+        public int OtdEligibleLines { get; set; }
+        public int OtdOnTimeLines { get; set; }
+        public int OtifLines { get; set; }
+        public decimal? AvgLeadTimeDays { get; set; }
+    }
+
+    public async Task<SupplierScorecardDto?> GetScorecardAsync(Guid supplierToken, DateTime? fromDate, DateTime? toDate, IRequestContext context, CancellationToken cancellationToken)
+    {
+        // Same visibility rule as reading the supplier itself — no separate check to duplicate.
+        var supplier = await GetSupplierByTokenAsync(supplierToken, context, cancellationToken);
+        if (supplier is null)
+            return null;
+
+        await using var connection = connectionFactory.CreateConnection();
+
+        var row = await connection.QueryFirstOrDefaultAsync<ScorecardRawRow>(
+            "sp_Supplier_GetScorecard",
+            new { SupplierId = supplier.SupplierId, FromDate = fromDate?.Date, ToDate = toDate?.Date },
+            commandType: CommandType.StoredProcedure) ?? new ScorecardRawRow();
+
+        var totalAccepted = row.TotalAccepted ?? 0;
+        var totalCourtesy = row.TotalCourtesy ?? 0;
+        var totalRejected = row.TotalRejected ?? 0;
+        var totalHandled = totalAccepted + totalCourtesy + totalRejected;
+
+        return new SupplierScorecardDto
+        {
+            SupplierToken = supplierToken,
+            TotalReceiptLines = row.TotalReceiptLines,
+            TotalAccepted = totalAccepted,
+            TotalCourtesy = totalCourtesy,
+            TotalRejected = totalRejected,
+            RejectionRatePercent = totalHandled == 0 ? null : Math.Round(100m * totalRejected / totalHandled, 2),
+            OtdEligibleLines = row.OtdEligibleLines,
+            OnTimeDeliveryPercent = row.OtdEligibleLines == 0 ? null : Math.Round(100m * row.OtdOnTimeLines / row.OtdEligibleLines, 2),
+            OnTimeInFullPercent = row.OtdEligibleLines == 0 ? null : Math.Round(100m * row.OtifLines / row.OtdEligibleLines, 2),
+            AvgLeadTimeDays = row.AvgLeadTimeDays.HasValue ? Math.Round(row.AvgLeadTimeDays.Value, 1) : null
+        };
+    }
+
     public async Task<SupplierDto?> CreateSupplierAsync(SupplierDto dto, IRequestContext context, CancellationToken cancellationToken)
     {
         var isGlobal = dto.IsGlobal ?? false;

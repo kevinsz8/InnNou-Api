@@ -41,6 +41,7 @@ using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.Inventory
 using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
 using CommonMonthlySpend = InnNou.Application.Responses.Common.MonthlySpend;
 using CommonSupplierSpend = InnNou.Application.Responses.Common.SupplierSpend;
+using CommonSupplierScorecard = InnNou.Application.Responses.Common.SupplierScorecard;
 using CommonRecentActivityItem = InnNou.Application.Responses.Common.RecentActivityItem;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
@@ -1268,6 +1269,20 @@ namespace InnNou.Application.Mapping
                 SupplierToken = d.SupplierToken,
                 SupplierName = d.SupplierName,
                 Total = d.Total
+            });
+
+            mapper.Register<SupplierScorecardDto, CommonSupplierScorecard>(d => new CommonSupplierScorecard
+            {
+                SupplierToken = d.SupplierToken,
+                TotalReceiptLines = d.TotalReceiptLines,
+                TotalAccepted = d.TotalAccepted,
+                TotalCourtesy = d.TotalCourtesy,
+                TotalRejected = d.TotalRejected,
+                RejectionRatePercent = d.RejectionRatePercent,
+                OtdEligibleLines = d.OtdEligibleLines,
+                OnTimeDeliveryPercent = d.OnTimeDeliveryPercent,
+                OnTimeInFullPercent = d.OnTimeInFullPercent,
+                AvgLeadTimeDays = d.AvgLeadTimeDays
             });
 
             mapper.Register<DashboardSummaryDto, CommonDashboardSummary>(d => new CommonDashboardSummary

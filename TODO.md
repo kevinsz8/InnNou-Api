@@ -26,16 +26,18 @@
 
 ---
 
-## 1. Scorecard de proveedor (mejor ROI — casi cero captura nueva)
+## 1. Scorecard de proveedor — CONSTRUIDO 2026-07-30
 
 Investigado 2026-07-28: los estándares 2026 de la industria convergen en 5 KPIs — on-time delivery (~30% peso), on-time-in-full (~25%), tasa de rechazo de calidad (~25%, benchmark <2%), cumplimiento de lead time (~15%), exactitud de facturación (~5%).
 
-**Lo notable: InnNou ya captura cada uno de estos datos, solo no los agrega en ningún lado:**
-- OTD/lead time → `PurchaseOrder.SentUtc` vs `GoodsReceipt.CreatedUtc`.
-- Tasa de rechazo → `GoodsReceiptLine.QuantityRejected`/`RejectionReason` (con el 3-way split que ya distingue courtesy de rejected, más fino que la mayoría del mercado).
-- Variación de precio → historial de `PurchaseOrderLineRectification`.
+**Construido 2026-07-30, puramente de reporting, sin tocar el modelo de datos existente** (`sp_Supplier_GetScorecard` + `ISupplierService.GetScorecardAsync` + página nueva `/suppliers/:supplierToken/scorecard`, botón "Scorecard" en la lista de Proveedores). Confirmado con el usuario: 4 números independientes (sin score único ponderado) y selector de fechas libre (sin default fijo, a diferencia del resto de la app) — decisiones tomadas en la conversación de diseño, no solo la investigación de mercado original:
+- **Tasa de rechazo de calidad** = `Rechazado / (Aceptado+Cortesía+Rechazado)` sobre `GoodsReceiptLine`, directo.
+- **On-Time Delivery** = % de líneas recibidas cuyo `(GoodsReceipt.CreatedUtc - PurchaseOrder.SentUtc)` en días fue ≤ `Article.LeadTimeDays` — primer uso real de ese campo (antes solo se mostraba en "Below Par" sin compararse contra nada), evaluado solo sobre líneas con `LeadTimeDays` configurado (`OtdEligibleLines`).
+- **On-Time-In-Full** = a tiempo Y recibida en una sola entrega (sin partials, sin rechazo en esa recepción, cantidad completa) — mismo denominador que OTD.
+- **Tiempo de entrega promedio** (días) — número crudo, no un %, como contexto adicional.
+- **Exactitud de facturación (~5% del estándar) quedó afuera de este V1** — no existe módulo de Facturación todavía (ver punto 5).
 
-Sería un módulo puramente de reporting: una SP de agregación por `(Supplier, período)` + una página nueva en el detalle del Supplier — sin tocar el modelo de datos existente. El tipo de feature que se hace en días, no semanas, con el mismo precedente de "agregar sobre datos ya existentes" que `ConsolidatedPurchaseOrderModule.md` ya sentó.
+Verificado en vivo (Iberian Food Distribution): números de la UI coinciden exactamente contra `sqlcmd` directo (8% rechazo, 100% OTD, 86.96% OTIF, 0.2 días promedio sobre 23 líneas). Estados "sin datos" nunca fabrican un 0%/100% falso — se distingue "no hay líneas en el período" de "hay líneas pero ninguna tiene lead time configurado". Sin errores de consola. Variación de precio (vía `PurchaseOrderLineRectification`) no se incluyó como KPI formal — no es uno de los 5 estándares de la industria, quedó fuera de alcance de este V1.
 
 ---
 
@@ -72,6 +74,21 @@ Requeriría entidades nuevas (`Recipe`/`RecipeIngredient` referenciando `Article
 ## 5. Facturación / Contabilidad — 3-way matching PO↔Recepción↔Factura (siguiente capítulo, después de 1-3)
 
 Adaco lo destaca explícitamente como feature. InnNou tiene Pedido+Albarán pero ningún concepto de Factura/Accounting todavía — "Facturas" en el menú lateral sigue siendo solo una etiqueta placeholder, sin servicio/tabla/endpoint detrás (igual que "Ventas"/"Inventario" cuando se escribió la nota original de este archivo). Necesitaría su propio módulo de facturas con numeración fiscal secuencial (IVA en España, IGI en Andorra), matching contra `PurchaseOrderLine`/`GoodsReceiptLine`, y probablemente conectar con las devoluciones del punto 2 para las notas de crédito reales. **Confirmado con el usuario: se quiere construir, pero recién después de cerrar los puntos 1-3.**
+
+### Sub-diseño: modelo de Impuestos/IVA — investigado y acordado 2026-07-30, guardado aquí, NO implementar todavía
+
+Investigado 2026-07-30: España no tiene una tasa única de IVA — 21% general, 10% reducido (hostelería, agua, pastas/aceites de semilla), 4% superreducido (pan/leche/fruta/huevos, aceite de oliva desde 2025), más regímenes regionales que **no son IVA** (IGIC en Canarias, IPSI en Ceuta/Melilla, cada uno con su propia estructura de tasas). Andorra usa IGI, con una estructura totalmente distinta: 4,5% general, 1% reducido, 0% superreducido, 2,5% especial, 9,5% incrementado. Confirmado con el usuario: **los regímenes regionales españoles entran en el alcance desde el arranque**, no se dejan para después.
+
+Con regímenes regionales en alcance, un `Articles.TaxRateId` único no alcanza — el mismo artículo puede recibirse en un almacén en Madrid (IVA) y en otro en Tenerife (IGIC), con tasas distintas. La separación correcta (así lo resuelven los motores de impuestos reales — Avalara, y el propio enfoque de la UE de "categorías reducidas" que cada país mapea a su % local):
+
+- **`TaxCategories`** (a nivel Artículo, independiente del país): `GENERAL / REDUCIDO / SUPERREDUCIDO / EXENTO` — clasifica qué tan esencial/regulado es el artículo, no un porcentaje.
+- **`TaxJurisdictions`** (nueva, FK a `Countries` existente): España tendría 4 filas (Península+Baleares, Canarias, Ceuta, Melilla), Andorra 1 sola. Extensible a nuevos países sin tocar código.
+- **`TaxRates`**: mapea `(TaxJurisdictionId, TaxCategoryId) → RatePercent`, Id-backed igual que `SupplierTypes`/`Currencies`. Ej: `(Península, SUPERREDUCIDO)=4%`, `(Canarias, SUPERREDUCIDO)=IGIC`, `(Andorra, SUPERREDUCIDO)=0%`.
+- **`Articles.TaxCategoryId`** (FK nullable) — se configura una sola vez por artículo, sin importar en qué almacén se reciba.
+- **`Warehouses.TaxJurisdictionId`** (FK nullable, nuevo) — determina qué jurisdicción aplica a lo recibido ahí. Concepto distinto de `Warehouses.ZoneId` (cobertura de reparto), aunque mismo patrón Country>subdivisión.
+- **Freeze solo en `GoodsReceiptLine`** (confirmado con el usuario — no en `Order`/`PurchaseOrderLine`, que siguen netos): al crear la recepción se resuelve `(Article.TaxCategoryId, Warehouse.TaxJurisdictionId) → TaxRates` y se congela `TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount` sobre `QuantityAccepted` (nunca Cortesía/Rechazado, que no se facturan) — la futura Facturación solo lee, no recalcula nada.
+- Validación dura en `CreateGoodsReceiptAsync` (nunca un IVA en null por descuido): rechazar con código de error claro si el Warehouse no tiene `TaxJurisdictionId`, si un Artículo aceptado no tiene `TaxCategoryId`, o si no existe fila `TaxRates` para esa combinación.
+- Superficie nueva no trivial: pantalla de administración para Jurisdicciones/Tasas, asignar categoría a cada Artículo existente, asignar jurisdicción a cada Warehouse existente — confirma que este sub-diseño espera su turno junto con el resto del punto 5.
 
 ---
 
