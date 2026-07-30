@@ -93,7 +93,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
             await connection.ExecuteAsync(
                 "sp_Auth_InsertRefreshToken",
-                new { RefreshTokenToken = newTokenId, UserId = tokenData.UserId, TokenHash = newTokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
+                new { RefreshTokenToken = newTokenId, UserId = tokenData.UserId, TokenHash = newTokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now, ImpersonatedUserId = tokenData.ImpersonatedUserId },
                 transaction,
                 commandType: CommandType.StoredProcedure);
 
@@ -105,7 +105,19 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             throw;
         }
 
-        var jwt = GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel, organizationTypeCode: tokenData.OrganizationTypeCode);
+        // A refresh token minted mid-impersonation (ImpersonatedUserId set) must re-mint the JWT
+        // for the same impersonated target — otherwise the session silently reverts to the actor's
+        // own identity the moment a refresh happens (e.g. the 1-hour token expiry) with no error and
+        // no notice to the user.
+        var jwt = tokenData.ImpersonatedUserId.HasValue
+            ? GenerateJwtToken(
+                tokenData.UserToken, tokenData.Email, tokenData.ImpersonatedOrganizationId, tokenData.ImpersonatedSupplierId, tokenData.ImpersonatedRoleLevel!.Value,
+                impersonatedUserToken: tokenData.ImpersonatedUserToken,
+                impersonatedEmail: tokenData.ImpersonatedEmail,
+                actorRoleLevel: tokenData.RoleLevel,
+                actorOrganizationId: tokenData.OrganizationId,
+                organizationTypeCode: tokenData.ImpersonatedOrganizationTypeCode)
+            : GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel, organizationTypeCode: tokenData.OrganizationTypeCode);
 
         return new Login
         {
@@ -176,7 +188,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         await connection.ExecuteAsync(
             "sp_Auth_InsertRefreshToken",
-            new { RefreshTokenToken = tokenId, UserId = actor.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now },
+            new { RefreshTokenToken = tokenId, UserId = actor.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now, ImpersonatedUserId = target.UserId },
             commandType: CommandType.StoredProcedure);
 
         return new Login

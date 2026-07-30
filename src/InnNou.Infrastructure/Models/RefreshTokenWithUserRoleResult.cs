@@ -20,4 +20,15 @@ internal sealed class RefreshTokenWithUserRoleResult
     // Populated by sp_Auth_GetRefreshTokenData (joins Organizations -> OrganizationTypes off the
     // user's own OrganizationId); null for a Supplier-scoped login with no OrganizationId.
     public string? OrganizationTypeCode { get; set; }
+
+    // Set only when this refresh token was minted while impersonating (see AuthService.ImpersonateAsync) —
+    // the remaining Impersonated* fields are the joined target user's data, so RefreshTokenAsync can
+    // re-mint the JWT for the same impersonated target instead of reverting to this row's own actor identity.
+    public int? ImpersonatedUserId { get; set; }
+    public Guid? ImpersonatedUserToken { get; set; }
+    public string? ImpersonatedEmail { get; set; }
+    public int? ImpersonatedOrganizationId { get; set; }
+    public int? ImpersonatedSupplierId { get; set; }
+    public int? ImpersonatedRoleLevel { get; set; }
+    public string? ImpersonatedOrganizationTypeCode { get; set; }
 }

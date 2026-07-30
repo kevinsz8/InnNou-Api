@@ -24,6 +24,7 @@ BEGIN
         rt.IsRevoked,
         rt.RevokedUtc,
         rt.ReplacedByToken,
+        rt.ImpersonatedUserId,
 
         u.UserToken,
         u.Email,
@@ -34,12 +35,26 @@ BEGIN
 
         r.RoleLevel,
         r.CanImpersonate,
-        ot.Code AS OrganizationTypeCode
+        ot.Code AS OrganizationTypeCode,
+
+        -- Populated only when this refresh token was minted mid-impersonation
+        -- (ImpersonatedUserId set) — lets RefreshTokenAsync re-mint the JWT for
+        -- the same impersonated target instead of silently reverting to the actor.
+        iu.UserToken AS ImpersonatedUserToken,
+        iu.Email AS ImpersonatedEmail,
+        iu.OrganizationId AS ImpersonatedOrganizationId,
+        iu.SupplierId AS ImpersonatedSupplierId,
+        ir.RoleLevel AS ImpersonatedRoleLevel,
+        iot.Code AS ImpersonatedOrganizationTypeCode
     FROM dbo.RefreshTokens rt
     INNER JOIN dbo.Users u ON u.UserId = rt.UserId
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
     LEFT JOIN dbo.Organizations o ON o.OrganizationId = u.OrganizationId
     LEFT JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
+    LEFT JOIN dbo.Users iu ON iu.UserId = rt.ImpersonatedUserId
+    LEFT JOIN dbo.Roles ir ON ir.RoleId = iu.RoleId
+    LEFT JOIN dbo.Organizations io ON io.OrganizationId = iu.OrganizationId
+    LEFT JOIN dbo.OrganizationTypes iot ON iot.OrganizationTypeId = io.OrganizationTypeId
     WHERE rt.TokenHash = @TokenHash;
 END;
 GO
