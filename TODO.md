@@ -41,13 +41,19 @@ Verificado en vivo (Iberian Food Distribution): números de la UI coinciden exac
 
 ---
 
-## 2. Devoluciones a proveedor / RMA (cierra un gap real, no un módulo nuevo desde cero)
+## 2. Devoluciones a proveedor / RMA — CONSTRUIDO 2026-07-30
 
 Investigado 2026-07-28. Confirmado como práctica estándar: un RMA completo cubre restock/reemplazo/reparación/inspección/descarte, y genera nota de crédito hacia el proveedor con seguimiento hasta que el caso se cierra (reemplazo entregado, crédito aplicado). Access Procure Wizard Evo (hospitality-específico) lo vende explícitamente como "recuperación de crédito perdido".
 
-**Por qué esto es "cerrar el flujo actual", no un módulo nuevo:** `GoodsReceiptLine.QuantityRejected`/`RejectionReason` ya capturan *que* algo llegó mal — pero hoy ese número no dispara nada más. `Warehouse.CanReceiveReturns` ya existe como capability bit desde el módulo de Warehouses (2026-07-15) y sigue **deliberadamente sin conectar** (confirmado en `.claude/GoodsReceiptsModule.md`). Lo que falta es la mitad que le da cierre real al rechazo:
-- Una entidad `SupplierReturn`/`SupplierReturnLine` (o extender `GoodsReceiptLine` con un estado de seguimiento) referenciando la línea rechazada, con `Status` (`PENDING`/`CREDITED`/`REPLACED`/`CLOSED`) — Id-backed, siguiendo la convención ya establecida.
-- Ninguna nota de crédito fiscal real todavía (eso ya es parte de Facturación, punto 5) — en esta fase solo trackear "se devolvió, se prometió crédito/reemplazo, se cerró", sin contabilidad detrás.
+**Construido 2026-07-30.** Cierra el gap real: `GoodsReceiptLine.QuantityRejected`/`RejectionReason` ya capturaban *que* algo llegó mal, pero no disparaban nada más. `Warehouse.CanReceiveReturns` (capability bit dormido desde 2026-07-15) ahora tiene su primer consumidor real. Diseño acordado con el usuario antes de construir:
+- **`SupplierReturn`** (cabecera, referencia a `PurchaseOrder`) + **`SupplierReturnLine`** (referencia a una `GoodsReceiptLine` rechazada específica — una línea rechazada solo puede reclamarse una vez, `UNIQUE` constraint). Una devolución puede agrupar varias líneas rechazadas de distintas Recepciones del mismo Pedido.
+- **`Status` de solo 2 valores** (`PENDING`/`CLOSED`) + un **`ResolutionType` separado** (`CREDITED`/`REPLACED`/`WRITTEN_OFF`, seteado solo al cerrar) — decisión explícita del usuario sobre la alternativa de 4 estados planos originalmente sugerida, para no conflatar "¿está abierto?" con "¿cómo se resolvió?".
+- **Validación dura en la creación**: rechaza si el `Warehouse` no tiene `CanReceiveReturns` (decisión explícita del usuario — no cualquier almacén puede procesar devoluciones), si una línea ya fue reclamada por otra devolución, o si la lista de líneas viene vacía.
+- **100% del lado comprador** — mismo criterio que Recibir/Rectificar, sin acceso de lectura para el Proveedor en este V1.
+- Entrada contextual: botón "Devolver" en cada PO de `OrderDetail.tsx` (visible en cualquier estado salvo `CANCELLED` — un rechazo ya ocurrió en el pasado, no depende del estado actual del PO) → página `/purchaseOrders/:token/returns/create` mostrando las líneas rechazadas aún no reclamadas. Seguimiento cruzado en `/supplierReturns` (lista con filtros Organización/Proveedor/Estado/fechas) + `/supplierReturns/:token` (detalle + cerrar). Nueva entrada de menú "Devoluciones" en el grupo Operaciones.
+- Ninguna nota de crédito fiscal real — eso sigue siendo parte de Facturación (punto 5); acá solo se trackea el estado del reclamo.
+
+Verificado en vivo (Iberian Food Distribution / PO-2026-00012): creación de devolución con una línea rechazada real, cierre con resolución "Con crédito", aparece correctamente en la lista y el detalle. Verificado por API (curl) el bloqueo por `CanReceiveReturns=0` en otro almacén, y que una línea ya reclamada deja de aparecer como elegible. Sin errores de consola.
 
 ---
 

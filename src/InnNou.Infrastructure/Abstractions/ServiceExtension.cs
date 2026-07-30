@@ -71,6 +71,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IInventoryPeriodService, InventoryPeriodService>();
             services.AddScoped<IParLevelService, ParLevelService>();
             services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<ISupplierReturnService, SupplierReturnService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();

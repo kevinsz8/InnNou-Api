@@ -42,6 +42,9 @@ using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSumm
 using CommonMonthlySpend = InnNou.Application.Responses.Common.MonthlySpend;
 using CommonSupplierSpend = InnNou.Application.Responses.Common.SupplierSpend;
 using CommonSupplierScorecard = InnNou.Application.Responses.Common.SupplierScorecard;
+using CommonSupplierReturn = InnNou.Application.Responses.Common.SupplierReturn;
+using CommonSupplierReturnLine = InnNou.Application.Responses.Common.SupplierReturnLine;
+using CommonEligibleReturnLine = InnNou.Application.Responses.Common.EligibleReturnLine;
 using CommonRecentActivityItem = InnNou.Application.Responses.Common.RecentActivityItem;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
@@ -1269,6 +1272,48 @@ namespace InnNou.Application.Mapping
                 SupplierToken = d.SupplierToken,
                 SupplierName = d.SupplierName,
                 Total = d.Total
+            });
+
+            mapper.Register<SupplierReturnLineDto, CommonSupplierReturnLine>(d => new CommonSupplierReturnLine
+            {
+                SupplierReturnLineToken = d.SupplierReturnLineToken,
+                GoodsReceiptLineToken = d.GoodsReceiptLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                QuantityRejected = d.QuantityRejected,
+                RejectionReason = d.RejectionReason,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<SupplierReturnDto, CommonSupplierReturn>(d => new CommonSupplierReturn
+            {
+                SupplierReturnToken = d.SupplierReturnToken,
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                Status = d.Status,
+                ResolutionType = d.ResolutionType,
+                Notes = d.Notes,
+                ClosedUtc = d.ClosedUtc,
+                ClosedBy = d.ClosedBy,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonSupplierReturnLine>(d.Lines)
+            });
+
+            mapper.Register<EligibleReturnLineDto, CommonEligibleReturnLine>(d => new CommonEligibleReturnLine
+            {
+                GoodsReceiptLineToken = d.GoodsReceiptLineToken,
+                DeliveryNoteNumber = d.DeliveryNoteNumber,
+                ReceivedUtc = d.ReceivedUtc,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                QuantityRejected = d.QuantityRejected,
+                RejectionReason = d.RejectionReason
             });
 
             mapper.Register<SupplierScorecardDto, CommonSupplierScorecard>(d => new CommonSupplierScorecard

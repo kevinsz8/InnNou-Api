@@ -29,6 +29,9 @@ using PurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.Purcha
 using PurchaseOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLine;
 using PurchaseOrderRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderRectification;
 using PurchaseOrderLineRectificationEntity = InnNou.Infrastructure.Repositories.DbEntities.PurchaseOrderLineRectification;
+using SupplierReturnEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierReturn;
+using SupplierReturnLineEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierReturnLine;
+using EligibleReturnLineEntity = InnNou.Infrastructure.Repositories.DbEntities.EligibleReturnLine;
 using GoodsReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceipt;
 using GoodsReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.GoodsReceiptLine;
 using StockLevelEntity = InnNou.Infrastructure.Repositories.DbEntities.StockLevel;
@@ -606,6 +609,47 @@ namespace InnNou.Infrastructure.Mapping
                 NewCurrencyCode = e.NewCurrencyCode,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<SupplierReturnEntity, SupplierReturnDto>(e => new SupplierReturnDto
+            {
+                SupplierReturnToken = e.SupplierReturnToken,
+                PurchaseOrderToken = e.PurchaseOrderToken,
+                PurchaseOrderNumber = e.PurchaseOrderNumber,
+                SupplierToken = e.SupplierToken,
+                SupplierName = e.SupplierName,
+                Status = SupplierReturnStatusCodes.ToCode(e.Status),
+                ResolutionType = e.ResolutionType.HasValue ? SupplierReturnResolutionTypeCodes.ToCode(e.ResolutionType.Value) : null,
+                Notes = e.Notes,
+                ClosedUtc = e.ClosedUtc,
+                ClosedBy = e.ClosedBy,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
+            });
+
+            mapper.Register<SupplierReturnLineEntity, SupplierReturnLineDto>(e => new SupplierReturnLineDto
+            {
+                SupplierReturnLineToken = e.SupplierReturnLineToken,
+                GoodsReceiptLineToken = e.GoodsReceiptLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                QuantityRejected = e.QuantityRejected,
+                RejectionReason = e.RejectionReason,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<EligibleReturnLineEntity, EligibleReturnLineDto>(e => new EligibleReturnLineDto
+            {
+                GoodsReceiptLineToken = e.GoodsReceiptLineToken,
+                DeliveryNoteNumber = e.DeliveryNoteNumber,
+                ReceivedUtc = e.ReceivedUtc,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                QuantityRejected = e.QuantityRejected,
+                RejectionReason = e.RejectionReason
             });
 
             mapper.Register<GoodsReceiptEntity, GoodsReceiptDto>(e => new GoodsReceiptDto

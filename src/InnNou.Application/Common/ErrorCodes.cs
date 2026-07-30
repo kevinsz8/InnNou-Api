@@ -305,6 +305,15 @@ namespace InnNou.Application.Common
         public const string GoodsReceiptSerialNumberRequired = "GOODS_RECEIPT_SERIAL_NUMBER_REQUIRED";
         public const string GoodsReceiptRejectionReasonRequired = "GOODS_RECEIPT_REJECTION_REASON_REQUIRED";
 
+        // SupplierReturn (devolucion a proveedor / RMA)
+        public const string SupplierReturnNotFound = "SUPPLIER_RETURN_NOT_FOUND";
+        public const string SupplierReturnForbidden = "SUPPLIER_RETURN_FORBIDDEN";
+        public const string SupplierReturnWarehouseCannotReceiveReturns = "SUPPLIER_RETURN_WAREHOUSE_CANNOT_RECEIVE_RETURNS";
+        public const string SupplierReturnEmpty = "SUPPLIER_RETURN_EMPTY";
+        public const string SupplierReturnLineNotEligible = "SUPPLIER_RETURN_LINE_NOT_ELIGIBLE";
+        public const string SupplierReturnInvalidResolutionType = "SUPPLIER_RETURN_INVALID_RESOLUTION_TYPE";
+        public const string SupplierReturnAlreadyClosed = "SUPPLIER_RETURN_ALREADY_CLOSED";
+
         // Inventory
         public const string InventoryForbidden = "INVENTORY_FORBIDDEN";
         public const string InventoryWarehouseNotFound = "INVENTORY_WAREHOUSE_NOT_FOUND";
