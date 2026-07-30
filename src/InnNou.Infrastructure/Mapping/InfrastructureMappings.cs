@@ -169,6 +169,64 @@ namespace InnNou.Infrastructure.Mapping
                 RatePercent = r.RatePercent
             });
 
+            mapper.Register<SupplierInvoiceMatchTolerance, SupplierInvoiceMatchToleranceDto>(t => new SupplierInvoiceMatchToleranceDto
+            {
+                SupplierInvoiceMatchToleranceToken = t.SupplierInvoiceMatchToleranceToken,
+                EffectiveOrganizationToken = t.EffectiveOrganizationToken,
+                EffectiveOrganizationName = t.EffectiveOrganizationName,
+                TolerancePercent = t.TolerancePercent,
+                ToleranceAmount = t.ToleranceAmount,
+                IsInherited = t.IsInherited
+            });
+
+            mapper.Register<SupplierInvoicePurchaseOrder, SupplierInvoicePurchaseOrderDto>(po => new SupplierInvoicePurchaseOrderDto
+            {
+                PurchaseOrderToken = po.PurchaseOrderToken,
+                PurchaseOrderNumber = po.PurchaseOrderNumber
+            });
+
+            mapper.Register<SupplierInvoiceLine, SupplierInvoiceLineDto>(l => new SupplierInvoiceLineDto
+            {
+                SupplierInvoiceLineToken = l.SupplierInvoiceLineToken,
+                PurchaseOrderLineToken = l.PurchaseOrderLineToken,
+                OrderedQuantity = l.OrderedQuantity,
+                PurchaseOrderNumber = l.PurchaseOrderNumber,
+                ArticleToken = l.ArticleToken,
+                ArticleName = l.ArticleName,
+                QuantityInvoiced = l.QuantityInvoiced,
+                UnitPriceInvoiced = l.UnitPriceInvoiced,
+                CurrencyCode = l.CurrencyCode,
+                TaxCategoryCode = l.TaxCategoryCode,
+                TaxRatePercent = l.TaxRatePercent,
+                TaxableAmount = l.TaxableAmount,
+                TaxAmount = l.TaxAmount,
+                TotalAmount = l.TotalAmount,
+                IsWithinTolerance = l.IsWithinTolerance,
+                CreatedUtc = l.CreatedUtc,
+                CreatedBy = l.CreatedBy
+            });
+
+            mapper.Register<SupplierInvoice, SupplierInvoiceDto>(si => new SupplierInvoiceDto
+            {
+                SupplierInvoiceToken = si.SupplierInvoiceToken,
+                OrganizationToken = si.OrganizationToken,
+                OrganizationName = si.OrganizationName,
+                SupplierToken = si.SupplierToken,
+                SupplierName = si.SupplierName,
+                SupplierInvoiceNumber = si.SupplierInvoiceNumber,
+                InternalSequentialNumber = si.InternalSequentialNumber,
+                InvoiceDate = si.InvoiceDate,
+                Status = si.Status,
+                AttachmentUrl = si.AttachmentUrl,
+                Notes = si.Notes,
+                CreatedUtc = si.CreatedUtc,
+                CreatedBy = si.CreatedBy,
+                LineCount = si.LineCount,
+                TotalTaxableAmount = si.TotalTaxableAmount,
+                TotalAmount = si.TotalAmount,
+                PurchaseOrderNumbers = si.PurchaseOrderNumbers
+            });
+
             mapper.Register<FamilyApprovalThresholdEntity, FamilyApprovalThresholdDto>(t => new FamilyApprovalThresholdDto
             {
                 FamilyApprovalThresholdId = t.FamilyApprovalThresholdId,

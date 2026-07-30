@@ -62,6 +62,10 @@ using CommonZone = InnNou.Application.Responses.Common.Zone;
 using CommonTaxCategory = InnNou.Application.Responses.Common.TaxCategory;
 using CommonTaxJurisdiction = InnNou.Application.Responses.Common.TaxJurisdiction;
 using CommonTaxRateGridRow = InnNou.Application.Responses.Common.TaxRateGridRow;
+using CommonSupplierInvoice = InnNou.Application.Responses.Common.SupplierInvoice;
+using CommonSupplierInvoiceLine = InnNou.Application.Responses.Common.SupplierInvoiceLine;
+using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrder;
+using CommonSupplierInvoiceMatchTolerance = InnNou.Application.Responses.Common.SupplierInvoiceMatchTolerance;
 using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
@@ -294,6 +298,68 @@ namespace InnNou.Application.Mapping
                 TaxRateToken = d.TaxRateToken,
                 RatePercent = d.RatePercent
             });
+
+            mapper.Register<SupplierInvoiceMatchToleranceDto, CommonSupplierInvoiceMatchTolerance>(d => new CommonSupplierInvoiceMatchTolerance
+            {
+                SupplierInvoiceMatchToleranceToken = d.SupplierInvoiceMatchToleranceToken,
+                EffectiveOrganizationToken = d.EffectiveOrganizationToken,
+                EffectiveOrganizationName = d.EffectiveOrganizationName,
+                TolerancePercent = d.TolerancePercent,
+                ToleranceAmount = d.ToleranceAmount,
+                IsInherited = d.IsInherited
+            });
+
+            mapper.Register<SupplierInvoicePurchaseOrderDto, CommonSupplierInvoicePurchaseOrder>(d => new CommonSupplierInvoicePurchaseOrder
+            {
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber
+            });
+
+            // SupplierInvoiceLine (registered before SupplierInvoice since it embeds a List<CommonSupplierInvoiceLine>)
+            mapper.Register<SupplierInvoiceLineDto, CommonSupplierInvoiceLine>(d => new CommonSupplierInvoiceLine
+            {
+                SupplierInvoiceLineToken = d.SupplierInvoiceLineToken,
+                PurchaseOrderLineToken = d.PurchaseOrderLineToken,
+                OrderedQuantity = d.OrderedQuantity,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                QuantityInvoiced = d.QuantityInvoiced,
+                UnitPriceInvoiced = d.UnitPriceInvoiced,
+                CurrencyCode = d.CurrencyCode,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRatePercent = d.TaxRatePercent,
+                TaxableAmount = d.TaxableAmount,
+                TaxAmount = d.TaxAmount,
+                TotalAmount = d.TotalAmount,
+                IsWithinTolerance = d.IsWithinTolerance,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<SupplierInvoiceDto, CommonSupplierInvoice>(d => new CommonSupplierInvoice
+            {
+                SupplierInvoiceToken = d.SupplierInvoiceToken,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                SupplierInvoiceNumber = d.SupplierInvoiceNumber,
+                InternalSequentialNumber = d.InternalSequentialNumber,
+                InvoiceDate = d.InvoiceDate,
+                Status = d.Status,
+                AttachmentUrl = d.AttachmentUrl,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                TotalTaxableAmount = d.TotalTaxableAmount,
+                TotalAmount = d.TotalAmount,
+                PurchaseOrderNumbers = d.PurchaseOrderNumbers,
+                Lines = mapper.MapList<CommonSupplierInvoiceLine>(d.Lines),
+                PurchaseOrders = mapper.MapList<CommonSupplierInvoicePurchaseOrder>(d.PurchaseOrders)
+            });
+
             mapper.Register<SupplierDeliveryZoneDto, CommonSupplierDeliveryZone>(d => new CommonSupplierDeliveryZone
             {
                 SupplierDeliveryZoneToken = d.SupplierDeliveryZoneToken,

@@ -65,6 +65,8 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IOrderTemplateService, OrderTemplateService>();
             services.AddScoped<ICountryService, CountryService>();
             services.AddScoped<ITaxService, TaxService>();
+            services.AddScoped<ISupplierInvoiceService, SupplierInvoiceService>();
+            services.AddScoped<ISupplierInvoiceFileStorage, LocalSupplierInvoiceFileStorage>();
             services.AddScoped<IZoneService, ZoneService>();
             services.AddScoped<ISupplierDeliveryZoneService, SupplierDeliveryZoneService>();
             services.AddScoped<IFamilyApprovalThresholdService, FamilyApprovalThresholdService>();

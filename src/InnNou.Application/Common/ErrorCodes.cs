@@ -390,6 +390,23 @@ namespace InnNou.Application.Common
         public const string GoodsReceiptArticleTaxCategoryMissing = "GOODS_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING";
         public const string GoodsReceiptTaxRateMissing = "GOODS_RECEIPT_TAX_RATE_MISSING";
 
+        // SupplierInvoice (Facturacion Phase B — 3-way matching PO<->Recepcion<->Factura)
+        public const string SupplierInvoiceNotFound = "SUPPLIER_INVOICE_NOT_FOUND";
+        public const string SupplierInvoiceForbidden = "SUPPLIER_INVOICE_FORBIDDEN";
+        public const string SupplierInvoiceOrganizationNotFound = "SUPPLIER_INVOICE_ORGANIZATION_NOT_FOUND";
+        public const string SupplierInvoiceSupplierNotFound = "SUPPLIER_INVOICE_SUPPLIER_NOT_FOUND";
+        public const string SupplierInvoiceEmpty = "SUPPLIER_INVOICE_EMPTY";
+        public const string SupplierInvoicePurchaseOrderNotFound = "SUPPLIER_INVOICE_PURCHASE_ORDER_NOT_FOUND";
+        public const string SupplierInvoicePurchaseOrderNotReceived = "SUPPLIER_INVOICE_PURCHASE_ORDER_NOT_RECEIVED";
+        public const string SupplierInvoicePurchaseOrderAlreadyInvoiced = "SUPPLIER_INVOICE_PURCHASE_ORDER_ALREADY_INVOICED";
+        public const string SupplierInvoicePurchaseOrderDifferentSupplier = "SUPPLIER_INVOICE_PURCHASE_ORDER_DIFFERENT_SUPPLIER";
+        public const string SupplierInvoiceLineIncomplete = "SUPPLIER_INVOICE_LINE_INCOMPLETE";
+        public const string SupplierInvoiceLineInvalid = "SUPPLIER_INVOICE_LINE_INVALID";
+        public const string SupplierInvoiceToleranceNotConfigured = "SUPPLIER_INVOICE_TOLERANCE_NOT_CONFIGURED";
+        public const string SupplierInvoiceToleranceForbidden = "SUPPLIER_INVOICE_TOLERANCE_FORBIDDEN";
+        public const string SupplierInvoiceToleranceInvalid = "SUPPLIER_INVOICE_TOLERANCE_INVALID";
+        public const string SupplierInvoiceAttachmentInvalidFile = "SUPPLIER_INVOICE_ATTACHMENT_INVALID_FILE";
+
         // Generic / cross-cutting
         public const string UnhandledError = "UNHANDLED_ERROR";
         public const string InvalidRequest = "INVALID_REQUEST";

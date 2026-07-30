@@ -1,0 +1,37 @@
+using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
+using InnNou.Application.Requests;
+using InnNou.Application.Responses;
+using InnNou.Domain.Dtos;
+using InnNou.Shared.Mapping;
+using MediatR;
+
+namespace InnNou.Application.Handlers
+{
+    public class CreateSupplierInvoiceCommandHandler(ISupplierInvoiceService supplierInvoiceService, IMapper mapper, IRequestContext context)
+        : IRequestHandler<CreateSupplierInvoiceCommandRequest, ApiResponse<CreateSupplierInvoiceCommandResponse>>
+    {
+        public async Task<ApiResponse<CreateSupplierInvoiceCommandResponse>> Handle(CreateSupplierInvoiceCommandRequest request, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(request.SupplierInvoiceNumber))
+                return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "SupplierInvoiceNumber is required.", 400);
+
+            var lines = request.Lines.Select(l => new CreateSupplierInvoiceLineInputDto
+            {
+                PurchaseOrderLineToken = l.PurchaseOrderLineToken,
+                QuantityInvoiced = l.QuantityInvoiced,
+                UnitPriceInvoiced = l.UnitPriceInvoiced
+            }).ToList();
+
+            var result = await supplierInvoiceService.CreateAsync(
+                request.OrganizationToken, request.SupplierToken, request.SupplierInvoiceNumber.Trim(), request.InvoiceDate, request.Notes,
+                request.PurchaseOrderTokens, lines, context, cancellationToken);
+
+            if (result is null)
+                return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceNotFound, "Supplier invoice could not be created.", 500);
+
+            var response = new CreateSupplierInvoiceCommandResponse { SupplierInvoice = mapper.Map<Responses.Common.SupplierInvoice>(result) };
+            return ApiResponse<CreateSupplierInvoiceCommandResponse>.SuccessResponse(response, 201);
+        }
+    }
+}
