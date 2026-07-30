@@ -59,6 +59,9 @@ using CommonOrderTemplateLine = InnNou.Application.Responses.Common.OrderTemplat
 using CommonApplyOrderTemplateLineResult = InnNou.Application.Responses.Common.ApplyOrderTemplateLineResult;
 using CommonCountry = InnNou.Application.Responses.Common.Country;
 using CommonZone = InnNou.Application.Responses.Common.Zone;
+using CommonTaxCategory = InnNou.Application.Responses.Common.TaxCategory;
+using CommonTaxJurisdiction = InnNou.Application.Responses.Common.TaxJurisdiction;
+using CommonTaxRateGridRow = InnNou.Application.Responses.Common.TaxRateGridRow;
 using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
@@ -266,6 +269,31 @@ namespace InnNou.Application.Mapping
                 Name = d.Name,
                 IsActive = d.IsActive
             });
+            mapper.Register<TaxCategoryDto, CommonTaxCategory>(d => new CommonTaxCategory
+            {
+                TaxCategoryToken = d.TaxCategoryToken,
+                Code = d.Code,
+                IsActive = d.IsActive
+            });
+            mapper.Register<TaxJurisdictionDto, CommonTaxJurisdiction>(d => new CommonTaxJurisdiction
+            {
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                Code = d.Code,
+                Name = d.Name,
+                IsActive = d.IsActive,
+                CountryCode = d.CountryCode,
+                CountryName = d.CountryName
+            });
+            mapper.Register<TaxRateGridRowDto, CommonTaxRateGridRow>(d => new CommonTaxRateGridRow
+            {
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                TaxJurisdictionCode = d.TaxJurisdictionCode,
+                TaxJurisdictionName = d.TaxJurisdictionName,
+                TaxCategoryToken = d.TaxCategoryToken,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRateToken = d.TaxRateToken,
+                RatePercent = d.RatePercent
+            });
             mapper.Register<SupplierDeliveryZoneDto, CommonSupplierDeliveryZone>(d => new CommonSupplierDeliveryZone
             {
                 SupplierDeliveryZoneToken = d.SupplierDeliveryZoneToken,
@@ -472,7 +500,9 @@ namespace InnNou.Application.Mapping
                 FamilyToken = d.FamilyToken,
                 Code = d.Code,
                 IsSystem = d.IsSystem,
-                IsActive = d.IsActive
+                IsActive = d.IsActive,
+                DefaultTaxCategoryToken = d.DefaultTaxCategoryToken,
+                DefaultTaxCategoryCode = d.DefaultTaxCategoryCode
             });
             mapper.Register<SubFamilyDto, CommonSubFamily>(d => new CommonSubFamily
             {
@@ -589,7 +619,10 @@ namespace InnNou.Application.Mapping
                 SubCategoryToken = d.SubCategoryToken,
                 SubCategoryCode = d.SubCategoryCode,
                 IsCategoryInherited = d.IsCategoryInherited,
-                ClassificationOrganizationName = d.ClassificationOrganizationName
+                ClassificationOrganizationName = d.ClassificationOrganizationName,
+                TaxCategoryToken = d.TaxCategoryToken,
+                TaxCategoryCode = d.TaxCategoryCode,
+                EffectiveTaxCategoryCode = d.EffectiveTaxCategoryCode
             });
             mapper.Register<ArticlePackagingLevelDto, CommonArticlePackagingLevel>(d => new CommonArticlePackagingLevel
             {
@@ -789,6 +822,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = r.PostalCode,
                 Country = r.Country,
                 ZoneToken = r.ZoneToken,
+                TaxJurisdictionToken = r.TaxJurisdictionToken,
                 IsInventoriable = r.IsInventoriable,
                 CanReceivePurchases = r.CanReceivePurchases,
                 CanReceiveTransfers = r.CanReceiveTransfers,
@@ -820,6 +854,7 @@ namespace InnNou.Application.Mapping
                 PostalCode = r.PostalCode,
                 Country = r.Country,
                 ZoneToken = r.ZoneToken,
+                TaxJurisdictionToken = r.TaxJurisdictionToken,
                 IsInventoriable = r.IsInventoriable,
                 CanReceivePurchases = r.CanReceivePurchases,
                 CanReceiveTransfers = r.CanReceiveTransfers,
@@ -857,6 +892,9 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                TaxJurisdictionCode = d.TaxJurisdictionCode,
+                TaxJurisdictionName = d.TaxJurisdictionName,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -895,6 +933,9 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                TaxJurisdictionCode = d.TaxJurisdictionCode,
+                TaxJurisdictionName = d.TaxJurisdictionName,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -933,6 +974,9 @@ namespace InnNou.Application.Mapping
                 ZoneName = d.ZoneName,
                 CountryCode = d.CountryCode,
                 CountryName = d.CountryName,
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                TaxJurisdictionCode = d.TaxJurisdictionCode,
+                TaxJurisdictionName = d.TaxJurisdictionName,
                 IsInventoriable = d.IsInventoriable,
                 CanReceivePurchases = d.CanReceivePurchases,
                 CanReceiveTransfers = d.CanReceiveTransfers,
@@ -1133,6 +1177,11 @@ namespace InnNou.Application.Mapping
                 ExpirationDate = d.ExpirationDate,
                 SerialNumber = d.SerialNumber,
                 Notes = d.Notes,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRatePercent = d.TaxRatePercent,
+                TaxableAmount = d.TaxableAmount,
+                TaxAmount = d.TaxAmount,
+                TotalAmount = d.TotalAmount,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
             });

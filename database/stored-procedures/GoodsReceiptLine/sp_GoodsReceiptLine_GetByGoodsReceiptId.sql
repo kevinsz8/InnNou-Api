@@ -20,10 +20,13 @@ BEGIN
         grl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         grl.QuantityAccepted, grl.QuantityCourtesy, grl.QuantityRejected, grl.RejectionReason,
         grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes,
+        grl.TaxCategoryId, tc.Code AS TaxCategoryCode, grl.TaxRatePercent,
+        grl.TaxableAmount, grl.TaxAmount, grl.TotalAmount,
         grl.CreatedUtc, grl.CreatedBy
     FROM dbo.GoodsReceiptLine grl
     JOIN dbo.PurchaseOrderLine pol ON pol.PurchaseOrderLineId = grl.PurchaseOrderLineId
     JOIN dbo.Articles a            ON a.ArticleId             = grl.ArticleId
+    LEFT JOIN dbo.TaxCategories tc  ON tc.TaxCategoryId        = grl.TaxCategoryId
     WHERE grl.GoodsReceiptId = @GoodsReceiptId
     ORDER BY grl.GoodsReceiptLineId;
 END;

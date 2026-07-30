@@ -109,6 +109,24 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         }
     }
 
+    public async Task<FamilyDto?> SetDefaultTaxCategoryAsync(Guid familyToken, Guid taxCategoryToken, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var category = await connection.QueryFirstOrDefaultAsync<TaxCategory>(
+            "sp_TaxCategory_GetByToken", new { TaxCategoryToken = taxCategoryToken }, commandType: CommandType.StoredProcedure);
+        if (category is null)
+            throw new ApiException(ErrorCodes.TaxCategoryNotFound, "Tax category not found.", 404);
+
+        var p = new DynamicParameters();
+        p.Add("@FamilyToken", familyToken);
+        p.Add("@DefaultTaxCategoryId", category.TaxCategoryId);
+        p.Add("@LastUpdatedBy", "API");
+        var row = await connection.QueryFirstOrDefaultAsync<Family>(
+            "sp_Family_SetDefaultTaxCategory", p, commandType: CommandType.StoredProcedure);
+        return row is null ? null : mapper.Map<FamilyDto>(row);
+    }
+
     public async Task<BulkImportFamilyResultDto> BulkImportFamiliesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)
     {
         if (context.RoleLevel < AdminRoleLevel)

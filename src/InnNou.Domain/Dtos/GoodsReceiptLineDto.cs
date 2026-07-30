@@ -16,6 +16,15 @@ namespace InnNou.Domain.Dtos
         public DateTime? ExpirationDate { get; set; }
         public string? SerialNumber { get; set; }
         public string? Notes { get; set; }
+
+        // Computed and frozen at receipt time (PurchaseOrderService.CreateGoodsReceiptAsync) —
+        // null for lines received before the Tax module existed. See .claude/GoodsReceiptsModule.md.
+        public string? TaxCategoryCode { get; set; }
+        public decimal? TaxRatePercent { get; set; }
+        public decimal? TaxableAmount { get; set; }
+        public decimal? TaxAmount { get; set; }
+        public decimal? TotalAmount { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

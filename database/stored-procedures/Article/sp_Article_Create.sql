@@ -11,6 +11,7 @@ CREATE OR ALTER PROCEDURE sp_Article_Create
     @PurchaseUnitId   INT,
     @MinimumOrderQty  DECIMAL(18,4)  = NULL,
     @LeadTimeDays     INT            = NULL,
+    @TaxCategoryId    INT            = NULL,
     @CreatedBy        VARCHAR(150)
 AS
 BEGIN
@@ -21,14 +22,14 @@ BEGIN
          SupplierSku, Barcode, Brand,
          FamilyId, SubFamilyId,
          PurchaseUnitId,
-         MinimumOrderQty, LeadTimeDays,
+         MinimumOrderQty, LeadTimeDays, TaxCategoryId,
          CreatedBy)
     VALUES
         (@ArticleToken, @SupplierId, @Name, UPPER(@Name), @Description,
          @SupplierSku, @Barcode, @Brand,
          @FamilyId, @SubFamilyId,
          @PurchaseUnitId,
-         @MinimumOrderQty, @LeadTimeDays,
+         @MinimumOrderQty, @LeadTimeDays, @TaxCategoryId,
          @CreatedBy);
 
     SELECT
@@ -39,6 +40,7 @@ BEGIN
         a.SubFamilyId, sf.Code AS SubFamilyCode,
         a.PurchaseUnitId, pu.Code AS PurchaseUnitCode, pu.Symbol AS PurchaseUnitSymbol,
         a.MinimumOrderQty, a.LeadTimeDays,
+        a.TaxCategoryId, tc.Code AS TaxCategoryCode,
         a.IsActive, a.IsDeleted,
         a.ReplacedByArticleId, r.ArticleToken AS ReplacedByArticleToken
     FROM   Articles        a
@@ -47,5 +49,6 @@ BEGIN
     LEFT JOIN Families     f  ON f.FamilyId         = a.FamilyId
     LEFT JOIN SubFamilies  sf ON sf.SubFamilyId      = a.SubFamilyId
     LEFT JOIN Articles     r  ON r.ArticleId         = a.ReplacedByArticleId
+    LEFT JOIN TaxCategories tc ON tc.TaxCategoryId   = a.TaxCategoryId
     WHERE  a.ArticleToken = @ArticleToken;
 END;

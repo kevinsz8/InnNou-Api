@@ -31,5 +31,8 @@ namespace InnNou.Application.Responses.Common
         public string? SubCategoryCode { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
+        public Guid? TaxCategoryToken { get; set; }
+        public string? TaxCategoryCode { get; set; }
+        public string? EffectiveTaxCategoryCode { get; set; }
     }
 }

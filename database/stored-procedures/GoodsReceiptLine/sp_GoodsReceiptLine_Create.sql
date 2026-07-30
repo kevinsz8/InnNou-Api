@@ -29,6 +29,12 @@ CREATE OR ALTER PROCEDURE dbo.sp_GoodsReceiptLine_Create
     @ExpirationDate        DATE          = NULL,
     @SerialNumber          NVARCHAR(100) = NULL,
     @Notes                 NVARCHAR(500) = NULL,
+    @TaxCategoryId         INT           = NULL,
+    @TaxRateId             INT           = NULL,
+    @TaxRatePercent        DECIMAL(6,3)  = NULL,
+    @TaxableAmount         DECIMAL(18,4) = NULL,
+    @TaxAmount             DECIMAL(18,4) = NULL,
+    @TotalAmount           DECIMAL(18,4) = NULL,
     @CreatedBy             VARCHAR(150)
 )
 AS
@@ -38,11 +44,15 @@ BEGIN
     INSERT INTO dbo.GoodsReceiptLine
         (GoodsReceiptLineToken, GoodsReceiptId, PurchaseOrderLineId, ArticleId,
          QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
-         LotNumber, ExpirationDate, SerialNumber, Notes, CreatedBy)
+         LotNumber, ExpirationDate, SerialNumber, Notes,
+         TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
+         CreatedBy)
     VALUES
         (@GoodsReceiptLineToken, @GoodsReceiptId, @PurchaseOrderLineId, @ArticleId,
          @QuantityAccepted, @QuantityCourtesy, @QuantityRejected, @RejectionReason,
-         @LotNumber, @ExpirationDate, @SerialNumber, @Notes, @CreatedBy);
+         @LotNumber, @ExpirationDate, @SerialNumber, @Notes,
+         @TaxCategoryId, @TaxRateId, @TaxRatePercent, @TaxableAmount, @TaxAmount, @TotalAmount,
+         @CreatedBy);
 
     SELECT
         grl.GoodsReceiptLineId, grl.GoodsReceiptLineToken, grl.GoodsReceiptId,
@@ -50,10 +60,13 @@ BEGIN
         grl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         grl.QuantityAccepted, grl.QuantityCourtesy, grl.QuantityRejected, grl.RejectionReason,
         grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes,
+        grl.TaxCategoryId, tc.Code AS TaxCategoryCode, grl.TaxRatePercent,
+        grl.TaxableAmount, grl.TaxAmount, grl.TotalAmount,
         grl.CreatedUtc, grl.CreatedBy
     FROM dbo.GoodsReceiptLine grl
     JOIN dbo.PurchaseOrderLine pol ON pol.PurchaseOrderLineId = grl.PurchaseOrderLineId
     JOIN dbo.Articles a            ON a.ArticleId             = grl.ArticleId
+    LEFT JOIN dbo.TaxCategories tc  ON tc.TaxCategoryId        = grl.TaxCategoryId
     WHERE grl.GoodsReceiptLineToken = @GoodsReceiptLineToken;
 END;
 GO

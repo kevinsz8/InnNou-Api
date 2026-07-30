@@ -39,6 +39,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? SubCategoryCode { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
+        public int? TaxCategoryId { get; set; }
+        public Guid? TaxCategoryToken { get; set; }
+        public string? TaxCategoryCode { get; set; }
+        public int? EffectiveTaxCategoryId { get; set; }
+        public string? EffectiveTaxCategoryCode { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

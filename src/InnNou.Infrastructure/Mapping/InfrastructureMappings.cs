@@ -141,6 +141,34 @@ namespace InnNou.Infrastructure.Mapping
                 IsActive = z.IsActive
             });
 
+            mapper.Register<TaxCategory, TaxCategoryDto>(c => new TaxCategoryDto
+            {
+                TaxCategoryToken = c.TaxCategoryToken,
+                Code = c.Code,
+                IsActive = c.IsActive
+            });
+
+            mapper.Register<TaxJurisdiction, TaxJurisdictionDto>(j => new TaxJurisdictionDto
+            {
+                TaxJurisdictionToken = j.TaxJurisdictionToken,
+                Code = j.Code,
+                Name = j.Name,
+                IsActive = j.IsActive,
+                CountryCode = j.CountryCode,
+                CountryName = j.CountryName
+            });
+
+            mapper.Register<TaxRateGridRow, TaxRateGridRowDto>(r => new TaxRateGridRowDto
+            {
+                TaxJurisdictionToken = r.TaxJurisdictionToken,
+                TaxJurisdictionCode = r.TaxJurisdictionCode,
+                TaxJurisdictionName = r.TaxJurisdictionName,
+                TaxCategoryToken = r.TaxCategoryToken,
+                TaxCategoryCode = r.TaxCategoryCode,
+                TaxRateToken = r.TaxRateToken,
+                RatePercent = r.RatePercent
+            });
+
             mapper.Register<FamilyApprovalThresholdEntity, FamilyApprovalThresholdDto>(t => new FamilyApprovalThresholdDto
             {
                 FamilyApprovalThresholdId = t.FamilyApprovalThresholdId,
@@ -286,7 +314,10 @@ namespace InnNou.Infrastructure.Mapping
                 FamilyToken = e.FamilyToken,
                 Code = e.Code,
                 IsSystem = e.IsSystem,
-                IsActive = e.IsActive
+                IsActive = e.IsActive,
+                DefaultTaxCategoryId = e.DefaultTaxCategoryId,
+                DefaultTaxCategoryToken = e.DefaultTaxCategoryToken,
+                DefaultTaxCategoryCode = e.DefaultTaxCategoryCode
             });
             mapper.Register<SubFamilyEntity, SubFamilyDto>(e => new SubFamilyDto
             {
@@ -357,7 +388,11 @@ namespace InnNou.Infrastructure.Mapping
                 SubCategoryToken = e.SubCategoryToken,
                 SubCategoryCode = e.SubCategoryCode,
                 IsCategoryInherited = e.IsCategoryInherited,
-                ClassificationOrganizationName = e.ClassificationOrganizationName
+                ClassificationOrganizationName = e.ClassificationOrganizationName,
+                TaxCategoryId = e.TaxCategoryId,
+                TaxCategoryToken = e.TaxCategoryToken,
+                TaxCategoryCode = e.TaxCategoryCode,
+                EffectiveTaxCategoryCode = e.EffectiveTaxCategoryCode
             });
 
             mapper.Register<ArticlePackagingLevelEntity, ArticlePackagingLevelDto>(e => new ArticlePackagingLevelDto
@@ -474,6 +509,10 @@ namespace InnNou.Infrastructure.Mapping
                 ZoneName = e.ZoneName,
                 CountryCode = e.CountryCode,
                 CountryName = e.CountryName,
+                TaxJurisdictionId = e.TaxJurisdictionId,
+                TaxJurisdictionToken = e.TaxJurisdictionToken,
+                TaxJurisdictionCode = e.TaxJurisdictionCode,
+                TaxJurisdictionName = e.TaxJurisdictionName,
                 IsInventoriable = e.IsInventoriable,
                 CanReceivePurchases = e.CanReceivePurchases,
                 CanReceiveTransfers = e.CanReceiveTransfers,
@@ -681,6 +720,11 @@ namespace InnNou.Infrastructure.Mapping
                 ExpirationDate = e.ExpirationDate,
                 SerialNumber = e.SerialNumber,
                 Notes = e.Notes,
+                TaxCategoryCode = e.TaxCategoryCode,
+                TaxRatePercent = e.TaxRatePercent,
+                TaxableAmount = e.TaxableAmount,
+                TaxAmount = e.TaxAmount,
+                TotalAmount = e.TotalAmount,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
             });

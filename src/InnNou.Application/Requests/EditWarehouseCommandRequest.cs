@@ -18,6 +18,7 @@ namespace InnNou.Application.Requests
         public string? PostalCode { get; set; }
         public string? Country { get; set; }
         public Guid? ZoneToken { get; set; }
+        public Guid? TaxJurisdictionToken { get; set; }
 
         public bool IsInventoriable { get; set; }
         public bool CanReceivePurchases { get; set; }

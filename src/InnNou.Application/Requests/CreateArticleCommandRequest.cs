@@ -18,5 +18,6 @@ namespace InnNou.Application.Requests
         public List<ArticlePackagingLevelRequest> PackagingLevels { get; set; } = [];
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
+        public Guid? TaxCategoryToken { get; set; }
     }
 }

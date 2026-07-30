@@ -601,6 +601,16 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         public required CreateGoodsReceiptLineInputDto Input { get; init; }
     }
 
+    private sealed class GoodsReceiptLineTax
+    {
+        public required int TaxCategoryId { get; init; }
+        public required int TaxRateId { get; init; }
+        public required decimal TaxRatePercent { get; init; }
+        public required decimal TaxableAmount { get; init; }
+        public required decimal TaxAmount { get; init; }
+        public required decimal TotalAmount { get; init; }
+    }
+
     public async Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -679,6 +689,52 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             validatedLines.Add(new ValidatedGoodsReceiptLine { Line = line, Input = input });
         }
 
+        // Tax is computed only against the billable quantity (QuantityAccepted) — Courtesy is a
+        // supplier-gifted surplus with no monetary value to tax, Rejected never touches billing at
+        // all. A receipt with nothing billable (all Courtesy/Rejected) skips tax validation
+        // entirely, matching the same "nothing formally accepted yet" reasoning the PO-status
+        // recompute below already uses. See .claude/GoodsReceiptsModule.md's tax section.
+        var taxByLineId = new Dictionary<int, GoodsReceiptLineTax>();
+        var billableLines = validatedLines.Where(v => v.Input.QuantityAccepted > 0).ToList();
+        if (billableLines.Count > 0)
+        {
+            if (!warehouse.TaxJurisdictionId.HasValue)
+                throw new ApiException(ErrorCodes.GoodsReceiptWarehouseTaxJurisdictionMissing, "This warehouse has no tax jurisdiction configured — set one before receiving billable goods.", 400);
+
+            var distinctArticleIds = billableLines.Select(v => v.Line.ArticleId).Distinct().ToList();
+            var effectiveCategories = (await connection.QueryAsync<ArticleEffectiveTaxCategory>(
+                "sp_Article_GetEffectiveTaxCategoryByIds",
+                new { ArticleIds = string.Join(",", distinctArticleIds) },
+                commandType: CommandType.StoredProcedure)).ToDictionary(a => a.ArticleId);
+
+            var rates = (await connection.QueryAsync<TaxRate>(
+                "sp_TaxRate_GetByJurisdictionId",
+                new { warehouse.TaxJurisdictionId },
+                commandType: CommandType.StoredProcedure)).ToDictionary(r => r.TaxCategoryId);
+
+            foreach (var validated in billableLines)
+            {
+                if (!effectiveCategories.TryGetValue(validated.Line.ArticleId, out var effective) || !effective.TaxCategoryId.HasValue)
+                    throw new ApiException(ErrorCodes.GoodsReceiptArticleTaxCategoryMissing, $"Article '{validated.Line.ArticleName}' has no tax category configured (directly or via its Family) — configure one before receiving billable goods.", 400);
+
+                if (!rates.TryGetValue(effective.TaxCategoryId.Value, out var rate))
+                    throw new ApiException(ErrorCodes.GoodsReceiptTaxRateMissing, $"No tax rate is configured for category '{effective.TaxCategoryCode}' in this warehouse's tax jurisdiction.", 400);
+
+                var taxableAmount = validated.Input.QuantityAccepted * validated.Line.UnitPrice;
+                var taxAmount = Math.Round(taxableAmount * rate.RatePercent / 100m, 4);
+
+                taxByLineId[validated.Line.PurchaseOrderLineId] = new GoodsReceiptLineTax
+                {
+                    TaxCategoryId = effective.TaxCategoryId.Value,
+                    TaxRateId = rate.TaxRateId,
+                    TaxRatePercent = rate.RatePercent,
+                    TaxableAmount = taxableAmount,
+                    TaxAmount = taxAmount,
+                    TotalAmount = taxableAmount + taxAmount
+                };
+            }
+        }
+
         var acceptedByLineId = validatedLines.ToDictionary(v => v.Line.PurchaseOrderLineId, v => v.Input.QuantityAccepted);
         var everyLineFullyAccepted = effectiveLines
             .Where(l => !l.IsCancelled)
@@ -734,6 +790,17 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 lineParams.Add("@ExpirationDate", validated.Input.ExpirationDate);
                 lineParams.Add("@SerialNumber", validated.Input.SerialNumber);
                 lineParams.Add("@Notes", validated.Input.Notes);
+
+                if (taxByLineId.TryGetValue(validated.Line.PurchaseOrderLineId, out var tax))
+                {
+                    lineParams.Add("@TaxCategoryId", tax.TaxCategoryId);
+                    lineParams.Add("@TaxRateId", tax.TaxRateId);
+                    lineParams.Add("@TaxRatePercent", tax.TaxRatePercent);
+                    lineParams.Add("@TaxableAmount", tax.TaxableAmount);
+                    lineParams.Add("@TaxAmount", tax.TaxAmount);
+                    lineParams.Add("@TotalAmount", tax.TotalAmount);
+                }
+
                 lineParams.Add("@CreatedBy", actor);
 
                 var receiptLine = await connection.QueryFirstOrDefaultAsync<GoodsReceiptLine>(

@@ -26,6 +26,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? CountryCode { get; set; }
         public string? CountryName { get; set; }
 
+        public int? TaxJurisdictionId { get; set; }
+        public Guid? TaxJurisdictionToken { get; set; }
+        public string? TaxJurisdictionCode { get; set; }
+        public string? TaxJurisdictionName { get; set; }
+
         public bool IsInventoriable { get; set; }
         public bool CanReceivePurchases { get; set; }
         public bool CanReceiveTransfers { get; set; }

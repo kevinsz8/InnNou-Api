@@ -155,6 +155,7 @@ public class ArticleService(
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to create articles for this supplier.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
+        var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, dto.TaxCategoryToken);
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
@@ -172,6 +173,7 @@ public class ArticleService(
             p.Add("@PurchaseUnitId", dto.PurchaseUnitId);
             p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
             p.Add("@LeadTimeDays", dto.LeadTimeDays);
+            p.Add("@TaxCategoryId", taxCategoryId);
             p.Add("@CreatedBy", context.ActorUserToken.ToString());
             var row = await connection.QueryFirstOrDefaultAsync<Article>(
                 "sp_Article_Create", p, transaction, commandType: CommandType.StoredProcedure);
@@ -248,6 +250,8 @@ public class ArticleService(
                 "This change would modify the article's structure (units/quantities), which is not allowed — use Supersede instead.",
                 409);
 
+        var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, dto.TaxCategoryToken);
+
         var p = new DynamicParameters();
         p.Add("@ArticleToken", dto.ArticleToken);
         p.Add("@Name", dto.Name);
@@ -260,6 +264,7 @@ public class ArticleService(
         p.Add("@PurchaseUnitId", dto.PurchaseUnitId);
         p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
         p.Add("@LeadTimeDays", dto.LeadTimeDays);
+        p.Add("@TaxCategoryId", taxCategoryId);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_Update", p, commandType: CommandType.StoredProcedure);
@@ -269,6 +274,22 @@ public class ArticleService(
         var resultDto = mapper.Map<ArticleDto>(row);
         resultDto.PackagingLevels = existingLevels;
         return resultDto;
+    }
+
+    // Null TaxCategoryToken means "no override" — Articles.TaxCategoryId stays NULL and the
+    // article keeps inheriting Family.DefaultTaxCategoryId (see .claude/GoodsReceiptsModule.md's
+    // tax section). A non-null token that doesn't resolve is a caller error, not a silent no-op.
+    private async Task<int?> ResolveTaxCategoryIdAsync(IDbConnection connection, Guid? taxCategoryToken)
+    {
+        if (!taxCategoryToken.HasValue)
+            return null;
+
+        var category = await connection.QueryFirstOrDefaultAsync<TaxCategory>(
+            "sp_TaxCategory_GetByToken", new { TaxCategoryToken = taxCategoryToken.Value }, commandType: CommandType.StoredProcedure);
+        if (category is null)
+            throw new ApiException(ErrorCodes.TaxCategoryNotFound, "Tax category not found.", 404);
+
+        return category.TaxCategoryId;
     }
 
     public async Task<ArticleDto?> SupersedeAsync(Guid oldArticleToken, ArticleDto newArticleData, IRequestContext context, CancellationToken cancellationToken = default)

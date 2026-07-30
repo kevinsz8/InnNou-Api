@@ -159,6 +159,8 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         if (await ExistsByNormalizedNameAsync(connection, organization.OrganizationId, normalizedName))
             throw new ApiException(ErrorCodes.WarehouseNameExists, "A warehouse with this name already exists in the organization.", 409);
 
+        var taxJurisdictionId = await ResolveTaxJurisdictionIdAsync(connection, dto.TaxJurisdictionToken);
+
         var p = new DynamicParameters();
         p.Add("@WarehouseToken", Guid.NewGuid());
         p.Add("@OrganizationId", organization.OrganizationId);
@@ -173,6 +175,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@PostalCode", dto.PostalCode);
         p.Add("@Country", dto.Country);
         p.Add("@ZoneId", dto.ZoneId);
+        p.Add("@TaxJurisdictionId", taxJurisdictionId);
         AddCapabilityParameters(p, dto);
         p.Add("@CreatedUtc", DateTime.UtcNow);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
@@ -206,6 +209,8 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         if (await ExistsByNormalizedNameAsync(connection, existing.OrganizationId, normalizedName, dto.WarehouseToken))
             throw new ApiException(ErrorCodes.WarehouseNameExists, "A warehouse with this name already exists in the organization.", 409);
 
+        var taxJurisdictionId = await ResolveTaxJurisdictionIdAsync(connection, dto.TaxJurisdictionToken);
+
         var p = new DynamicParameters();
         p.Add("@WarehouseToken", dto.WarehouseToken);
         p.Add("@Name", dto.Name.Trim());
@@ -219,6 +224,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@PostalCode", dto.PostalCode);
         p.Add("@Country", dto.Country);
         p.Add("@ZoneId", dto.ZoneId);
+        p.Add("@TaxJurisdictionId", taxJurisdictionId);
         AddCapabilityParameters(p, dto);
         p.Add("@LastUpdatedUtc", DateTime.UtcNow);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
@@ -233,6 +239,22 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         {
             throw TranslateUniqueViolation(ex);
         }
+    }
+
+    // Null TaxJurisdictionToken means "not configured yet" — Warehouses.TaxJurisdictionId stays
+    // NULL, which CreateGoodsReceiptAsync rejects with GOODS_RECEIPT_WAREHOUSE_TAX_JURISDICTION_MISSING
+    // rather than silently guessing a jurisdiction.
+    private async Task<int?> ResolveTaxJurisdictionIdAsync(IDbConnection connection, Guid? taxJurisdictionToken)
+    {
+        if (!taxJurisdictionToken.HasValue)
+            return null;
+
+        var jurisdiction = await connection.QueryFirstOrDefaultAsync<TaxJurisdiction>(
+            "sp_TaxJurisdiction_GetByToken", new { TaxJurisdictionToken = taxJurisdictionToken.Value }, commandType: CommandType.StoredProcedure);
+        if (jurisdiction is null)
+            throw new ApiException(ErrorCodes.TaxJurisdictionNotFound, "Tax jurisdiction not found.", 404);
+
+        return jurisdiction.TaxJurisdictionId;
     }
 
     public async Task<WarehouseDto?> SetActiveAsync(Guid warehouseToken, bool isActive, IRequestContext context, CancellationToken cancellationToken)

@@ -52,5 +52,16 @@ namespace InnNou.Domain.Dtos
         public string? SubCategoryCode { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
+
+        // Optional per-article override of Family.DefaultTaxCategoryId — write-in bridge
+        // (resolved to TaxCategoryId inside ArticleService.CreateAsync/EditAsync) AND
+        // denormalized read-only display value on a hydrated read, same dual-purpose
+        // pattern as WarehouseDto.ZoneToken. EffectiveTaxCategoryCode is read-only,
+        // resolved server-side as COALESCE(TaxCategoryId, Family.DefaultTaxCategoryId) —
+        // what a GoodsReceipt will actually use.
+        public int? TaxCategoryId { get; set; }
+        public Guid? TaxCategoryToken { get; set; }
+        public string? TaxCategoryCode { get; set; }
+        public string? EffectiveTaxCategoryCode { get; set; }
     }
 }

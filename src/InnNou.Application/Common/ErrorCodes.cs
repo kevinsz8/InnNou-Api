@@ -380,6 +380,16 @@ namespace InnNou.Application.Common
         public const string SupplierDeliveryZoneInvalidDayOfWeek = "SUPPLIER_DELIVERY_ZONE_INVALID_DAY_OF_WEEK";
         public const string SupplierDeliveryZoneNotFound = "SUPPLIER_DELIVERY_ZONE_NOT_FOUND";
 
+        // Tax (Families.DefaultTaxCategoryId cascade, Articles.TaxCategoryId override,
+        // Warehouses.TaxJurisdictionId, GoodsReceiptLine tax snapshot)
+        public const string TaxCategoryNotFound = "TAX_CATEGORY_NOT_FOUND";
+        public const string TaxJurisdictionNotFound = "TAX_JURISDICTION_NOT_FOUND";
+        public const string TaxRateForbidden = "TAX_RATE_FORBIDDEN";
+        public const string TaxRateInvalidPercent = "TAX_RATE_INVALID_PERCENT";
+        public const string GoodsReceiptWarehouseTaxJurisdictionMissing = "GOODS_RECEIPT_WAREHOUSE_TAX_JURISDICTION_MISSING";
+        public const string GoodsReceiptArticleTaxCategoryMissing = "GOODS_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING";
+        public const string GoodsReceiptTaxRateMissing = "GOODS_RECEIPT_TAX_RATE_MISSING";
+
         // Generic / cross-cutting
         public const string UnhandledError = "UNHANDLED_ERROR";
         public const string InvalidRequest = "INVALID_REQUEST";

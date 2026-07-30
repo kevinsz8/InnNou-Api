@@ -5,15 +5,19 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        FamilyId,
-        FamilyToken,
-        Code,
-        IsSystem,
-        IsActive,
-        CreatedUtc,
-        CreatedBy,
-        LastUpdatedUtc,
-        LastUpdatedBy
-    FROM Families
-    WHERE FamilyToken = @FamilyToken;
+        f.FamilyId,
+        f.FamilyToken,
+        f.Code,
+        f.IsSystem,
+        f.IsActive,
+        f.DefaultTaxCategoryId,
+        tc.TaxCategoryToken AS DefaultTaxCategoryToken,
+        tc.Code AS DefaultTaxCategoryCode,
+        f.CreatedUtc,
+        f.CreatedBy,
+        f.LastUpdatedUtc,
+        f.LastUpdatedBy
+    FROM Families f
+    LEFT JOIN TaxCategories tc ON tc.TaxCategoryId = f.DefaultTaxCategoryId
+    WHERE f.FamilyToken = @FamilyToken;
 END;

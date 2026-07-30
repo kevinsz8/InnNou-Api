@@ -76,7 +76,8 @@ namespace InnNou.Application.Handlers
                 PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
                 PackagingLevels = levelsResult.Levels,
                 MinimumOrderQty = request.MinimumOrderQty,
-                LeadTimeDays = request.LeadTimeDays
+                LeadTimeDays = request.LeadTimeDays,
+                TaxCategoryToken = request.TaxCategoryToken
             };
 
             var result = await articleService.EditAsync(dto, context, cancellationToken);

@@ -24,6 +24,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public DateTime? ExpirationDate { get; set; }
         public string? SerialNumber { get; set; }
         public string? Notes { get; set; }
+
+        public int? TaxCategoryId { get; set; }
+        public string? TaxCategoryCode { get; set; }
+        public decimal? TaxRatePercent { get; set; }
+        public decimal? TaxableAmount { get; set; }
+        public decimal? TaxAmount { get; set; }
+        public decimal? TotalAmount { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

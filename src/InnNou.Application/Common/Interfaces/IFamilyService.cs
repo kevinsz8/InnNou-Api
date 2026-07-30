@@ -11,6 +11,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<FamilyDto?> CreateAsync(FamilyDto dto, CancellationToken cancellationToken = default);
         Task<FamilyDto?> EditAsync(FamilyDto dto, CancellationToken cancellationToken = default);
         Task<FamilyDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
+        Task<FamilyDto?> SetDefaultTaxCategoryAsync(Guid familyToken, Guid taxCategoryToken, CancellationToken cancellationToken = default);
         Task<BulkImportFamilyResultDto> BulkImportFamiliesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> ExportFamiliesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> GenerateFamilyImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default);

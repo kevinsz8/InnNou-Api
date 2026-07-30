@@ -7,6 +7,9 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string Code { get; set; } = default!;
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
+        public int? DefaultTaxCategoryId { get; set; }
+        public Guid? DefaultTaxCategoryToken { get; set; }
+        public string? DefaultTaxCategoryCode { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

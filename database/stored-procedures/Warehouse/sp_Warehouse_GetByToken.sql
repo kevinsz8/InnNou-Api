@@ -17,6 +17,7 @@ BEGIN
         w.WarehouseId, w.WarehouseToken, w.OrganizationId, w.Name, w.NormalizedName, w.Code, w.Description,
         w.AddressLine1, w.AddressLine2, w.City, w.State, w.PostalCode, w.Country,
         w.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
+        w.TaxJurisdictionId, tj.TaxJurisdictionToken, tj.Code AS TaxJurisdictionCode, tj.Name AS TaxJurisdictionName,
         w.IsInventoriable, w.CanReceivePurchases, w.CanReceiveTransfers, w.CanTransferOut,
         w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory,
         w.TrackLotNumbers, w.TrackExpirationDates, w.TrackSerialNumbers, w.RequireApproval,
@@ -25,6 +26,7 @@ BEGIN
     FROM dbo.Warehouses w
     LEFT JOIN dbo.Zones z      ON z.ZoneId = w.ZoneId
     LEFT JOIN dbo.Countries zc ON zc.CountryId = z.CountryId
+    LEFT JOIN dbo.TaxJurisdictions tj ON tj.TaxJurisdictionId = w.TaxJurisdictionId
     WHERE w.WarehouseToken = @WarehouseToken
       AND w.IsDeleted = 0;
 END;

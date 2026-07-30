@@ -77,24 +77,33 @@ Requeriría entidades nuevas (`Recipe`/`RecipeIngredient` referenciando `Article
 
 ---
 
-## 5. Facturación / Contabilidad — 3-way matching PO↔Recepción↔Factura (siguiente capítulo, después de 1-3)
+## 5. Facturación / Contabilidad — 3-way matching PO↔Recepción↔Factura
 
-Adaco lo destaca explícitamente como feature. InnNou tiene Pedido+Albarán pero ningún concepto de Factura/Accounting todavía — "Facturas" en el menú lateral sigue siendo solo una etiqueta placeholder, sin servicio/tabla/endpoint detrás (igual que "Ventas"/"Inventario" cuando se escribió la nota original de este archivo). Necesitaría su propio módulo de facturas con numeración fiscal secuencial (IVA en España, IGI en Andorra), matching contra `PurchaseOrderLine`/`GoodsReceiptLine`, y probablemente conectar con las devoluciones del punto 2 para las notas de crédito reales. **Confirmado con el usuario: se quiere construir, pero recién después de cerrar los puntos 1-3.**
+Adaco lo destaca explícitamente como feature. InnNou tiene Pedido+Albarán pero ningún concepto de Factura/Accounting todavía — "Facturas" en el menú lateral sigue siendo solo una etiqueta placeholder, sin servicio/tabla/endpoint detrás. Plan de 3 fases confirmado con el usuario: **Fase A (modelo de Impuestos/IVA) → Fase B (SupplierInvoice + 3-way matching con tolerancias) → Fase C (notas de crédito reales conectando Devoluciones con Facturas, diferida hasta cerrar A+B)**.
 
-### Sub-diseño: modelo de Impuestos/IVA — investigado y acordado 2026-07-30, guardado aquí, NO implementar todavía
+### Fase A: Modelo de Impuestos/IVA — CONSTRUIDO 2026-07-30
 
-Investigado 2026-07-30: España no tiene una tasa única de IVA — 21% general, 10% reducido (hostelería, agua, pastas/aceites de semilla), 4% superreducido (pan/leche/fruta/huevos, aceite de oliva desde 2025), más regímenes regionales que **no son IVA** (IGIC en Canarias, IPSI en Ceuta/Melilla, cada uno con su propia estructura de tasas). Andorra usa IGI, con una estructura totalmente distinta: 4,5% general, 1% reducido, 0% superreducido, 2,5% especial, 9,5% incrementado. Confirmado con el usuario: **los regímenes regionales españoles entran en el alcance desde el arranque**, no se dejan para después.
+Diseño final (revisado una vez respecto al primer borrador — ver abajo): España no tiene una tasa única de IVA — 21% general, 10% reducido, 4% superreducido —, más regímenes regionales que **no son IVA** (IGIC en Canarias, IPSI en Ceuta/Melilla). Andorra usa IGI (4,5%/1%/0%). Los regímenes regionales españoles están en alcance desde el arranque, confirmado con el usuario.
 
-Con regímenes regionales en alcance, un `Articles.TaxRateId` único no alcanza — el mismo artículo puede recibirse en un almacén en Madrid (IVA) y en otro en Tenerife (IGIC), con tasas distintas. La separación correcta (así lo resuelven los motores de impuestos reales — Avalara, y el propio enfoque de la UE de "categorías reducidas" que cada país mapea a su % local):
+Modelo implementado (`TaxCategories`/`TaxJurisdictions`/`TaxRates`, Id-backed igual que `SupplierTypes`/`Currencies`):
 
-- **`TaxCategories`** (a nivel Artículo, independiente del país): `GENERAL / REDUCIDO / SUPERREDUCIDO / EXENTO` — clasifica qué tan esencial/regulado es el artículo, no un porcentaje.
-- **`TaxJurisdictions`** (nueva, FK a `Countries` existente): España tendría 4 filas (Península+Baleares, Canarias, Ceuta, Melilla), Andorra 1 sola. Extensible a nuevos países sin tocar código.
-- **`TaxRates`**: mapea `(TaxJurisdictionId, TaxCategoryId) → RatePercent`, Id-backed igual que `SupplierTypes`/`Currencies`. Ej: `(Península, SUPERREDUCIDO)=4%`, `(Canarias, SUPERREDUCIDO)=IGIC`, `(Andorra, SUPERREDUCIDO)=0%`.
-- **`Articles.TaxCategoryId`** (FK nullable) — se configura una sola vez por artículo, sin importar en qué almacén se reciba.
-- **`Warehouses.TaxJurisdictionId`** (FK nullable, nuevo) — determina qué jurisdicción aplica a lo recibido ahí. Concepto distinto de `Warehouses.ZoneId` (cobertura de reparto), aunque mismo patrón Country>subdivisión.
-- **Freeze solo en `GoodsReceiptLine`** (confirmado con el usuario — no en `Order`/`PurchaseOrderLine`, que siguen netos): al crear la recepción se resuelve `(Article.TaxCategoryId, Warehouse.TaxJurisdictionId) → TaxRates` y se congela `TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount` sobre `QuantityAccepted` (nunca Cortesía/Rechazado, que no se facturan) — la futura Facturación solo lee, no recalcula nada.
-- Validación dura en `CreateGoodsReceiptAsync` (nunca un IVA en null por descuido): rechazar con código de error claro si el Warehouse no tiene `TaxJurisdictionId`, si un Artículo aceptado no tiene `TaxCategoryId`, o si no existe fila `TaxRates` para esa combinación.
-- Superficie nueva no trivial: pantalla de administración para Jurisdicciones/Tasas, asignar categoría a cada Artículo existente, asignar jurisdicción a cada Warehouse existente — confirma que este sub-diseño espera su turno junto con el resto del punto 5.
+- **`Families.DefaultTaxCategoryId`** (FK nullable) — la categoría (`GENERAL`/`REDUCED`/`SUPER_REDUCED`/`EXEMPT`) se configura **a nivel Family**, no a nivel Artículo, y se hereda por todos los Articles de esa Family — corrección respecto al primer borrador de este documento, que proponía `Articles.TaxCategoryId` como único punto de configuración. Confirmado explícitamente con el usuario tras una confusión inicial sobre el alcance ("por Family, y se hereda para todos los artículos bajo esa familia").
+- **`Articles.TaxCategoryId`** (FK nullable) — override opcional por artículo individual; cuando es NULL, el artículo hereda `Family.DefaultTaxCategoryId`. Resolución efectiva: `COALESCE(Article.TaxCategoryId, Family.DefaultTaxCategoryId)`, vía `sp_Article_GetEffectiveTaxCategoryByIds` (batch, evita N+1 en la recepción).
+- **`TaxJurisdictions`** (FK a `Countries`): 5 filas seed — `ES_MAINLAND_BALEARIC` (21/10/4/0%), `ES_CANARY` (7/3/0/0%, IGIC), `ES_CEUTA`/`ES_MELILLA` (creadas pero **sin `TaxRates` seedeadas** — IPSI varía por ordenanza municipal, no se inventan cifras), `AD_STANDARD` (4,5/1/0/0%, IGI).
+- **`Warehouses.TaxJurisdictionId`** (FK nullable) — determina qué jurisdicción aplica a lo recibido ahí. Todos los Warehouses/Families existentes fueron backfileados (Warehouses→`ES_MAINLAND_BALEARIC`, Families→`GENERAL`) para no romper el flujo de recepción existente.
+- **Freeze solo en `GoodsReceiptLine`** (no en `Order`/`PurchaseOrderLine`): `CreateGoodsReceiptAsync` resuelve `(Article efectivo, Warehouse.TaxJurisdictionId) → TaxRates` y congela `TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount` sobre `QuantityAccepted` únicamente (nunca Cortesía/Rechazado) — la futura Fase B solo lee, no recalcula.
+- Validación dura (rechaza con código de error claro, nunca IVA en null por descuido): `GOODS_RECEIPT_WAREHOUSE_TAX_JURISDICTION_MISSING`, `GOODS_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING`, `GOODS_RECEIPT_TAX_RATE_MISSING`. Verificado por curl: happy path (Café en Grano 1kg × 16,20€ → GENERAL 21% → 3,402€ IVA, 19,602€ total) y los 3 caminos de error.
+- Superficie admin construida: página SuperAdmin-only `/impuestos` (grid Jurisdicción×Categoría, editable inline, `POST /tax/upsertRate`) bajo `groupAdmin`; dropdown de categoría por defecto en el formulario de Family (`POST /families/setDefaultTaxCategory`, endpoint separado del edit normal — funciona incluso en Families `IsSystem=1`, a propósito, ya que asignar categoría de IVA no es un cambio de identidad estructural como el Code); dropdown de override opcional en Article; dropdown de jurisdicción en Warehouse; desglose de impuestos visible en la recepción.
+
+### Fase B: SupplierInvoice + 3-way matching con tolerancias — próximo paso, no implementado
+
+Registra facturas de proveedor recibidas y las matchea contra `PurchaseOrderLine`/`GoodsReceiptLine` (cantidad y precio, dentro de una tolerancia). España exige mantener un "Libro Registro de Facturas Recibidas" con numeración interna secuencial propia del receptor (distinta del número de factura del proveedor) — confirmado por investigación, InnNou necesitará su propia numeración secuencial incluso para facturas recibidas (no emitidas).
+
+Diseño de tolerancia acordado con el usuario: **porcentaje Y monto fijo, evaluados independientemente con lógica AND** (una variación pasa solo si respeta ambos límites — equivalente a usar siempre el más estricto de los dos para el valor de esa línea; patrón "PP tolerance key" de SAP, confirmado por investigación). Configurable por el Super Asociado como default, con **override jerárquico**: si el Asociado configura su propia tolerancia, esa tiene prioridad — mismo patrón "nearest-organization-wins" ya usado en `EffectiveArticleClassification`/`sp_ParLevel_GetBelowPar` (`SupplierInvoiceMatchTolerances`, ascending walk desde el Asociado hacia el Super Asociado más cercano).
+
+### Fase C: Notas de crédito reales conectando Devoluciones con Facturas — diferida
+
+El usuario confirmó explícitamente cerrar A+B primero ("Después — primero cerremos A+B").
 
 ---
 
