@@ -178,6 +178,20 @@ namespace InnNou.Infrastructure.Mapping
                 IsInherited = pol.IsInherited
             });
 
+            mapper.Register<GoodsReceiptForInvoicing, GoodsReceiptForInvoicingDto>(gr => new GoodsReceiptForInvoicingDto
+            {
+                GoodsReceiptToken = gr.GoodsReceiptToken,
+                PurchaseOrderToken = gr.PurchaseOrderToken,
+                PurchaseOrderNumber = gr.PurchaseOrderNumber,
+                PurchaseOrderSentUtc = gr.PurchaseOrderSentUtc,
+                PurchaseOrderStatus = gr.PurchaseOrderStatus,
+                DeliveryNoteNumber = gr.DeliveryNoteNumber,
+                GoodsReceiptCreatedUtc = gr.GoodsReceiptCreatedUtc,
+                WarehouseName = gr.WarehouseName,
+                TotalTaxableAmount = gr.TotalTaxableAmount,
+                TotalAmount = gr.TotalAmount
+            });
+
             mapper.Register<SupplierInvoiceMatchTolerance, SupplierInvoiceMatchToleranceDto>(t => new SupplierInvoiceMatchToleranceDto
             {
                 SupplierInvoiceMatchToleranceToken = t.SupplierInvoiceMatchToleranceToken,

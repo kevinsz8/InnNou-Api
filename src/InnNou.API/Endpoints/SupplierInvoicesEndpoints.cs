@@ -15,7 +15,7 @@ public class SupplierInvoicesEndpoints : ICarterModule
 
         group.MapPost("/getPaged", HandleGetPaged).Produces<ApiResponse<GetSupplierInvoicesQueryResponse>>(200);
         group.MapPost("/getByToken", HandleGetByToken).Produces<ApiResponse<GetSupplierInvoiceByTokenQueryResponse>>(200);
-        group.MapPost("/getEligiblePurchaseOrders", HandleGetEligiblePurchaseOrders).Produces<ApiResponse<GetEligiblePurchaseOrdersForInvoicingQueryResponse>>(200);
+        group.MapPost("/getEligibleGoodsReceipts", HandleGetEligibleGoodsReceipts).Produces<ApiResponse<GetEligibleGoodsReceiptsForInvoicingQueryResponse>>(200);
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateSupplierInvoiceCommandResponse>>(201);
 
         group.MapPost("/uploadAttachment", HandleUploadAttachment)
@@ -43,7 +43,7 @@ public class SupplierInvoicesEndpoints : ICarterModule
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
-    private static async Task<IResult> HandleGetEligiblePurchaseOrders([FromBody] GetEligiblePurchaseOrdersForInvoicingQueryRequest request, ISender sender, CancellationToken ct)
+    private static async Task<IResult> HandleGetEligibleGoodsReceipts([FromBody] GetEligibleGoodsReceiptsForInvoicingQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

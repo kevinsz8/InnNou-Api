@@ -4,7 +4,7 @@ using MediatR;
 
 namespace InnNou.Application.Requests
 {
-    public class GetEligiblePurchaseOrdersForInvoicingQueryRequest : IRequest<ApiResponse<GetEligiblePurchaseOrdersForInvoicingQueryResponse>>
+    public class GetEligibleGoodsReceiptsForInvoicingQueryRequest : IRequest<ApiResponse<GetEligibleGoodsReceiptsForInvoicingQueryResponse>>
     {
         public Guid OrganizationToken { get; set; }
         public Guid SupplierToken { get; set; }
@@ -14,5 +14,7 @@ namespace InnNou.Application.Requests
         public DateTime? ToDate { get; set; }
         // "ORDER_DATE" (default) or "RECEIPT_DATE" — which date FromDate/ToDate filter against.
         public string? DateType { get; set; }
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
     }
 }

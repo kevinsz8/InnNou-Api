@@ -6,7 +6,7 @@ namespace InnNou.Application.Requests
 {
     public class CreateSupplierInvoiceLineRequestItem
     {
-        public Guid PurchaseOrderLineToken { get; set; }
+        public Guid GoodsReceiptLineToken { get; set; }
         public decimal QuantityInvoiced { get; set; }
         public decimal UnitPriceInvoiced { get; set; }
     }
@@ -18,7 +18,7 @@ namespace InnNou.Application.Requests
         public string SupplierInvoiceNumber { get; set; } = default!;
         public DateTime InvoiceDate { get; set; }
         public string? Notes { get; set; }
-        public List<Guid> PurchaseOrderTokens { get; set; } = [];
+        public List<Guid> GoodsReceiptTokens { get; set; } = [];
         public List<CreateSupplierInvoiceLineRequestItem> Lines { get; set; } = [];
     }
 }

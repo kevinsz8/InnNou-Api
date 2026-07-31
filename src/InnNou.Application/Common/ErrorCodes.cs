@@ -398,7 +398,8 @@ namespace InnNou.Application.Common
         public const string SupplierInvoiceEmpty = "SUPPLIER_INVOICE_EMPTY";
         public const string SupplierInvoicePurchaseOrderNotFound = "SUPPLIER_INVOICE_PURCHASE_ORDER_NOT_FOUND";
         public const string SupplierInvoicePurchaseOrderNotReceived = "SUPPLIER_INVOICE_PURCHASE_ORDER_NOT_RECEIVED";
-        public const string SupplierInvoicePurchaseOrderAlreadyInvoiced = "SUPPLIER_INVOICE_PURCHASE_ORDER_ALREADY_INVOICED";
+        public const string SupplierInvoiceGoodsReceiptNotFound = "SUPPLIER_INVOICE_GOODS_RECEIPT_NOT_FOUND";
+        public const string SupplierInvoiceGoodsReceiptAlreadyInvoiced = "SUPPLIER_INVOICE_GOODS_RECEIPT_ALREADY_INVOICED";
         public const string SupplierInvoicePurchaseOrderDifferentSupplier = "SUPPLIER_INVOICE_PURCHASE_ORDER_DIFFERENT_SUPPLIER";
         public const string SupplierInvoiceLineIncomplete = "SUPPLIER_INVOICE_LINE_INCOMPLETE";
         public const string SupplierInvoiceLineInvalid = "SUPPLIER_INVOICE_LINE_INVALID";

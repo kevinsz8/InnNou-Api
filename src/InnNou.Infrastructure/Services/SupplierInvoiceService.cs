@@ -184,22 +184,25 @@ public class SupplierInvoiceService(
         return dto;
     }
 
-    public async Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<GoodsReceiptForInvoicingDto>> GetEligibleGoodsReceiptsForInvoicingAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
             "sp_Organization_GetByToken", new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
         if (organization is null)
-            return [];
+            return new PagedResult<GoodsReceiptForInvoicingDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         if (!await CanManageSupplierInvoicesAsync(connection, context, organization.OrganizationId))
-            throw new ApiException(ErrorCodes.SupplierInvoiceForbidden, "Cannot browse purchase orders outside your scope.", 403);
+            throw new ApiException(ErrorCodes.SupplierInvoiceForbidden, "Cannot browse goods receipts outside your scope.", 403);
 
         var supplier = await connection.QueryFirstOrDefaultAsync<Supplier>(
             "sp_Supplier_GetByToken", new { SupplierToken = supplierToken }, commandType: CommandType.StoredProcedure);
         if (supplier is null)
-            return [];
+            return new PagedResult<GoodsReceiptForInvoicingDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         var p = new DynamicParameters();
         p.Add("@OrganizationId", organization.OrganizationId);
@@ -209,11 +212,19 @@ public class SupplierInvoiceService(
         p.Add("@FromDate", fromDate?.Date);
         p.Add("@ToDate", toDate?.Date);
         p.Add("@DateType", string.IsNullOrWhiteSpace(dateType) ? null : dateType.Trim());
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
 
-        var rows = await connection.QueryAsync<PurchaseOrder>(
-            "sp_PurchaseOrder_GetEligibleForInvoicing", p, commandType: CommandType.StoredProcedure);
+        var rows = (await connection.QueryAsync<GoodsReceiptForInvoicing>(
+            "sp_GoodsReceipt_GetEligibleForInvoicing", p, commandType: CommandType.StoredProcedure)).ToList();
 
-        return mapper.MapList<PurchaseOrderDto>(rows.ToList());
+        return new PagedResult<GoodsReceiptForInvoicingDto>
+        {
+            Items = mapper.MapList<GoodsReceiptForInvoicingDto>(rows),
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
     }
 
     public async Task<SupplierInvoiceMatchToleranceDto?> GetEffectiveToleranceAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken)
@@ -315,9 +326,13 @@ public class SupplierInvoiceService(
     }
 
     // One resolved, invoiceable line — the effective PurchaseOrderLine values (what was
-    // ordered/received) plus the caller-supplied (possibly corrected) invoiced values.
+    // ordered/its rectified price) paired against the specific GoodsReceiptLine's own
+    // QuantityAccepted (what was actually received in THAT delivery — not the PO's full
+    // ordered quantity, since 2026-08-02 invoicing is per-receipt, not per-PurchaseOrder), plus
+    // the caller-supplied (possibly corrected) invoiced values.
     private sealed record ResolvedLine(
         int PurchaseOrderLineId,
+        int GoodsReceiptLineId,
         int PurchaseOrderId,
         int ArticleId,
         int WarehouseId,
@@ -328,7 +343,7 @@ public class SupplierInvoiceService(
         decimal QuantityInvoiced,
         decimal UnitPriceInvoiced);
 
-    public async Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> purchaseOrderTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> goodsReceiptTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -345,15 +360,78 @@ public class SupplierInvoiceService(
         if (supplier is null)
             throw new ApiException(ErrorCodes.SupplierInvoiceSupplierNotFound, "Supplier not found.", 404);
 
-        if (purchaseOrderTokens.Count == 0)
-            throw new ApiException(ErrorCodes.SupplierInvoiceEmpty, "At least one purchase order must be selected.", 400);
+        if (goodsReceiptTokens.Count == 0)
+            throw new ApiException(ErrorCodes.SupplierInvoiceEmpty, "At least one goods receipt must be selected.", 400);
 
-        if (purchaseOrderTokens.Count > 1)
+        // Resolve + validate each selected GoodsReceipt (delivery/albarán), and collect every
+        // one of its billable lines (QuantityAccepted > 0) as the set the submitted lines must
+        // match exactly (see the count check below) — a receipt is invoiced entirely in one
+        // shot, same "all or nothing" rule the old PO-level flow had, just at receipt
+        // granularity now. goodsReceiptIdByToken/purchaseOrderTokenById feed the transaction
+        // below (exclusivity inserts, PO status advance) without re-fetching.
+        var expectedLines = new Dictionary<Guid, ResolvedLine>();
+        var goodsReceiptIdByToken = new Dictionary<Guid, int>();
+        var purchaseOrderTokenById = new Dictionary<int, Guid>();
+        var purchaseOrderStatusById = new Dictionary<int, string>();
+
+        foreach (var goodsReceiptToken in goodsReceiptTokens)
+        {
+            var goodsReceipt = await connection.QueryFirstOrDefaultAsync<GoodsReceiptWithPurchaseOrderContext>(
+                "sp_GoodsReceipt_GetByToken", new { GoodsReceiptToken = goodsReceiptToken }, commandType: CommandType.StoredProcedure);
+            if (goodsReceipt is null)
+                throw new ApiException(ErrorCodes.SupplierInvoiceGoodsReceiptNotFound, $"Goods receipt '{goodsReceiptToken}' not found.", 404);
+
+            if (goodsReceipt.OrganizationId != organization.OrganizationId)
+                throw new ApiException(ErrorCodes.SupplierInvoiceGoodsReceiptNotFound, $"The goods receipt for purchase order '{goodsReceipt.PurchaseOrderNumber}' does not belong to this organization.", 404);
+
+            if (goodsReceipt.SupplierId != supplier.SupplierId)
+                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderDifferentSupplier, $"The goods receipt for purchase order '{goodsReceipt.PurchaseOrderNumber}' belongs to a different supplier.", 400);
+
+            if (goodsReceipt.PurchaseOrderStatus != PurchaseOrderStatusCodes.PartiallyReceived && goodsReceipt.PurchaseOrderStatus != PurchaseOrderStatusCodes.Received)
+                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderNotReceived, $"Purchase order '{goodsReceipt.PurchaseOrderNumber}' has no confirmed delivery to invoice.", 409);
+
+            goodsReceiptIdByToken[goodsReceiptToken] = goodsReceipt.GoodsReceiptId;
+            purchaseOrderTokenById[goodsReceipt.PurchaseOrderId] = goodsReceipt.PurchaseOrderToken;
+            purchaseOrderStatusById[goodsReceipt.PurchaseOrderId] = goodsReceipt.PurchaseOrderStatus;
+
+            var purchaseOrder = await purchaseOrderService.GetByTokenAsync(goodsReceipt.PurchaseOrderToken, context, cancellationToken);
+            if (purchaseOrder is null)
+                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderNotFound, $"Purchase order '{goodsReceipt.PurchaseOrderNumber}' not found.", 404);
+
+            var purchaseOrderLinesById = purchaseOrder.Lines.ToDictionary(l => l.PurchaseOrderLineId);
+
+            var receiptLines = await connection.QueryAsync<GoodsReceiptLine>(
+                "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { goodsReceipt.GoodsReceiptId }, commandType: CommandType.StoredProcedure);
+
+            foreach (var receiptLine in receiptLines.Where(l => l.QuantityAccepted > 0))
+            {
+                // FK-guaranteed to exist on this same PO — defensive skip rather than throw.
+                if (!purchaseOrderLinesById.TryGetValue(receiptLine.PurchaseOrderLineId, out var purchaseOrderLine))
+                    continue;
+
+                expectedLines[receiptLine.GoodsReceiptLineToken] = new ResolvedLine(
+                    PurchaseOrderLineId: receiptLine.PurchaseOrderLineId,
+                    GoodsReceiptLineId: receiptLine.GoodsReceiptLineId,
+                    PurchaseOrderId: goodsReceipt.PurchaseOrderId,
+                    ArticleId: purchaseOrderLine.ArticleId,
+                    WarehouseId: purchaseOrder.WarehouseId,
+                    WarehouseToken: purchaseOrder.WarehouseToken,
+                    CurrencyCode: purchaseOrderLine.CurrencyCode,
+                    ExpectedQuantity: receiptLine.QuantityAccepted,
+                    ExpectedUnitPrice: purchaseOrderLine.UnitPrice,
+                    QuantityInvoiced: 0,
+                    UnitPriceInvoiced: 0);
+            }
+        }
+
+        if (purchaseOrderTokenById.Count > 1)
         {
             // Absence of any configured policy in the organization's ancestry defaults to
             // "allowed" — see sp_SupplierInvoicePurchaseOrderPolicy_GetEffective's own comment.
-            // Re-checked here even though the frontend already renders a single-select radio
-            // picker when this is disabled — never trust the frontend already filtered it.
+            // Counts DISTINCT purchase orders touched, not receipts — two receipts of the same
+            // PO are not "multiple purchase orders." Re-checked here even though the frontend
+            // already renders a single-select radio picker when this is disabled — never trust
+            // the frontend already filtered it.
             var policy = await GetEffectivePurchaseOrderPolicyAsync(connection, organization.OrganizationId);
             if (policy is not null && !policy.AllowMultiplePurchaseOrders)
                 throw new ApiException(ErrorCodes.SupplierInvoiceMultiplePurchaseOrdersNotAllowed, "This organization's policy only allows one purchase order per invoice.", 409);
@@ -362,56 +440,16 @@ public class SupplierInvoiceService(
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.SupplierInvoiceEmpty, "At least one line must be invoiced.", 400);
 
-        // A PO is invoiced entirely in one shot — collect every non-cancelled line of every
-        // selected PO as the set the submitted lines must match exactly (see the count check
-        // below). purchaseOrderIdByToken also lets the transaction below set each PO's status
-        // without re-fetching it.
-        var expectedLines = new Dictionary<Guid, ResolvedLine>();
-        var purchaseOrderIdByToken = new Dictionary<Guid, int>();
-
-        foreach (var purchaseOrderToken in purchaseOrderTokens)
-        {
-            var purchaseOrder = await purchaseOrderService.GetByTokenAsync(purchaseOrderToken, context, cancellationToken);
-            if (purchaseOrder is null)
-                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderNotFound, $"Purchase order '{purchaseOrderToken}' not found.", 404);
-
-            if (purchaseOrder.OrganizationId != organization.OrganizationId)
-                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderNotFound, $"Purchase order '{purchaseOrder.PurchaseOrderNumber}' does not belong to this organization.", 404);
-
-            if (purchaseOrder.SupplierId != supplier.SupplierId)
-                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderDifferentSupplier, $"Purchase order '{purchaseOrder.PurchaseOrderNumber}' belongs to a different supplier.", 400);
-
-            if (purchaseOrder.Status != PurchaseOrderStatusCodes.Received)
-                throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderNotReceived, $"Purchase order '{purchaseOrder.PurchaseOrderNumber}' must be fully received before it can be invoiced.", 409);
-
-            purchaseOrderIdByToken[purchaseOrderToken] = purchaseOrder.PurchaseOrderId;
-
-            foreach (var line in purchaseOrder.Lines.Where(l => !l.IsCancelled))
-            {
-                expectedLines[line.PurchaseOrderLineToken] = new ResolvedLine(
-                    PurchaseOrderLineId: line.PurchaseOrderLineId,
-                    PurchaseOrderId: purchaseOrder.PurchaseOrderId,
-                    ArticleId: line.ArticleId,
-                    WarehouseId: purchaseOrder.WarehouseId,
-                    WarehouseToken: purchaseOrder.WarehouseToken,
-                    CurrencyCode: line.CurrencyCode,
-                    ExpectedQuantity: line.Quantity,
-                    ExpectedUnitPrice: line.UnitPrice,
-                    QuantityInvoiced: 0,
-                    UnitPriceInvoiced: 0);
-            }
-        }
-
         var submittedTokens = new HashSet<Guid>();
         var resolvedLines = new List<ResolvedLine>();
 
         foreach (var input in lines)
         {
-            if (!expectedLines.TryGetValue(input.PurchaseOrderLineToken, out var expected))
-                throw new ApiException(ErrorCodes.SupplierInvoiceLineInvalid, $"Line '{input.PurchaseOrderLineToken}' does not belong to any of the selected purchase orders.", 400);
+            if (!expectedLines.TryGetValue(input.GoodsReceiptLineToken, out var expected))
+                throw new ApiException(ErrorCodes.SupplierInvoiceLineInvalid, $"Line '{input.GoodsReceiptLineToken}' does not belong to any of the selected goods receipts.", 400);
 
-            if (!submittedTokens.Add(input.PurchaseOrderLineToken))
-                throw new ApiException(ErrorCodes.SupplierInvoiceLineInvalid, $"Line '{input.PurchaseOrderLineToken}' was submitted more than once.", 400);
+            if (!submittedTokens.Add(input.GoodsReceiptLineToken))
+                throw new ApiException(ErrorCodes.SupplierInvoiceLineInvalid, $"Line '{input.GoodsReceiptLineToken}' was submitted more than once.", 400);
 
             if (input.QuantityInvoiced <= 0)
                 throw new ApiException(ErrorCodes.SupplierInvoiceLineInvalid, "Invoiced quantity must be greater than zero.", 400);
@@ -423,7 +461,7 @@ public class SupplierInvoiceService(
         }
 
         if (submittedTokens.Count != expectedLines.Count)
-            throw new ApiException(ErrorCodes.SupplierInvoiceLineIncomplete, "Every line of every selected purchase order must be invoiced — a purchase order is always invoiced in full.", 400);
+            throw new ApiException(ErrorCodes.SupplierInvoiceLineIncomplete, "Every billable line of every selected goods receipt must be invoiced — a receipt is always invoiced in full.", 400);
 
         // Tolerance — a hard requirement, unlike tax below (matching cannot be computed without it).
         var tolerance = await connection.QueryFirstOrDefaultAsync<SupplierInvoiceMatchTolerance>(
@@ -517,6 +555,7 @@ public class SupplierInvoiceService(
                 lineParams.Add("@SupplierInvoiceLineToken", Guid.NewGuid());
                 lineParams.Add("@SupplierInvoiceId", header.SupplierInvoiceId);
                 lineParams.Add("@PurchaseOrderLineId", line.PurchaseOrderLineId);
+                lineParams.Add("@GoodsReceiptLineId", line.GoodsReceiptLineId);
                 lineParams.Add("@ArticleId", line.ArticleId);
                 lineParams.Add("@QuantityInvoiced", line.QuantityInvoiced);
                 lineParams.Add("@UnitPriceInvoiced", line.UnitPriceInvoiced);
@@ -529,27 +568,66 @@ public class SupplierInvoiceService(
                 lineParams.Add("@IsWithinTolerance", isWithinTolerance);
                 lineParams.Add("@CreatedBy", actor);
 
-                await connection.ExecuteAsync("sp_SupplierInvoiceLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+                try
+                {
+                    await connection.ExecuteAsync("sp_SupplierInvoiceLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+                }
+                catch (SqlException ex) when (ex.Number is 2601 or 2627)
+                {
+                    throw new ApiException(ErrorCodes.SupplierInvoiceGoodsReceiptAlreadyInvoiced, "One of the selected goods receipt lines was already invoiced by another request.", 409);
+                }
             }
 
-            foreach (var (purchaseOrderToken, purchaseOrderId) in purchaseOrderIdByToken)
+            // Exclusivity gate: each selected GoodsReceipt (not PurchaseOrder — a PO can now
+            // legitimately span several invoices, one per delivery) can be invoiced at most once.
+            foreach (var (goodsReceiptToken, goodsReceiptId) in goodsReceiptIdByToken)
             {
                 try
                 {
                     await connection.ExecuteAsync(
-                        "sp_SupplierInvoicePurchaseOrder_Create",
-                        new { header.SupplierInvoiceId, PurchaseOrderId = purchaseOrderId },
+                        "sp_SupplierInvoiceGoodsReceipt_Create",
+                        new { header.SupplierInvoiceId, GoodsReceiptId = goodsReceiptId, CreatedBy = actor },
                         transaction, commandType: CommandType.StoredProcedure);
                 }
                 catch (SqlException ex) when (ex.Number is 2601 or 2627)
                 {
-                    throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderAlreadyInvoiced, "One of the selected purchase orders was already invoiced by another request.", 409);
+                    throw new ApiException(ErrorCodes.SupplierInvoiceGoodsReceiptAlreadyInvoiced, "One of the selected goods receipts was already invoiced by another request.", 409);
                 }
+            }
 
+            // "PEDIDOS DE COMPRA CONSOLIDADOS" display chips — once per DISTINCT PurchaseOrder
+            // touched (never twice within the same invoice, even if two of its receipts were
+            // both selected here); no longer the exclusivity gate itself, see above.
+            foreach (var purchaseOrderId in purchaseOrderTokenById.Keys)
+            {
                 await connection.ExecuteAsync(
-                    "sp_PurchaseOrder_SetStatus",
-                    new { PurchaseOrderToken = purchaseOrderToken, Status = PurchaseOrderStatusCodes.Invoiced },
+                    "sp_SupplierInvoicePurchaseOrder_Create",
+                    new { header.SupplierInvoiceId, PurchaseOrderId = purchaseOrderId },
                     transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            // Advance a touched PO to INVOICED only once it's fully RECEIVED (no more deliveries
+            // expected) AND every one of its GoodsReceipts — not just the ones selected in this
+            // request — has now been invoiced. A PARTIALLY_RECEIVED PO (this invoice covered one
+            // of its deliveries, more are still expected) is deliberately left as-is: more
+            // invoicing activity may still happen against it later, same real-world practice as
+            // SAP's Goods-Receipt-Based Invoice Verification.
+            foreach (var purchaseOrderId in purchaseOrderTokenById.Keys)
+            {
+                if (purchaseOrderStatusById[purchaseOrderId] != PurchaseOrderStatusCodes.Received)
+                    continue;
+
+                var hasUninvoicedGoodsReceipts = await connection.ExecuteScalarAsync<bool>(
+                    "sp_GoodsReceipt_ExistsUninvoicedForPurchaseOrder", new { PurchaseOrderId = purchaseOrderId },
+                    transaction, commandType: CommandType.StoredProcedure);
+
+                if (!hasUninvoicedGoodsReceipts)
+                {
+                    await connection.ExecuteAsync(
+                        "sp_PurchaseOrder_SetStatus",
+                        new { PurchaseOrderToken = purchaseOrderTokenById[purchaseOrderId], Status = PurchaseOrderStatusCodes.Invoiced },
+                        transaction, commandType: CommandType.StoredProcedure);
+                }
             }
 
             if (anyDiscrepancy)

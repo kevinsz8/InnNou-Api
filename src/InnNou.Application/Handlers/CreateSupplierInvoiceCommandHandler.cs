@@ -18,14 +18,14 @@ namespace InnNou.Application.Handlers
 
             var lines = request.Lines.Select(l => new CreateSupplierInvoiceLineInputDto
             {
-                PurchaseOrderLineToken = l.PurchaseOrderLineToken,
+                GoodsReceiptLineToken = l.GoodsReceiptLineToken,
                 QuantityInvoiced = l.QuantityInvoiced,
                 UnitPriceInvoiced = l.UnitPriceInvoiced
             }).ToList();
 
             var result = await supplierInvoiceService.CreateAsync(
                 request.OrganizationToken, request.SupplierToken, request.SupplierInvoiceNumber.Trim(), request.InvoiceDate, request.Notes,
-                request.PurchaseOrderTokens, lines, context, cancellationToken);
+                request.GoodsReceiptTokens, lines, context, cancellationToken);
 
             if (result is null)
                 return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceNotFound, "Supplier invoice could not be created.", 500);

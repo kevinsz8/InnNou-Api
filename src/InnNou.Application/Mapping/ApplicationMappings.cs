@@ -67,6 +67,7 @@ using CommonSupplierInvoiceLine = InnNou.Application.Responses.Common.SupplierIn
 using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrder;
 using CommonSupplierInvoiceMatchTolerance = InnNou.Application.Responses.Common.SupplierInvoiceMatchTolerance;
 using CommonSupplierInvoicePurchaseOrderPolicy = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrderPolicy;
+using CommonGoodsReceiptForInvoicing = InnNou.Application.Responses.Common.GoodsReceiptForInvoicing;
 using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
@@ -317,6 +318,20 @@ namespace InnNou.Application.Mapping
                 EffectiveOrganizationName = d.EffectiveOrganizationName,
                 AllowMultiplePurchaseOrders = d.AllowMultiplePurchaseOrders,
                 IsInherited = d.IsInherited
+            });
+
+            mapper.Register<GoodsReceiptForInvoicingDto, CommonGoodsReceiptForInvoicing>(d => new CommonGoodsReceiptForInvoicing
+            {
+                GoodsReceiptToken = d.GoodsReceiptToken,
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                PurchaseOrderSentUtc = d.PurchaseOrderSentUtc,
+                PurchaseOrderStatus = d.PurchaseOrderStatus,
+                DeliveryNoteNumber = d.DeliveryNoteNumber,
+                GoodsReceiptCreatedUtc = d.GoodsReceiptCreatedUtc,
+                WarehouseName = d.WarehouseName,
+                TotalTaxableAmount = d.TotalTaxableAmount,
+                TotalAmount = d.TotalAmount
             });
 
             mapper.Register<SupplierInvoicePurchaseOrderDto, CommonSupplierInvoicePurchaseOrder>(d => new CommonSupplierInvoicePurchaseOrder

@@ -9,9 +9,9 @@ namespace InnNou.Application.Common.Interfaces
 
         Task<SupplierInvoiceDto?> GetByTokenAsync(Guid supplierInvoiceToken, IRequestContext context, CancellationToken cancellationToken);
 
-        Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<GoodsReceiptForInvoicingDto>> GetEligibleGoodsReceiptsForInvoicingAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
 
-        Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> purchaseOrderTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
+        Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> goodsReceiptTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
 
         Task<bool> UploadAttachmentAsync(Guid supplierInvoiceToken, Stream fileStream, string fileExtension, IRequestContext context, CancellationToken cancellationToken);
 

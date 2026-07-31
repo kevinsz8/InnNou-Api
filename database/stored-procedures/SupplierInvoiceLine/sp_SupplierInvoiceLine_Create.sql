@@ -7,15 +7,18 @@ GO
    Single-line insert + re-select, called once per line in a C# loop inside
    SupplierInvoiceService.CreateAsync's shared transaction — same
    one-call-per-line shape as sp_GoodsReceiptLine_Create/
-   sp_PurchaseOrderLineRectification_Create. The UNIQUE constraint on
-   PurchaseOrderLineId is the real "invoiced at most once" guarantee, not
-   this SP.
+   sp_PurchaseOrderLineRectification_Create. The filtered UNIQUE index on
+   GoodsReceiptLineId (UX_SupplierInvoiceLines_GoodsReceiptLineId, added
+   2026-08-02 — supersedes the old PurchaseOrderLineId-based one, since a PO
+   line can now be split across multiple receipts, each independently
+   invoiced) is the real "invoiced at most once" guarantee, not this SP.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoiceLine_Create
 (
     @SupplierInvoiceLineToken UNIQUEIDENTIFIER,
     @SupplierInvoiceId        INT,
     @PurchaseOrderLineId      INT,
+    @GoodsReceiptLineId       INT,
     @ArticleId                INT,
     @QuantityInvoiced         DECIMAL(18,4),
     @UnitPriceInvoiced        DECIMAL(18,4),
@@ -33,12 +36,12 @@ BEGIN
     SET NOCOUNT ON;
 
     INSERT INTO dbo.SupplierInvoiceLines
-        (SupplierInvoiceLineToken, SupplierInvoiceId, PurchaseOrderLineId, ArticleId,
+        (SupplierInvoiceLineToken, SupplierInvoiceId, PurchaseOrderLineId, GoodsReceiptLineId, ArticleId,
          QuantityInvoiced, UnitPriceInvoiced, CurrencyCode,
          TaxCategoryId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
          IsWithinTolerance, CreatedBy)
     VALUES
-        (@SupplierInvoiceLineToken, @SupplierInvoiceId, @PurchaseOrderLineId, @ArticleId,
+        (@SupplierInvoiceLineToken, @SupplierInvoiceId, @PurchaseOrderLineId, @GoodsReceiptLineId, @ArticleId,
          @QuantityInvoiced, @UnitPriceInvoiced, @CurrencyCode,
          @TaxCategoryId, @TaxRatePercent, @TaxableAmount, @TaxAmount, @TotalAmount,
          @IsWithinTolerance, @CreatedBy);
