@@ -29,6 +29,10 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
 
         public bool IsWithinTolerance { get; set; }
 
+        // Only populated by sp_SupplierInvoiceLine_GetBySupplierInvoiceId — null for lines that
+        // predate the 2026-08-02 move to receipt granularity (no GoodsReceiptLineId to join from).
+        public string? DeliveryNoteNumber { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

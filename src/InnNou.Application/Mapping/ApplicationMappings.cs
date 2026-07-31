@@ -369,6 +369,7 @@ namespace InnNou.Application.Mapping
                 TaxAmount = d.TaxAmount,
                 TotalAmount = d.TotalAmount,
                 IsWithinTolerance = d.IsWithinTolerance,
+                DeliveryNoteNumber = d.DeliveryNoteNumber,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
             });

@@ -21,6 +21,8 @@ namespace InnNou.Domain.Dtos
 
         public bool IsWithinTolerance { get; set; }
 
+        public string? DeliveryNoteNumber { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

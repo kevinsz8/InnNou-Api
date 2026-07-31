@@ -225,6 +225,7 @@ namespace InnNou.Infrastructure.Mapping
                 TaxAmount = l.TaxAmount,
                 TotalAmount = l.TotalAmount,
                 IsWithinTolerance = l.IsWithinTolerance,
+                DeliveryNoteNumber = l.DeliveryNoteNumber,
                 CreatedUtc = l.CreatedUtc,
                 CreatedBy = l.CreatedBy
             });
