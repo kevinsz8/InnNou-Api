@@ -169,6 +169,15 @@ namespace InnNou.Infrastructure.Mapping
                 RatePercent = r.RatePercent
             });
 
+            mapper.Register<SupplierInvoicePurchaseOrderPolicy, SupplierInvoicePurchaseOrderPolicyDto>(pol => new SupplierInvoicePurchaseOrderPolicyDto
+            {
+                SupplierInvoicePurchaseOrderPolicyToken = pol.SupplierInvoicePurchaseOrderPolicyToken,
+                EffectiveOrganizationToken = pol.EffectiveOrganizationToken,
+                EffectiveOrganizationName = pol.EffectiveOrganizationName,
+                AllowMultiplePurchaseOrders = pol.AllowMultiplePurchaseOrders,
+                IsInherited = pol.IsInherited
+            });
+
             mapper.Register<SupplierInvoiceMatchTolerance, SupplierInvoiceMatchToleranceDto>(t => new SupplierInvoiceMatchToleranceDto
             {
                 SupplierInvoiceMatchToleranceToken = t.SupplierInvoiceMatchToleranceToken,

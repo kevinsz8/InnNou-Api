@@ -184,7 +184,7 @@ public class SupplierInvoiceService(
         return dto;
     }
 
-    public async Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -201,8 +201,17 @@ public class SupplierInvoiceService(
         if (supplier is null)
             return [];
 
+        var p = new DynamicParameters();
+        p.Add("@OrganizationId", organization.OrganizationId);
+        p.Add("@SupplierId", supplier.SupplierId);
+        p.Add("@PurchaseOrderNumber", string.IsNullOrWhiteSpace(purchaseOrderNumber) ? null : purchaseOrderNumber.Trim());
+        p.Add("@DeliveryNoteNumber", string.IsNullOrWhiteSpace(deliveryNoteNumber) ? null : deliveryNoteNumber.Trim());
+        p.Add("@FromDate", fromDate?.Date);
+        p.Add("@ToDate", toDate?.Date);
+        p.Add("@DateType", string.IsNullOrWhiteSpace(dateType) ? null : dateType.Trim());
+
         var rows = await connection.QueryAsync<PurchaseOrder>(
-            "sp_PurchaseOrder_GetEligibleForInvoicing", new { organization.OrganizationId, supplier.SupplierId }, commandType: CommandType.StoredProcedure);
+            "sp_PurchaseOrder_GetEligibleForInvoicing", p, commandType: CommandType.StoredProcedure);
 
         return mapper.MapList<PurchaseOrderDto>(rows.ToList());
     }
@@ -255,6 +264,56 @@ public class SupplierInvoiceService(
         return row is null ? null : mapper.Map<SupplierInvoiceMatchToleranceDto>(row);
     }
 
+    public async Task<SupplierInvoicePurchaseOrderPolicyDto?> GetEffectivePurchaseOrderPolicyAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+            "sp_Organization_GetByToken", new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+        if (organization is null)
+            throw new ApiException(ErrorCodes.SupplierInvoiceOrganizationNotFound, "Organization not found.", 404);
+
+        if (!await CanManageSupplierInvoicesAsync(connection, context, organization.OrganizationId))
+            throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderPolicyForbidden, "Cannot view purchase order policy outside your scope.", 403);
+
+        return await GetEffectivePurchaseOrderPolicyAsync(connection, organization.OrganizationId);
+    }
+
+    // Shared by the public GetEffectivePurchaseOrderPolicyAsync (already-authorized read for the
+    // settings panel) and CreateAsync's own enforcement check below — both need the same
+    // resolved policy, but CreateAsync already has an open connection/transaction and an
+    // already-resolved OrganizationId, so it skips the token round-trip and auth re-check.
+    private async Task<SupplierInvoicePurchaseOrderPolicyDto?> GetEffectivePurchaseOrderPolicyAsync(IDbConnection connection, int organizationId)
+    {
+        var row = await connection.QueryFirstOrDefaultAsync<SupplierInvoicePurchaseOrderPolicy>(
+            "sp_SupplierInvoicePurchaseOrderPolicy_GetEffective", new { OrganizationId = organizationId }, commandType: CommandType.StoredProcedure);
+
+        return row is null ? null : mapper.Map<SupplierInvoicePurchaseOrderPolicyDto>(row);
+    }
+
+    public async Task<SupplierInvoicePurchaseOrderPolicyDto?> UpsertPurchaseOrderPolicyAsync(Guid organizationToken, bool allowMultiplePurchaseOrders, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+            "sp_Organization_GetByToken", new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+        if (organization is null)
+            throw new ApiException(ErrorCodes.SupplierInvoiceOrganizationNotFound, "Organization not found.", 404);
+
+        if (!await CanManageSupplierInvoicesAsync(connection, context, organization.OrganizationId))
+            throw new ApiException(ErrorCodes.SupplierInvoicePurchaseOrderPolicyForbidden, "Cannot configure purchase order policy outside your scope.", 403);
+
+        var p = new DynamicParameters();
+        p.Add("@OrganizationId", organization.OrganizationId);
+        p.Add("@AllowMultiplePurchaseOrders", allowMultiplePurchaseOrders);
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+
+        var row = await connection.QueryFirstOrDefaultAsync<SupplierInvoicePurchaseOrderPolicy>(
+            "sp_SupplierInvoicePurchaseOrderPolicy_Upsert", p, commandType: CommandType.StoredProcedure);
+
+        return row is null ? null : mapper.Map<SupplierInvoicePurchaseOrderPolicyDto>(row);
+    }
+
     // One resolved, invoiceable line — the effective PurchaseOrderLine values (what was
     // ordered/received) plus the caller-supplied (possibly corrected) invoiced values.
     private sealed record ResolvedLine(
@@ -288,6 +347,17 @@ public class SupplierInvoiceService(
 
         if (purchaseOrderTokens.Count == 0)
             throw new ApiException(ErrorCodes.SupplierInvoiceEmpty, "At least one purchase order must be selected.", 400);
+
+        if (purchaseOrderTokens.Count > 1)
+        {
+            // Absence of any configured policy in the organization's ancestry defaults to
+            // "allowed" — see sp_SupplierInvoicePurchaseOrderPolicy_GetEffective's own comment.
+            // Re-checked here even though the frontend already renders a single-select radio
+            // picker when this is disabled — never trust the frontend already filtered it.
+            var policy = await GetEffectivePurchaseOrderPolicyAsync(connection, organization.OrganizationId);
+            if (policy is not null && !policy.AllowMultiplePurchaseOrders)
+                throw new ApiException(ErrorCodes.SupplierInvoiceMultiplePurchaseOrdersNotAllowed, "This organization's policy only allows one purchase order per invoice.", 409);
+        }
 
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.SupplierInvoiceEmpty, "At least one line must be invoiced.", 400);

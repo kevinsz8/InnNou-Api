@@ -406,6 +406,9 @@ namespace InnNou.Application.Common
         public const string SupplierInvoiceToleranceForbidden = "SUPPLIER_INVOICE_TOLERANCE_FORBIDDEN";
         public const string SupplierInvoiceToleranceInvalid = "SUPPLIER_INVOICE_TOLERANCE_INVALID";
         public const string SupplierInvoiceAttachmentInvalidFile = "SUPPLIER_INVOICE_ATTACHMENT_INVALID_FILE";
+        public const string SupplierInvoicePurchaseOrderPolicyForbidden = "SUPPLIER_INVOICE_PURCHASE_ORDER_POLICY_FORBIDDEN";
+        public const string SupplierInvoicePurchaseOrderPolicyInvalid = "SUPPLIER_INVOICE_PURCHASE_ORDER_POLICY_INVALID";
+        public const string SupplierInvoiceMultiplePurchaseOrdersNotAllowed = "SUPPLIER_INVOICE_MULTIPLE_PURCHASE_ORDERS_NOT_ALLOWED";
 
         // Generic / cross-cutting
         public const string UnhandledError = "UNHANDLED_ERROR";

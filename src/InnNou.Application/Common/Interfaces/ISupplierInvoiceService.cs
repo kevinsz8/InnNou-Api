@@ -9,7 +9,7 @@ namespace InnNou.Application.Common.Interfaces
 
         Task<SupplierInvoiceDto?> GetByTokenAsync(Guid supplierInvoiceToken, IRequestContext context, CancellationToken cancellationToken);
 
-        Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, IRequestContext context, CancellationToken cancellationToken);
+        Task<List<PurchaseOrderDto>> GetEligiblePurchaseOrdersAsync(Guid organizationToken, Guid supplierToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, string? dateType, IRequestContext context, CancellationToken cancellationToken);
 
         Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> purchaseOrderTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
 
@@ -20,5 +20,9 @@ namespace InnNou.Application.Common.Interfaces
         Task<SupplierInvoiceMatchToleranceDto?> GetEffectiveToleranceAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken);
 
         Task<SupplierInvoiceMatchToleranceDto?> UpsertToleranceAsync(Guid organizationToken, decimal tolerancePercent, decimal toleranceAmount, IRequestContext context, CancellationToken cancellationToken);
+
+        Task<SupplierInvoicePurchaseOrderPolicyDto?> GetEffectivePurchaseOrderPolicyAsync(Guid organizationToken, IRequestContext context, CancellationToken cancellationToken);
+
+        Task<SupplierInvoicePurchaseOrderPolicyDto?> UpsertPurchaseOrderPolicyAsync(Guid organizationToken, bool allowMultiplePurchaseOrders, IRequestContext context, CancellationToken cancellationToken);
     }
 }

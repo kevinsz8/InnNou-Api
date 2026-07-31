@@ -12,7 +12,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetEligiblePurchaseOrdersForInvoicingQueryResponse>> Handle(GetEligiblePurchaseOrdersForInvoicingQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await supplierInvoiceService.GetEligiblePurchaseOrdersAsync(request.OrganizationToken, request.SupplierToken, context, cancellationToken);
+            var result = await supplierInvoiceService.GetEligiblePurchaseOrdersAsync(
+                request.OrganizationToken, request.SupplierToken, request.PurchaseOrderNumber, request.DeliveryNoteNumber,
+                request.FromDate, request.ToDate, request.DateType, context, cancellationToken);
             var response = new GetEligiblePurchaseOrdersForInvoicingQueryResponse { PurchaseOrders = mapper.MapList<Responses.Common.PurchaseOrder>(result) };
             return ApiResponse<GetEligiblePurchaseOrdersForInvoicingQueryResponse>.SuccessResponse(response, 200);
         }

@@ -66,6 +66,7 @@ using CommonSupplierInvoice = InnNou.Application.Responses.Common.SupplierInvoic
 using CommonSupplierInvoiceLine = InnNou.Application.Responses.Common.SupplierInvoiceLine;
 using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrder;
 using CommonSupplierInvoiceMatchTolerance = InnNou.Application.Responses.Common.SupplierInvoiceMatchTolerance;
+using CommonSupplierInvoicePurchaseOrderPolicy = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrderPolicy;
 using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
@@ -306,6 +307,15 @@ namespace InnNou.Application.Mapping
                 EffectiveOrganizationName = d.EffectiveOrganizationName,
                 TolerancePercent = d.TolerancePercent,
                 ToleranceAmount = d.ToleranceAmount,
+                IsInherited = d.IsInherited
+            });
+
+            mapper.Register<SupplierInvoicePurchaseOrderPolicyDto, CommonSupplierInvoicePurchaseOrderPolicy>(d => new CommonSupplierInvoicePurchaseOrderPolicy
+            {
+                SupplierInvoicePurchaseOrderPolicyToken = d.SupplierInvoicePurchaseOrderPolicyToken,
+                EffectiveOrganizationToken = d.EffectiveOrganizationToken,
+                EffectiveOrganizationName = d.EffectiveOrganizationName,
+                AllowMultiplePurchaseOrders = d.AllowMultiplePurchaseOrders,
                 IsInherited = d.IsInherited
             });
 

@@ -26,6 +26,9 @@ public class SupplierInvoicesEndpoints : ICarterModule
 
         group.MapPost("/getEffectiveTolerance", HandleGetEffectiveTolerance).Produces<ApiResponse<GetSupplierInvoiceMatchToleranceQueryResponse>>(200);
         group.MapPost("/upsertTolerance", HandleUpsertTolerance).Produces<ApiResponse<UpsertSupplierInvoiceMatchToleranceCommandResponse>>(200);
+
+        group.MapPost("/getEffectivePurchaseOrderPolicy", HandleGetEffectivePurchaseOrderPolicy).Produces<ApiResponse<GetSupplierInvoicePurchaseOrderPolicyQueryResponse>>(200);
+        group.MapPost("/upsertPurchaseOrderPolicy", HandleUpsertPurchaseOrderPolicy).Produces<ApiResponse<UpsertSupplierInvoicePurchaseOrderPolicyCommandResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetPaged([FromBody] GetSupplierInvoicesQueryRequest request, ISender sender, CancellationToken ct)
@@ -100,6 +103,18 @@ public class SupplierInvoicesEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleUpsertTolerance([FromBody] UpsertSupplierInvoiceMatchToleranceCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleGetEffectivePurchaseOrderPolicy([FromBody] GetSupplierInvoicePurchaseOrderPolicyQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleUpsertPurchaseOrderPolicy([FromBody] UpsertSupplierInvoicePurchaseOrderPolicyCommandRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
