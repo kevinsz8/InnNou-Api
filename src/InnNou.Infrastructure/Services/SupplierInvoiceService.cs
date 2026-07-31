@@ -15,7 +15,6 @@ public class SupplierInvoiceService(
     IDbConnectionFactory connectionFactory,
     IMapper mapper,
     IPurchaseOrderService purchaseOrderService,
-    IWarehouseService warehouseService,
     ISupplierInvoiceFileStorage fileStorage) : ISupplierInvoiceService
 {
     private sealed class SupplierInvoicePageRow : SupplierInvoice { public int TotalCount { get; set; } }
@@ -71,6 +70,10 @@ public class SupplierInvoiceService(
         dto.PurchaseOrders = mapper.MapList<SupplierInvoicePurchaseOrderDto>(
             await connection.QueryAsync<SupplierInvoicePurchaseOrder>(
                 "sp_SupplierInvoicePurchaseOrder_GetBySupplierInvoiceId", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure));
+
+        dto.TaxBreakdown = mapper.MapList<SupplierInvoiceTaxBreakdownDto>(
+            await connection.QueryAsync<SupplierInvoiceTaxBreakdown>(
+                "sp_SupplierInvoiceTaxBreakdown_GetBySupplierInvoiceId", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure));
 
         dto.LineCount = dto.Lines.Count;
     }
@@ -341,9 +344,16 @@ public class SupplierInvoiceService(
         decimal ExpectedQuantity,
         decimal ExpectedUnitPrice,
         decimal QuantityInvoiced,
-        decimal UnitPriceInvoiced);
+        decimal UnitPriceInvoiced,
+        // Tax already frozen at receipt time (GoodsReceiptLine.TaxCategoryId/TaxRatePercent/
+        // TaxableAmount/TaxAmount) — reused as-is here, never re-resolved live, same
+        // freeze-and-never-recompute discipline every other snapshot in this codebase follows.
+        int? TaxCategoryId,
+        decimal? TaxRatePercent,
+        decimal? FrozenTaxableAmount,
+        decimal? FrozenTaxAmount);
 
-    public async Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> goodsReceiptTokens, List<CreateSupplierInvoiceLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<SupplierInvoiceDto?> CreateAsync(Guid organizationToken, Guid supplierToken, string supplierInvoiceNumber, DateTime invoiceDate, string? notes, List<Guid> goodsReceiptTokens, List<CreateSupplierInvoiceLineInputDto> lines, List<CreateSupplierInvoiceTaxBreakdownInputDto> taxBreakdown, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -420,7 +430,11 @@ public class SupplierInvoiceService(
                     ExpectedQuantity: receiptLine.QuantityAccepted,
                     ExpectedUnitPrice: purchaseOrderLine.UnitPrice,
                     QuantityInvoiced: 0,
-                    UnitPriceInvoiced: 0);
+                    UnitPriceInvoiced: 0,
+                    TaxCategoryId: receiptLine.TaxCategoryId,
+                    TaxRatePercent: receiptLine.TaxRatePercent,
+                    FrozenTaxableAmount: receiptLine.TaxableAmount,
+                    FrozenTaxAmount: receiptLine.TaxAmount);
             }
         }
 
@@ -469,32 +483,24 @@ public class SupplierInvoiceService(
         if (tolerance is null)
             throw new ApiException(ErrorCodes.SupplierInvoiceToleranceNotConfigured, "No invoice-matching tolerance is configured for this organization or any of its ancestors — configure one before creating a supplier invoice.", 400);
 
-        // Tax — informational only (matching tolerance is evaluated on the net/taxable amount,
-        // never the tax-inclusive total, same reasoning SAP/Odoo use: VAT is a recoverable
-        // pass-through liability, not a cost to reconcile). A missing tax configuration degrades
-        // gracefully to null tax fields here rather than blocking invoice creation — unlike
-        // GoodsReceipt's own hard validation, since Fase A already enforced tax completeness at
-        // receipt time, a gap here would be a pre-existing data issue, not something this step
-        // should police.
-        var distinctArticleIds = resolvedLines.Select(l => l.ArticleId).Distinct().ToList();
-        var effectiveCategories = (await connection.QueryAsync<ArticleEffectiveTaxCategory>(
-            "sp_Article_GetEffectiveTaxCategoryByIds",
-            new { ArticleIds = string.Join(",", distinctArticleIds) },
-            commandType: CommandType.StoredProcedure)).ToDictionary(a => a.ArticleId);
+        // Tax is reused as-is from what was already frozen on each GoodsReceiptLine at receipt
+        // time (ResolvedLine.TaxCategoryId/TaxRatePercent) — never re-resolved live here, same
+        // freeze-and-never-recompute discipline every other snapshot in this codebase follows.
 
-        var ratesByWarehouseId = new Dictionary<int, Dictionary<int, TaxRate>>();
-        foreach (var line in resolvedLines.DistinctBy(l => l.WarehouseId))
+        // "Base Fra" per tax rate — typed by the caller from the supplier's real invoice, the
+        // source of truth for MATCHED/DISCREPANCY now that per-line quantity/price can no longer
+        // diverge from the receipt (see CreateSupplierInvoiceTaxBreakdownInputDto). Validated,
+        // never blocking — an out-of-tolerance total still saves, just flagged.
+        if (taxBreakdown.Count == 0)
+            throw new ApiException(ErrorCodes.SupplierInvoiceTaxBreakdownRequired, "At least one tax-rate breakdown row (Base Fra) is required, transcribed from the supplier's real invoice.", 400);
+
+        foreach (var breakdown in taxBreakdown)
         {
-            var warehouse = await warehouseService.GetByTokenAsync(line.WarehouseToken, context, cancellationToken);
-            if (warehouse?.TaxJurisdictionId is null)
-            {
-                ratesByWarehouseId[line.WarehouseId] = [];
-                continue;
-            }
+            if (breakdown.BaseAmount < 0)
+                throw new ApiException(ErrorCodes.SupplierInvoiceTaxBreakdownInvalid, "Tax breakdown base amount cannot be negative.", 400);
 
-            var rates = await connection.QueryAsync<TaxRate>(
-                "sp_TaxRate_GetByJurisdictionId", new { TaxJurisdictionId = warehouse.TaxJurisdictionId }, commandType: CommandType.StoredProcedure);
-            ratesByWarehouseId[line.WarehouseId] = rates.ToDictionary(r => r.TaxCategoryId);
+            if (breakdown.TaxRatePercent is < 0)
+                throw new ApiException(ErrorCodes.SupplierInvoiceTaxBreakdownInvalid, "Tax breakdown rate cannot be negative.", 400);
         }
 
         var actor = context.ActorUserToken.ToString();
@@ -523,8 +529,6 @@ public class SupplierInvoiceService(
                 return null;
             }
 
-            var anyDiscrepancy = false;
-
             foreach (var line in resolvedLines)
             {
                 var taxableAmount = line.QuantityInvoiced * line.UnitPriceInvoiced;
@@ -533,22 +537,13 @@ public class SupplierInvoiceService(
                 var percentDiff = expectedNetAmount == 0
                     ? (taxableAmount == 0 ? 0 : 100)
                     : amountDiff / expectedNetAmount * 100;
+                // Kept for the line's own audit record even though it's now structurally always
+                // true (QuantityInvoiced/UnitPriceInvoiced can no longer diverge from the receipt,
+                // see CreateSupplierInvoiceLineInputDto) — no longer drives the header status,
+                // see the tax-breakdown-based check below instead.
                 var isWithinTolerance = percentDiff <= tolerance.TolerancePercent && amountDiff <= tolerance.ToleranceAmount;
-                if (!isWithinTolerance)
-                    anyDiscrepancy = true;
 
-                int? taxCategoryId = null;
-                decimal? taxRatePercent = null;
-                decimal? taxAmount = null;
-
-                if (effectiveCategories.TryGetValue(line.ArticleId, out var effective) && effective.TaxCategoryId.HasValue
-                    && ratesByWarehouseId.TryGetValue(line.WarehouseId, out var rates) && rates.TryGetValue(effective.TaxCategoryId.Value, out var rate))
-                {
-                    taxCategoryId = effective.TaxCategoryId.Value;
-                    taxRatePercent = rate.RatePercent;
-                    taxAmount = Math.Round(taxableAmount * rate.RatePercent / 100m, 4);
-                }
-
+                var taxAmount = line.FrozenTaxAmount;
                 var totalAmount = taxableAmount + (taxAmount ?? 0);
 
                 var lineParams = new DynamicParameters();
@@ -560,8 +555,8 @@ public class SupplierInvoiceService(
                 lineParams.Add("@QuantityInvoiced", line.QuantityInvoiced);
                 lineParams.Add("@UnitPriceInvoiced", line.UnitPriceInvoiced);
                 lineParams.Add("@CurrencyCode", line.CurrencyCode);
-                lineParams.Add("@TaxCategoryId", taxCategoryId);
-                lineParams.Add("@TaxRatePercent", taxRatePercent);
+                lineParams.Add("@TaxCategoryId", line.TaxCategoryId);
+                lineParams.Add("@TaxRatePercent", line.TaxRatePercent);
                 lineParams.Add("@TaxableAmount", taxableAmount);
                 lineParams.Add("@TaxAmount", taxAmount);
                 lineParams.Add("@TotalAmount", totalAmount);
@@ -577,6 +572,41 @@ public class SupplierInvoiceService(
                     throw new ApiException(ErrorCodes.SupplierInvoiceGoodsReceiptAlreadyInvoiced, "One of the selected goods receipt lines was already invoiced by another request.", 409);
                 }
             }
+
+            // Tax-breakdown rows — "Base Fra" per rate, transcribed from the real invoice.
+            foreach (var breakdown in taxBreakdown)
+            {
+                var breakdownTaxAmount = breakdown.TaxRatePercent.HasValue
+                    ? Math.Round(breakdown.BaseAmount * breakdown.TaxRatePercent.Value / 100m, 4)
+                    : 0m;
+
+                await connection.ExecuteAsync(
+                    "sp_SupplierInvoiceTaxBreakdown_Create",
+                    new
+                    {
+                        SupplierInvoiceTaxBreakdownToken = Guid.NewGuid(),
+                        header.SupplierInvoiceId,
+                        breakdown.TaxRatePercent,
+                        breakdown.BaseAmount,
+                        TaxAmount = breakdownTaxAmount,
+                        CreatedBy = actor
+                    },
+                    transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            // MATCHED/DISCREPANCY is now decided by comparing what the user transcribed from the
+            // real invoice (SUM of Base Fra) against what the selected receipts' own net amount
+            // adds up to — the per-line check above can no longer surface a mismatch on its own
+            // now that quantity/price are fixed by the receipt. Out-of-tolerance still saves,
+            // just flagged (matches the industry-standard "allow with warning" default, not a
+            // hard block — researched before building).
+            var expectedNetTotal = resolvedLines.Sum(l => l.ExpectedQuantity * l.ExpectedUnitPrice);
+            var typedBaseTotal = taxBreakdown.Sum(b => b.BaseAmount);
+            var headerAmountDiff = Math.Abs(typedBaseTotal - expectedNetTotal);
+            var headerPercentDiff = expectedNetTotal == 0
+                ? (typedBaseTotal == 0 ? 0 : 100)
+                : headerAmountDiff / expectedNetTotal * 100;
+            var anyDiscrepancy = headerPercentDiff > tolerance.TolerancePercent || headerAmountDiff > tolerance.ToleranceAmount;
 
             // Exclusivity gate: each selected GoodsReceipt (not PurchaseOrder — a PO can now
             // legitimately span several invoices, one per delivery) can be invoiced at most once.

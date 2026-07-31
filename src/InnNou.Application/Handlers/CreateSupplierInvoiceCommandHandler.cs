@@ -23,9 +23,15 @@ namespace InnNou.Application.Handlers
                 UnitPriceInvoiced = l.UnitPriceInvoiced
             }).ToList();
 
+            var taxBreakdown = request.TaxBreakdown.Select(b => new CreateSupplierInvoiceTaxBreakdownInputDto
+            {
+                TaxRatePercent = b.TaxRatePercent,
+                BaseAmount = b.BaseAmount
+            }).ToList();
+
             var result = await supplierInvoiceService.CreateAsync(
                 request.OrganizationToken, request.SupplierToken, request.SupplierInvoiceNumber.Trim(), request.InvoiceDate, request.Notes,
-                request.GoodsReceiptTokens, lines, context, cancellationToken);
+                request.GoodsReceiptTokens, lines, taxBreakdown, context, cancellationToken);
 
             if (result is null)
                 return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceNotFound, "Supplier invoice could not be created.", 500);

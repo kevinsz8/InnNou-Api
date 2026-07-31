@@ -23,5 +23,6 @@ namespace InnNou.Domain.Dtos
 
         public List<SupplierInvoiceLineDto> Lines { get; set; } = [];
         public List<SupplierInvoicePurchaseOrderDto> PurchaseOrders { get; set; } = [];
+        public List<SupplierInvoiceTaxBreakdownDto> TaxBreakdown { get; set; } = [];
     }
 }

@@ -229,6 +229,16 @@ namespace InnNou.Infrastructure.Mapping
                 CreatedBy = l.CreatedBy
             });
 
+            mapper.Register<SupplierInvoiceTaxBreakdown, SupplierInvoiceTaxBreakdownDto>(b => new SupplierInvoiceTaxBreakdownDto
+            {
+                SupplierInvoiceTaxBreakdownToken = b.SupplierInvoiceTaxBreakdownToken,
+                TaxRatePercent = b.TaxRatePercent,
+                BaseAmount = b.BaseAmount,
+                TaxAmount = b.TaxAmount,
+                CreatedUtc = b.CreatedUtc,
+                CreatedBy = b.CreatedBy
+            });
+
             mapper.Register<SupplierInvoice, SupplierInvoiceDto>(si => new SupplierInvoiceDto
             {
                 SupplierInvoiceToken = si.SupplierInvoiceToken,

@@ -11,6 +11,14 @@ namespace InnNou.Application.Requests
         public decimal UnitPriceInvoiced { get; set; }
     }
 
+    // "Base Fra" per tax rate, typed by the caller from the supplier's real invoice — see
+    // CreateSupplierInvoiceTaxBreakdownInputDto for the full rationale.
+    public class CreateSupplierInvoiceTaxBreakdownRequestItem
+    {
+        public decimal? TaxRatePercent { get; set; }
+        public decimal BaseAmount { get; set; }
+    }
+
     public class CreateSupplierInvoiceCommandRequest : IRequest<ApiResponse<CreateSupplierInvoiceCommandResponse>>
     {
         public Guid OrganizationToken { get; set; }
@@ -20,5 +28,6 @@ namespace InnNou.Application.Requests
         public string? Notes { get; set; }
         public List<Guid> GoodsReceiptTokens { get; set; } = [];
         public List<CreateSupplierInvoiceLineRequestItem> Lines { get; set; } = [];
+        public List<CreateSupplierInvoiceTaxBreakdownRequestItem> TaxBreakdown { get; set; } = [];
     }
 }

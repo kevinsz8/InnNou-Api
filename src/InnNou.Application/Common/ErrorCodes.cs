@@ -403,6 +403,8 @@ namespace InnNou.Application.Common
         public const string SupplierInvoicePurchaseOrderDifferentSupplier = "SUPPLIER_INVOICE_PURCHASE_ORDER_DIFFERENT_SUPPLIER";
         public const string SupplierInvoiceLineIncomplete = "SUPPLIER_INVOICE_LINE_INCOMPLETE";
         public const string SupplierInvoiceLineInvalid = "SUPPLIER_INVOICE_LINE_INVALID";
+        public const string SupplierInvoiceTaxBreakdownRequired = "SUPPLIER_INVOICE_TAX_BREAKDOWN_REQUIRED";
+        public const string SupplierInvoiceTaxBreakdownInvalid = "SUPPLIER_INVOICE_TAX_BREAKDOWN_INVALID";
         public const string SupplierInvoiceToleranceNotConfigured = "SUPPLIER_INVOICE_TOLERANCE_NOT_CONFIGURED";
         public const string SupplierInvoiceToleranceForbidden = "SUPPLIER_INVOICE_TOLERANCE_FORBIDDEN";
         public const string SupplierInvoiceToleranceInvalid = "SUPPLIER_INVOICE_TOLERANCE_INVALID";

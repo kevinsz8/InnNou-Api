@@ -23,5 +23,6 @@ namespace InnNou.Application.Responses.Common
 
         public List<SupplierInvoiceLine> Lines { get; set; } = [];
         public List<SupplierInvoicePurchaseOrder> PurchaseOrders { get; set; } = [];
+        public List<SupplierInvoiceTaxBreakdown> TaxBreakdown { get; set; } = [];
     }
 }
