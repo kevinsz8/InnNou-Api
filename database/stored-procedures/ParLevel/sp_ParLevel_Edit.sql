@@ -9,8 +9,8 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_ParLevel_Edit
 (
     @ParLevelToken   UNIQUEIDENTIFIER,
-    @MinimumQuantity DECIMAL(18,4),
-    @ReorderQuantity DECIMAL(18,4),
+    @MinimumQuantity DECIMAL(18,8),
+    @ReorderQuantity DECIMAL(18,8),
     @LastUpdatedBy   VARCHAR(150)
 )
 AS

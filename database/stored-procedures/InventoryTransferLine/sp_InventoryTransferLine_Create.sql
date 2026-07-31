@@ -14,7 +14,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryTransferLine_Create
     @InventoryTransferLineToken UNIQUEIDENTIFIER,
     @InventoryTransferId        INT,
     @ArticleId                  INT,
-    @Quantity                   DECIMAL(18,4),
+    @Quantity                   DECIMAL(18,8),
     @Notes                      NVARCHAR(500) = NULL,
     @CreatedBy                  VARCHAR(150)
 )

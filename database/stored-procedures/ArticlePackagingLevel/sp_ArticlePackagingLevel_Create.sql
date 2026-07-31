@@ -16,7 +16,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_ArticlePackagingLevel_Create
     @ArticleId                  INT,
     @SequenceOrder               TINYINT,
     @UnitOfMeasureId              INT,
-    @QuantityInParentUnit          DECIMAL(18,4),
+    @QuantityInParentUnit          DECIMAL(18,8),
     @IsDefinedUnit                 BIT,
     @CreatedBy                     VARCHAR(150) = NULL
 )

@@ -14,7 +14,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryPeriodCount_UpdateCount
 (
     @InventoryPeriodId INT,
     @ArticleId         INT,
-    @CountedQuantity   DECIMAL(18,4),
+    @CountedQuantity   DECIMAL(18,8),
     @ActorBy           VARCHAR(150)
 )
 AS

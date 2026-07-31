@@ -13,7 +13,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_TaxRate_Upsert
 (
     @TaxJurisdictionId INT,
     @TaxCategoryId     INT,
-    @RatePercent       DECIMAL(6,3),
+    @RatePercent       DECIMAL(11,8),
     @LastUpdatedBy     VARCHAR(150)
 )
 AS

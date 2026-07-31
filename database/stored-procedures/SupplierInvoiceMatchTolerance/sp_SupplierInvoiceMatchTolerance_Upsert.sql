@@ -11,8 +11,8 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoiceMatchTolerance_Upsert
 (
     @OrganizationId  INT,
-    @TolerancePercent DECIMAL(6,3),
-    @ToleranceAmount  DECIMAL(18,4),
+    @TolerancePercent DECIMAL(11,8),
+    @ToleranceAmount  DECIMAL(18,8),
     @LastUpdatedBy    VARCHAR(150)
 )
 AS

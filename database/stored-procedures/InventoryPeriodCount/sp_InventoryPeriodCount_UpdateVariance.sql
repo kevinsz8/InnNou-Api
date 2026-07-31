@@ -14,8 +14,8 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_InventoryPeriodCount_UpdateVariance
 (
     @InventoryPeriodCountId INT,
-    @SystemQuantityAtClose  DECIMAL(18,4) = NULL,
-    @VarianceQuantity       DECIMAL(18,4) = NULL,
+    @SystemQuantityAtClose  DECIMAL(18,8) = NULL,
+    @VarianceQuantity       DECIMAL(18,8) = NULL,
     @ActorBy                VARCHAR(150)
 )
 AS

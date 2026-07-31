@@ -14,7 +14,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_OrderTemplateLine_Upsert
     @OrderTemplateLineToken UNIQUEIDENTIFIER,
     @OrderTemplateId        INT,
     @ArticleId              INT,
-    @Quantity               DECIMAL(18,4),
+    @Quantity               DECIMAL(18,8),
     @CreatedBy              VARCHAR(150)
 )
 AS

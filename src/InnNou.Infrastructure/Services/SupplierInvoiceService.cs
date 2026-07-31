@@ -577,7 +577,7 @@ public class SupplierInvoiceService(
             foreach (var breakdown in taxBreakdown)
             {
                 var breakdownTaxAmount = breakdown.TaxRatePercent.HasValue
-                    ? Math.Round(breakdown.BaseAmount * breakdown.TaxRatePercent.Value / 100m, 4)
+                    ? Math.Round(breakdown.BaseAmount * breakdown.TaxRatePercent.Value / 100m, 8)
                     : 0m;
 
                 await connection.ExecuteAsync(

@@ -10,7 +10,7 @@ CREATE OR ALTER PROCEDURE sp_ArticlePrice_Create
     @ArticlePriceToken UNIQUEIDENTIFIER,
     @ArticleId         INT,
     @OrganizationId    INT            = NULL,
-    @Price             DECIMAL(18,4),
+    @Price             DECIMAL(18,8),
     @CurrencyCode      VARCHAR(3),
     @EffectiveDate     DATE,
     @Notes             NVARCHAR(500)  = NULL,

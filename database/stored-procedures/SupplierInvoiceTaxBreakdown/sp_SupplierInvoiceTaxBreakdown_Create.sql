@@ -14,9 +14,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoiceTaxBreakdown_Create
 (
     @SupplierInvoiceTaxBreakdownToken UNIQUEIDENTIFIER,
     @SupplierInvoiceId                INT,
-    @TaxRatePercent                   DECIMAL(6,3)  = NULL,
-    @BaseAmount                       DECIMAL(18,4),
-    @TaxAmount                        DECIMAL(18,4),
+    @TaxRatePercent                   DECIMAL(11,8)  = NULL,
+    @BaseAmount                       DECIMAL(18,8),
+    @TaxAmount                        DECIMAL(18,8),
     @CreatedBy                        VARCHAR(150)
 )
 AS

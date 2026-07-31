@@ -20,7 +20,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_StockLevel_ApplyDelta
 (
     @WarehouseId INT,
     @ArticleId   INT,
-    @Delta       DECIMAL(18,4),
+    @Delta       DECIMAL(18,8),
     @ActorBy     VARCHAR(150)
 )
 AS

@@ -7,7 +7,7 @@ CREATE OR ALTER PROCEDURE sp_FamilyApprovalThreshold_Create
     @OrganizationId               INT,
     @FamilyId                     INT,
     @Level                        TINYINT,
-    @ThresholdAmount              DECIMAL(18,4),
+    @ThresholdAmount              DECIMAL(18,8),
     @ApproverUserId               INT,
     @CreatedBy                    VARCHAR(150)
 AS

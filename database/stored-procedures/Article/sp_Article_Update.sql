@@ -8,7 +8,7 @@ CREATE OR ALTER PROCEDURE sp_Article_Update
     @FamilyId         INT            = NULL,
     @SubFamilyId      INT            = NULL,
     @PurchaseUnitId   INT,
-    @MinimumOrderQty  DECIMAL(18,4)  = NULL,
+    @MinimumOrderQty  DECIMAL(18,8)  = NULL,
     @LeadTimeDays     INT            = NULL,
     @TaxCategoryId    INT            = NULL,
     @LastUpdatedBy    VARCHAR(150)

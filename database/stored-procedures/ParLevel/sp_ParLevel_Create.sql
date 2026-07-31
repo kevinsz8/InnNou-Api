@@ -14,8 +14,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_ParLevel_Create
     @ParLevelToken   UNIQUEIDENTIFIER,
     @WarehouseId     INT,
     @ArticleId       INT,
-    @MinimumQuantity DECIMAL(18,4),
-    @ReorderQuantity DECIMAL(18,4),
+    @MinimumQuantity DECIMAL(18,8),
+    @ReorderQuantity DECIMAL(18,8),
     @CreatedBy       VARCHAR(150)
 )
 AS

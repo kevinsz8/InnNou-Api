@@ -721,7 +721,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                     throw new ApiException(ErrorCodes.GoodsReceiptTaxRateMissing, $"No tax rate is configured for category '{effective.TaxCategoryCode}' in this warehouse's tax jurisdiction.", 400);
 
                 var taxableAmount = validated.Input.QuantityAccepted * validated.Line.UnitPrice;
-                var taxAmount = Math.Round(taxableAmount * rate.RatePercent / 100m, 4);
+                var taxAmount = Math.Round(taxableAmount * rate.RatePercent / 100m, 8);
 
                 taxByLineId[validated.Line.PurchaseOrderLineId] = new GoodsReceiptLineTax
                 {

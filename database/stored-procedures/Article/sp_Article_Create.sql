@@ -9,7 +9,7 @@ CREATE OR ALTER PROCEDURE sp_Article_Create
     @FamilyId         INT            = NULL,
     @SubFamilyId      INT            = NULL,
     @PurchaseUnitId   INT,
-    @MinimumOrderQty  DECIMAL(18,4)  = NULL,
+    @MinimumOrderQty  DECIMAL(18,8)  = NULL,
     @LeadTimeDays     INT            = NULL,
     @TaxCategoryId    INT            = NULL,
     @CreatedBy        VARCHAR(150)

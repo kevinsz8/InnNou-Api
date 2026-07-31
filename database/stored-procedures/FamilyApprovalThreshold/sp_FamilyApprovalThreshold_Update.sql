@@ -6,7 +6,7 @@ GO
 -- convention as Zone.CountryId) — only ThresholdAmount and ApproverUserId can change.
 CREATE OR ALTER PROCEDURE sp_FamilyApprovalThreshold_Update
     @FamilyApprovalThresholdToken UNIQUEIDENTIFIER,
-    @ThresholdAmount              DECIMAL(18,4),
+    @ThresholdAmount              DECIMAL(18,8),
     @ApproverUserId               INT,
     @LastUpdatedBy                VARCHAR(150)
 AS

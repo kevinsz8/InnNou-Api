@@ -16,7 +16,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryPeriodCount_Create
     @InventoryPeriodCountToken UNIQUEIDENTIFIER,
     @InventoryPeriodId         INT,
     @ArticleId                 INT,
-    @OpeningQuantity           DECIMAL(18,4),
+    @OpeningQuantity           DECIMAL(18,8),
     @CreatedBy                 VARCHAR(150)
 )
 AS

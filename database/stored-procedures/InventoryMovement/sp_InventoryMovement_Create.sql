@@ -17,7 +17,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryMovement_Create
     @WarehouseId             INT,
     @ArticleId               INT,
     @Type                    VARCHAR(20),
-    @Quantity                DECIMAL(18,4),
+    @Quantity                DECIMAL(18,8),
     @GoodsReceiptLineId      INT           = NULL,
     @InventoryTransferLineId INT           = NULL,
     @InventoryPeriodCountId  INT           = NULL,

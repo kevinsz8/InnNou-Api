@@ -11,7 +11,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_OrderLine_Edit
 (
     @OrderLineToken UNIQUEIDENTIFIER,
-    @Quantity       DECIMAL(18,4),
+    @Quantity       DECIMAL(18,8),
     @LastUpdatedBy  VARCHAR(150)
 )
 AS

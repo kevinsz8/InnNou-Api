@@ -21,9 +21,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_GoodsReceiptLine_Create
     @GoodsReceiptId        INT,
     @PurchaseOrderLineId   INT,
     @ArticleId             INT,
-    @QuantityAccepted      DECIMAL(18,4) = 0,
-    @QuantityCourtesy      DECIMAL(18,4) = 0,
-    @QuantityRejected      DECIMAL(18,4) = 0,
+    @QuantityAccepted      DECIMAL(18,8) = 0,
+    @QuantityCourtesy      DECIMAL(18,8) = 0,
+    @QuantityRejected      DECIMAL(18,8) = 0,
     @RejectionReason       NVARCHAR(500) = NULL,
     @LotNumber             NVARCHAR(100) = NULL,
     @ExpirationDate        DATE          = NULL,
@@ -31,10 +31,10 @@ CREATE OR ALTER PROCEDURE dbo.sp_GoodsReceiptLine_Create
     @Notes                 NVARCHAR(500) = NULL,
     @TaxCategoryId         INT           = NULL,
     @TaxRateId             INT           = NULL,
-    @TaxRatePercent        DECIMAL(6,3)  = NULL,
-    @TaxableAmount         DECIMAL(18,4) = NULL,
-    @TaxAmount             DECIMAL(18,4) = NULL,
-    @TotalAmount           DECIMAL(18,4) = NULL,
+    @TaxRatePercent        DECIMAL(11,8)  = NULL,
+    @TaxableAmount         DECIMAL(18,8) = NULL,
+    @TaxAmount             DECIMAL(18,8) = NULL,
+    @TotalAmount           DECIMAL(18,8) = NULL,
     @CreatedBy             VARCHAR(150)
 )
 AS
