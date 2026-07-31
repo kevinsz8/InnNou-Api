@@ -8,7 +8,11 @@ GO
    DeliveryNoteNumber (added 2026-08-04) lets the UI group lines by article
    and still show which albaran each one came from when expanded — LEFT JOIN
    since GoodsReceiptLineId is nullable (pre-2026-08-02 invoices, from before
-   invoicing moved to receipt granularity, never had one).
+   invoicing moved to receipt granularity, never had one). WarehouseName
+   (added 2026-08-05) rides the same LEFT JOIN chain — SupplierInvoiceService
+   .PopulateComputedTotals derives the header's distinct WarehouseNames from
+   these per-line values, same "compute in C# from hydrated Lines" approach
+   already used for PurchaseOrderNumbers.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoiceLine_GetBySupplierInvoiceId
 (
@@ -27,6 +31,7 @@ BEGIN
         sil.TaxableAmount, sil.TaxAmount, sil.TotalAmount,
         sil.IsWithinTolerance,
         gr.DeliveryNoteNumber,
+        w.Name AS WarehouseName,
         sil.CreatedUtc, sil.CreatedBy
     FROM dbo.SupplierInvoiceLines sil
     JOIN dbo.PurchaseOrderLine pol      ON pol.PurchaseOrderLineId = sil.PurchaseOrderLineId
@@ -35,6 +40,7 @@ BEGIN
     LEFT JOIN dbo.TaxCategories tc      ON tc.TaxCategoryId        = sil.TaxCategoryId
     LEFT JOIN dbo.GoodsReceiptLine grl  ON grl.GoodsReceiptLineId  = sil.GoodsReceiptLineId
     LEFT JOIN dbo.GoodsReceipt gr       ON gr.GoodsReceiptId       = grl.GoodsReceiptId
+    LEFT JOIN dbo.Warehouses w          ON w.WarehouseId           = gr.WarehouseId
     WHERE sil.SupplierInvoiceId = @SupplierInvoiceId
     ORDER BY sil.SupplierInvoiceLineId;
 END;

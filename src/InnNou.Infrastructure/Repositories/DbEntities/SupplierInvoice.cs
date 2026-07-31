@@ -24,5 +24,6 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public decimal? TotalTaxableAmount { get; set; }
         public decimal? TotalAmount { get; set; }
         public string? PurchaseOrderNumbers { get; set; }
+        public string? WarehouseNames { get; set; }
     }
 }

@@ -370,6 +370,7 @@ namespace InnNou.Application.Mapping
                 TotalAmount = d.TotalAmount,
                 IsWithinTolerance = d.IsWithinTolerance,
                 DeliveryNoteNumber = d.DeliveryNoteNumber,
+                WarehouseName = d.WarehouseName,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
             });
@@ -393,6 +394,7 @@ namespace InnNou.Application.Mapping
                 TotalTaxableAmount = d.TotalTaxableAmount,
                 TotalAmount = d.TotalAmount,
                 PurchaseOrderNumbers = d.PurchaseOrderNumbers,
+                WarehouseNames = d.WarehouseNames,
                 Lines = mapper.MapList<CommonSupplierInvoiceLine>(d.Lines),
                 PurchaseOrders = mapper.MapList<CommonSupplierInvoicePurchaseOrder>(d.PurchaseOrders),
                 TaxBreakdown = mapper.MapList<CommonSupplierInvoiceTaxBreakdown>(d.TaxBreakdown)

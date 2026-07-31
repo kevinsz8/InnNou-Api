@@ -52,6 +52,7 @@ BEGIN
         si.AttachmentUrl, si.Notes, si.CreatedUtc, si.CreatedBy,
         totals.LineCount, totals.TotalTaxableAmount, totals.TotalAmount,
         pos.PurchaseOrderNumbers,
+        whs.WarehouseNames,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.SupplierInvoices si
     JOIN dbo.Organizations org          ON org.OrganizationId = si.OrganizationId
@@ -68,6 +69,17 @@ BEGIN
         JOIN dbo.PurchaseOrder po ON po.PurchaseOrderId = sipo.PurchaseOrderId
         WHERE sipo.SupplierInvoiceId = si.SupplierInvoiceId
     ) pos
+    CROSS APPLY (
+        -- STRING_AGG has no DISTINCT support in T-SQL — dedupe via a derived table first.
+        SELECT STRING_AGG(dw.Name, ', ') AS WarehouseNames
+        FROM (
+            SELECT DISTINCT w.Name
+            FROM dbo.SupplierInvoiceGoodsReceipts sigr
+            JOIN dbo.GoodsReceipt gr ON gr.GoodsReceiptId = sigr.GoodsReceiptId
+            JOIN dbo.Warehouses w    ON w.WarehouseId     = gr.WarehouseId
+            WHERE sigr.SupplierInvoiceId = si.SupplierInvoiceId
+        ) dw
+    ) whs
     WHERE (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = si.OrganizationId))
       AND (@SupplierId IS NULL OR si.SupplierId = @SupplierId)
       AND (@StatusId IS NULL OR si.SupplierInvoiceStatusId = @StatusId)

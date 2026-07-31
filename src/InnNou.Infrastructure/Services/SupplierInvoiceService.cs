@@ -88,6 +88,7 @@ public class SupplierInvoiceService(
         dto.TotalTaxableAmount = dto.Lines.Sum(l => l.TaxableAmount);
         dto.TotalAmount = dto.Lines.Sum(l => l.TotalAmount);
         dto.PurchaseOrderNumbers = string.Join(", ", dto.PurchaseOrders.Select(po => po.PurchaseOrderNumber));
+        dto.WarehouseNames = string.Join(", ", dto.Lines.Select(l => l.WarehouseName).Where(w => !string.IsNullOrWhiteSpace(w)).Distinct());
     }
 
     public async Task<PagedResult<SupplierInvoiceDto>> GetPagedAsync(Guid? organizationToken, Guid? supplierToken, string? status, string? searchText, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)

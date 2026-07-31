@@ -226,6 +226,7 @@ namespace InnNou.Infrastructure.Mapping
                 TotalAmount = l.TotalAmount,
                 IsWithinTolerance = l.IsWithinTolerance,
                 DeliveryNoteNumber = l.DeliveryNoteNumber,
+                WarehouseName = l.WarehouseName,
                 CreatedUtc = l.CreatedUtc,
                 CreatedBy = l.CreatedBy
             });
@@ -258,7 +259,8 @@ namespace InnNou.Infrastructure.Mapping
                 LineCount = si.LineCount,
                 TotalTaxableAmount = si.TotalTaxableAmount,
                 TotalAmount = si.TotalAmount,
-                PurchaseOrderNumbers = si.PurchaseOrderNumbers
+                PurchaseOrderNumbers = si.PurchaseOrderNumbers,
+                WarehouseNames = si.WarehouseNames
             });
 
             mapper.Register<FamilyApprovalThresholdEntity, FamilyApprovalThresholdDto>(t => new FamilyApprovalThresholdDto

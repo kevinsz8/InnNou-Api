@@ -20,6 +20,7 @@ namespace InnNou.Application.Responses.Common
         public decimal? TotalTaxableAmount { get; set; }
         public decimal? TotalAmount { get; set; }
         public string? PurchaseOrderNumbers { get; set; }
+        public string? WarehouseNames { get; set; }
 
         public List<SupplierInvoiceLine> Lines { get; set; } = [];
         public List<SupplierInvoicePurchaseOrder> PurchaseOrders { get; set; } = [];

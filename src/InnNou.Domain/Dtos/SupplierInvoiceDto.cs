@@ -20,6 +20,7 @@ namespace InnNou.Domain.Dtos
         public decimal? TotalTaxableAmount { get; set; }
         public decimal? TotalAmount { get; set; }
         public string? PurchaseOrderNumbers { get; set; }
+        public string? WarehouseNames { get; set; }
 
         public List<SupplierInvoiceLineDto> Lines { get; set; } = [];
         public List<SupplierInvoicePurchaseOrderDto> PurchaseOrders { get; set; } = [];
