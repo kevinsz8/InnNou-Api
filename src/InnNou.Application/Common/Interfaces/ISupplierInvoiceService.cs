@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface ISupplierInvoiceService
     {
-        Task<PagedResult<SupplierInvoiceDto>> GetPagedAsync(Guid organizationToken, Guid? supplierToken, string? status, string? searchText, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<SupplierInvoiceDto>> GetPagedAsync(Guid? organizationToken, Guid? supplierToken, string? status, string? searchText, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
 
         Task<SupplierInvoiceDto?> GetByTokenAsync(Guid supplierInvoiceToken, IRequestContext context, CancellationToken cancellationToken);
 

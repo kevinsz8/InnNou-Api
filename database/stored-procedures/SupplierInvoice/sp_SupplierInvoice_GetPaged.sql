@@ -4,15 +4,19 @@ SET QUOTED_IDENTIFIER ON;
 GO
 /* =============================================================
    SUPPLIERINVOICE - GET PAGED
-   Always scoped to one Organization (no cross-tenant browse — an invoice
-   belongs to exactly one buying Organization, same as PurchaseOrder).
+   @RootOrganizationId expands via a recursive hierarchy CTE, same shape as
+   sp_PurchaseOrder_GetPaged/sp_Order_GetPaged: passing a specific org (leaf
+   ASSOCIATE property, no descendants) behaves like the old exact-match
+   filter; passing a SUPER_ASSOCIATE org's token or leaving it NULL (bare
+   SuperAdmin only, enforced in SupplierInvoiceService) browses every
+   descendant/all organizations' invoices at once.
    Totals (TotalTaxableAmount/TotalAmount) and the consolidated PO numbers
    are computed here via subqueries/STRING_AGG rather than stored on the
    header, same "compute on read" convention PurchaseOrder itself uses.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoice_GetPaged
 (
-    @OrganizationId   INT,
+    @RootOrganizationId INT          = NULL,
     @SupplierId       INT          = NULL,
     @StatusId         INT          = NULL,
     @SearchText       VARCHAR(200) = NULL,
@@ -27,6 +31,18 @@ BEGIN
 
     DECLARE @ToDateExclusive DATE = DATEADD(DAY, 1, @ToDate);
 
+    ;WITH OrganizationHierarchy AS
+    (
+        SELECT o.OrganizationId
+        FROM dbo.Organizations o
+        WHERE o.OrganizationId = @RootOrganizationId
+
+        UNION ALL
+
+        SELECT o.OrganizationId
+        FROM dbo.Organizations o
+        INNER JOIN OrganizationHierarchy oh ON o.ParentOrganizationId = oh.OrganizationId
+    )
     SELECT
         si.SupplierInvoiceId, si.SupplierInvoiceToken,
         si.OrganizationId, org.OrganizationToken, org.Name AS OrganizationName,
@@ -52,7 +68,7 @@ BEGIN
         JOIN dbo.PurchaseOrder po ON po.PurchaseOrderId = sipo.PurchaseOrderId
         WHERE sipo.SupplierInvoiceId = si.SupplierInvoiceId
     ) pos
-    WHERE si.OrganizationId = @OrganizationId
+    WHERE (@RootOrganizationId IS NULL OR EXISTS (SELECT 1 FROM OrganizationHierarchy oh WHERE oh.OrganizationId = si.OrganizationId))
       AND (@SupplierId IS NULL OR si.SupplierId = @SupplierId)
       AND (@StatusId IS NULL OR si.SupplierInvoiceStatusId = @StatusId)
       AND (@SearchText IS NULL

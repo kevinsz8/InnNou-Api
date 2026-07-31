@@ -87,21 +87,49 @@ public class SupplierInvoiceService(
         dto.PurchaseOrderNumbers = string.Join(", ", dto.PurchaseOrders.Select(po => po.PurchaseOrderNumber));
     }
 
-    public async Task<PagedResult<SupplierInvoiceDto>> GetPagedAsync(Guid organizationToken, Guid? supplierToken, string? status, string? searchText, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<SupplierInvoiceDto>> GetPagedAsync(Guid? organizationToken, Guid? supplierToken, string? status, string? searchText, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
 
         await using var connection = connectionFactory.CreateConnection();
 
-        var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
-            "sp_Organization_GetByToken", new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
+        // Resolves the hierarchy root the SP's recursive CTE expands from — same shape as
+        // PurchaseOrderService.GetPagedAsync. An explicit organizationToken always wins (lets
+        // even a bare SuperAdmin narrow to one org). Omitting it falls back to a whole-hierarchy
+        // search, but — unlike PurchaseOrder — that fallback is deliberately restricted to
+        // non-ASSOCIATE callers (SuperAdmin/Admin/Super Asociado): confirmed with the user that
+        // an ASSOCIATE (single-property) caller must always pick their own organization
+        // explicitly, since "browse every property's invoices at once" has no use case for them.
+        int? rootOrganizationId;
 
-        if (organization is null)
-            return new PagedResult<SupplierInvoiceDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+        if (organizationToken.HasValue)
+        {
+            var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+                "sp_Organization_GetByToken", new { OrganizationToken = organizationToken.Value, RootOrganizationId = (int?)null }, commandType: CommandType.StoredProcedure);
 
-        if (!await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
-            throw new ApiException(ErrorCodes.SupplierInvoiceForbidden, "Cannot view supplier invoices outside your scope.", 403);
+            if (organization is null)
+                return new PagedResult<SupplierInvoiceDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            if (!await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
+                throw new ApiException(ErrorCodes.SupplierInvoiceForbidden, "Cannot view supplier invoices outside your scope.", 403);
+
+            rootOrganizationId = organization.OrganizationId;
+        }
+        else if (context.RoleLevel >= SuperAdminRoleLevel)
+        {
+            // Bare SuperAdmin (no organization of their own) => null => fully unrestricted;
+            // an impersonating SuperAdmin => their impersonated org's own hierarchy.
+            rootOrganizationId = context.OrganizationId;
+        }
+        else if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate && context.OrganizationId.HasValue)
+        {
+            rootOrganizationId = context.OrganizationId.Value;
+        }
+        else
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "An organization must be selected.", 400);
+        }
 
         int? supplierId = null;
         if (supplierToken.HasValue)
@@ -116,7 +144,7 @@ public class SupplierInvoiceService(
             statusId = (int)parsedStatus;
 
         var p = new DynamicParameters();
-        p.Add("@OrganizationId", organization.OrganizationId);
+        p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@SupplierId", supplierId);
         p.Add("@StatusId", statusId);
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim());

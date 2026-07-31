@@ -6,7 +6,7 @@ namespace InnNou.Application.Requests
 {
     public class GetSupplierInvoicesQueryRequest : IRequest<ApiResponse<GetSupplierInvoicesQueryResponse>>
     {
-        public Guid OrganizationToken { get; set; }
+        public Guid? OrganizationToken { get; set; }
         public Guid? SupplierToken { get; set; }
         public string? Status { get; set; }
         public string? SearchText { get; set; }
