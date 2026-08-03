@@ -281,7 +281,40 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         public int ApproverUserId { get; set; }
     }
 
-    public async Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    // Same shape as OrderService's own private nested classes of the same name — duplicated
+    // rather than shared, matching this codebase's established "cross-domain write inside another
+    // workflow's transaction stays a raw Dapper call, never a cross-service injection" convention.
+    private sealed class SupplierDeliveryZoneCoverage
+    {
+        public int? WarehouseZoneId { get; set; }
+        public bool EnforcementActive { get; set; }
+        public bool HasCoverage { get; set; }
+    }
+
+    private sealed class ArticleClassificationEffective
+    {
+        public int? CategoryId { get; set; }
+        public string? CategoryCode { get; set; }
+        public int? SubCategoryId { get; set; }
+        public string? SubCategoryCode { get; set; }
+        public bool IsInherited { get; set; }
+    }
+
+    // A brand-new line resolved (article/price/packaging/classification) but not yet inserted —
+    // same shape sp_PurchaseOrderLine_Create needs, mirroring OrderService.AddLineAsync's own
+    // resolution for a draft Order line.
+    private sealed class ValidatedNewRectificationLine
+    {
+        public required Article Article { get; init; }
+        public required decimal Quantity { get; init; }
+        public required decimal UnitPrice { get; init; }
+        public required string CurrencyCode { get; init; }
+        public required int ContentUnitId { get; init; }
+        public required decimal ContentQuantity { get; init; }
+        public ArticleClassificationEffective? Classification { get; init; }
+    }
+
+    public async Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, List<RectifyPurchaseOrderNewLineInputDto> newLines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -301,8 +334,8 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (purchaseOrder.Status != PurchaseOrderStatus.Sent && purchaseOrder.Status != PurchaseOrderStatus.Partially_Received)
             throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidStatus, "Only a sent or partially received purchase order can be rectified.", 409);
 
-        if (lines.Count == 0)
-            throw new ApiException(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified.", 400);
+        if (lines.Count == 0 && newLines.Count == 0)
+            throw new ApiException(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified or added.", 400);
 
         if (!PurchaseOrderRectificationReasonCodes.TryFromCode(reason, out var normalizedReason))
             throw new ApiException(ErrorCodes.InvalidRequest, "Invalid rectification reason.", 400);
@@ -375,6 +408,110 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             });
         }
 
+        // Brand-new lines — an article never on the original PO (e.g. shipped against a phone-in
+        // addition), same supplier only. Resolution mirrors OrderService.AddLineAsync's own
+        // (article lookup, zone coverage, catalog-or-manual price, packaging, classification
+        // snapshot) since this is functionally "add a line," just applied post-send.
+        var articleTokensAlreadyOnOrder = thisPoLinesByToken.Values
+            .Where(l => !l.IsCancelled)
+            .Select(l => l.ArticleToken)
+            .ToHashSet();
+
+        var validatedNewLines = new List<ValidatedNewRectificationLine>();
+
+        foreach (var input in newLines)
+        {
+            if (articleTokensAlreadyOnOrder.Contains(input.ArticleToken))
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationNewLineAlreadyOnOrder, $"Article '{input.ArticleToken}' is already a line on this purchase order — rectify its quantity/price instead of adding it again.", 409);
+
+            if (input.Quantity <= 0)
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive Quantity is required for article '{input.ArticleToken}'.", 400);
+
+            // Same "own organization, strict visibility" resolution AddLineAsync uses — never the
+            // acting user's own role/supplier identity, so a private-supplier article resolves
+            // only for the PO's own legitimate organization.
+            var article = await connection.QueryFirstOrDefaultAsync<Article>(
+                "sp_Article_GetByToken", new { ArticleToken = input.ArticleToken, OrganizationId = purchaseOrder.OrganizationId, ContextRoleLevel = 0 }, commandType: CommandType.StoredProcedure);
+
+            if (article is null)
+                throw new ApiException(ErrorCodes.ArticleNotFound, $"Article '{input.ArticleToken}' not found.", 404);
+
+            if (article.SupplierId != purchaseOrder.SupplierId)
+                throw new ApiException(ErrorCodes.PurchaseOrderRectificationNewLineSupplierMismatch, $"Article '{article.Name}' does not belong to this purchase order's supplier.", 409);
+
+            var packagingLevels = (await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = article.ArticleId }, commandType: CommandType.StoredProcedure)).ToList();
+            var definedLevel = packagingLevels.FirstOrDefault(l => l.IsDefinedUnit);
+            var totalContentQuantity = packagingLevels.Aggregate(1m, (total, level) => total * level.QuantityInParentUnit);
+
+            var coverage = await connection.QueryFirstOrDefaultAsync<SupplierDeliveryZoneCoverage>(
+                "sp_SupplierDeliveryZone_CheckCoverage",
+                new { SupplierId = article.SupplierId, purchaseOrder.WarehouseId },
+                commandType: CommandType.StoredProcedure);
+
+            if (coverage is not null && coverage.EnforcementActive && !coverage.HasCoverage)
+                throw new ApiException(ErrorCodes.ArticleSupplierZoneNotCovered, "This supplier does not deliver to the purchase order's zone.", 409);
+
+            var priceParams = new DynamicParameters();
+            priceParams.Add("@ArticleId", article.ArticleId);
+            priceParams.Add("@OrganizationId", purchaseOrder.OrganizationId);
+            priceParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
+            priceParams.Add("@AsOfDate", DateTime.UtcNow.Date);
+
+            var priceRow = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
+                "sp_ArticlePrice_GetCurrent", priceParams, commandType: CommandType.StoredProcedure);
+
+            var resolvedCurrencyCode = priceParams.Get<string?>("@CurrencyCode");
+
+            decimal unitPrice;
+            string currencyCode;
+
+            if (priceRow is not null)
+            {
+                unitPrice = priceRow.Price;
+                currencyCode = priceRow.CurrencyCode;
+            }
+            else
+            {
+                var isServiceOrMixed = article.SupplierType is SupplierType.Service or SupplierType.Mixed;
+                if (!isServiceOrMixed)
+                {
+                    if (resolvedCurrencyCode is null)
+                        throw new ApiException(ErrorCodes.ArticlePriceCurrencyRequired, "A currency code could not be determined for this organization.", 400);
+
+                    throw new ApiException(ErrorCodes.ArticlePriceNotFound, $"No current price found for article '{article.Name}'.", 404);
+                }
+
+                if (!input.ManualUnitPrice.HasValue || input.ManualUnitPrice.Value <= 0 || string.IsNullOrWhiteSpace(input.ManualCurrencyCode))
+                    throw new ApiException(ErrorCodes.ArticlePriceManualRequired, $"Article '{article.Name}' has no catalog price — provide a manual unit price and currency.", 400);
+
+                var normalizedCurrencyCode = input.ManualCurrencyCode.Trim().ToUpperInvariant();
+                var currencyExists = await connection.ExecuteScalarAsync<bool>(
+                    "sp_Currency_ExistsByCode", new { Code = normalizedCurrencyCode }, commandType: CommandType.StoredProcedure);
+                if (!currencyExists)
+                    throw new ApiException(ErrorCodes.ArticlePriceInvalidCurrency, "Invalid or inactive currency code.", 400);
+
+                unitPrice = input.ManualUnitPrice.Value;
+                currencyCode = normalizedCurrencyCode;
+            }
+
+            var classification = await connection.QueryFirstOrDefaultAsync<ArticleClassificationEffective>(
+                "sp_ArticleClassification_GetEffectiveForArticle",
+                new { ArticleId = article.ArticleId, OrganizationId = purchaseOrder.OrganizationId },
+                commandType: CommandType.StoredProcedure);
+
+            validatedNewLines.Add(new ValidatedNewRectificationLine
+            {
+                Article = article,
+                Quantity = input.Quantity,
+                UnitPrice = unitPrice,
+                CurrencyCode = currencyCode,
+                ContentUnitId = definedLevel?.UnitOfMeasureId ?? article.PurchaseUnitId,
+                ContentQuantity = totalContentQuantity,
+                Classification = classification
+            });
+        }
+
         // Recompute each affected Family's total across the WHOLE Order using effective values,
         // with this rectification's proposed changes overlaid on top of the lines they touch —
         // same evaluation shape as OrderService.EvaluateApprovalRequirementAsync. Only levels not
@@ -416,6 +553,17 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                     continue;
 
                 familyTotals[line.FamilyId.Value] = familyTotals.GetValueOrDefault(line.FamilyId.Value) + quantity * unitPrice;
+            }
+
+            // A brand-new line adds new spend the same as a quantity/price increase does — fold it
+            // into the same Family-total recompute so it participates in the identical
+            // approval-threshold check.
+            foreach (var newLine in validatedNewLines)
+            {
+                if (!newLine.Article.FamilyId.HasValue || newLine.CurrencyCode != orgCurrencyCode)
+                    continue;
+
+                familyTotals[newLine.Article.FamilyId.Value] = familyTotals.GetValueOrDefault(newLine.Article.FamilyId.Value) + newLine.Quantity * newLine.UnitPrice;
             }
         }
 
@@ -500,7 +648,9 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 // instead of a new receipt. Only runs when the rectification is immediately
                 // applied (not pending approval) — the line quantities aren't actually effective
                 // yet otherwise, so there's nothing to recompute against.
-                var everyLineFullyAccepted = thisPoLinesByToken.Values
+                // Any brand-new line is, by definition, unreceived — never counts as "fully
+                // accepted," same as a freshly rectified-up quantity wouldn't either.
+                var everyLineFullyAccepted = validatedNewLines.Count == 0 && thisPoLinesByToken.Values
                     .Where(l => !(proposedByLineId.TryGetValue(l.PurchaseOrderLineId, out var p) && p.Action == PurchaseOrderRectificationLineActionCodes.LineCancelled))
                     .All(l =>
                     {
@@ -539,6 +689,58 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 lineParams.Add("@CreatedBy", actor);
 
                 await connection.ExecuteAsync("sp_PurchaseOrderLineRectification_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            // Brand-new lines: the PurchaseOrderLine row is inserted right away regardless of
+            // approval state (OrderLineId left NULL — it never went through the cart Order's
+            // Submit split), but stays invisible to every read path until this rectification is
+            // APPLIED — see sp_PurchaseOrderLine_GetEffective's LINE_ADDED filter. A rejected
+            // rectification simply leaves it permanently excluded, same "never delete, just never
+            // surface" convention a cancelled line already follows.
+            foreach (var newLine in validatedNewLines)
+            {
+                var newLineParams = new DynamicParameters();
+                newLineParams.Add("@PurchaseOrderLineToken", Guid.NewGuid());
+                newLineParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
+                newLineParams.Add("@OrderLineId", (int?)null);
+                newLineParams.Add("@ArticleId", newLine.Article.ArticleId);
+                newLineParams.Add("@Quantity", newLine.Quantity);
+                newLineParams.Add("@PurchaseUnitId", newLine.Article.PurchaseUnitId);
+                newLineParams.Add("@PurchaseQuantity", 1m);
+                newLineParams.Add("@ContentUnitId", newLine.ContentUnitId);
+                newLineParams.Add("@ContentQuantity", newLine.ContentQuantity);
+                newLineParams.Add("@UnitPrice", newLine.UnitPrice);
+                newLineParams.Add("@CurrencyCode", newLine.CurrencyCode);
+                newLineParams.Add("@CategoryId", newLine.Classification?.CategoryId);
+                newLineParams.Add("@CategoryCode", newLine.Classification?.CategoryCode);
+                newLineParams.Add("@SubCategoryId", newLine.Classification?.SubCategoryId);
+                newLineParams.Add("@SubCategoryCode", newLine.Classification?.SubCategoryCode);
+                newLineParams.Add("@Notes", (string?)null);
+                newLineParams.Add("@CreatedBy", actor);
+
+                var createdLine = await connection.QueryFirstOrDefaultAsync<PurchaseOrderLine>(
+                    "sp_PurchaseOrderLine_Create", newLineParams, transaction, commandType: CommandType.StoredProcedure);
+
+                if (createdLine is null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return null;
+                }
+
+                var addedLineParams = new DynamicParameters();
+                addedLineParams.Add("@PurchaseOrderLineRectificationToken", Guid.NewGuid());
+                addedLineParams.Add("@PurchaseOrderRectificationId", header.PurchaseOrderRectificationId);
+                addedLineParams.Add("@PurchaseOrderLineId", createdLine.PurchaseOrderLineId);
+                addedLineParams.Add("@Action", PurchaseOrderRectificationLineActionCodes.LineAdded);
+                addedLineParams.Add("@PreviousQuantity", (decimal?)null);
+                addedLineParams.Add("@NewQuantity", newLine.Quantity);
+                addedLineParams.Add("@PreviousUnitPrice", (decimal?)null);
+                addedLineParams.Add("@NewUnitPrice", newLine.UnitPrice);
+                addedLineParams.Add("@PreviousCurrencyCode", (string?)null);
+                addedLineParams.Add("@NewCurrencyCode", newLine.CurrencyCode);
+                addedLineParams.Add("@CreatedBy", actor);
+
+                await connection.ExecuteAsync("sp_PurchaseOrderLineRectification_Create", addedLineParams, transaction, commandType: CommandType.StoredProcedure);
             }
 
             if (needsApproval)

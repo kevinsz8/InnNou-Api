@@ -21,8 +21,10 @@ namespace InnNou.Domain.Dtos
         public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+        public string? CreatedByEmail { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
+        public string? LastUpdatedByEmail { get; set; }
 
         // Always accurate regardless of code path: sp_Order_GetPaged computes it via a cheap
         // CROSS APPLY COUNT; every other path (GetByToken/Create/Submit/Cancel) sets it from

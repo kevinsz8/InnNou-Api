@@ -17,6 +17,15 @@ GO
    recompute); @PurchaseOrderId optionally narrows to a single PurchaseOrder
    (the normal single-PO detail/PDF/totals read path). Both together:
    WHERE po.OrderId = @OrderId AND (@PurchaseOrderId IS NULL OR ...).
+
+   A LINE_ADDED row (OrderLineId IS NULL — see
+   .claude/PurchaseOrderRectificationModule.md's "new lines" extension) has
+   no baseline to fall back to while its owning rectification is still
+   PENDING_APPROVAL/REJECTED, unlike a quantity/price change on a pre-
+   existing line — so such a line is excluded entirely from this result
+   set until its rectification is APPLIED, at which point it starts
+   appearing like any other line (its own row IS already the effective
+   value, no further overlay needed).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrderLine_GetEffective
 (
@@ -45,7 +54,7 @@ BEGIN
         CASE WHEN latestAction.ActionCode = 'LINE_CANCELLED' THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS IsCancelled
     FROM dbo.PurchaseOrderLine pol
     JOIN dbo.PurchaseOrder po  ON po.PurchaseOrderId = pol.PurchaseOrderId
-    JOIN dbo.OrderLine ol       ON ol.OrderLineId      = pol.OrderLineId
+    LEFT JOIN dbo.OrderLine ol  ON ol.OrderLineId      = pol.OrderLineId
     JOIN dbo.Articles a         ON a.ArticleId         = pol.ArticleId
     JOIN dbo.Suppliers s        ON s.SupplierId        = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu  ON pu.UnitOfMeasureId  = pol.PurchaseUnitId
@@ -73,6 +82,17 @@ BEGIN
     ) latestAction
     WHERE po.OrderId = @OrderId
       AND (@PurchaseOrderId IS NULL OR pol.PurchaseOrderId = @PurchaseOrderId)
+      AND (
+          pol.OrderLineId IS NOT NULL
+          OR EXISTS (
+              SELECT 1
+              FROM dbo.PurchaseOrderLineRectifications addedLr
+              JOIN dbo.PurchaseOrderRectifications addedR ON addedR.PurchaseOrderRectificationId = addedLr.PurchaseOrderRectificationId
+              JOIN dbo.PurchaseOrderRectificationStatuses addedRs ON addedRs.PurchaseOrderRectificationStatusId = addedR.PurchaseOrderRectificationStatusId
+              JOIN dbo.PurchaseOrderRectificationLineActions addedLa ON addedLa.PurchaseOrderRectificationLineActionId = addedLr.PurchaseOrderRectificationLineActionId
+              WHERE addedLr.PurchaseOrderLineId = pol.PurchaseOrderLineId AND addedLa.Code = 'LINE_ADDED' AND addedRs.Code = 'APPLIED'
+          )
+      )
     ORDER BY pol.PurchaseOrderLineId;
 END;
 GO

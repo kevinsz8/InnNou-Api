@@ -6,8 +6,10 @@ namespace InnNou.Domain.Dtos
         public Guid PurchaseOrderLineToken { get; set; }
         public int PurchaseOrderId { get; set; }
         public Guid PurchaseOrderToken { get; set; }
-        public int OrderLineId { get; set; }
-        public Guid OrderLineToken { get; set; }
+        // NULL for a line added after the fact via a Purchase Order Rectification — see
+        // PurchaseOrderLine.cs (Infrastructure DbEntity) for why.
+        public int? OrderLineId { get; set; }
+        public Guid? OrderLineToken { get; set; }
         public int ArticleId { get; set; }
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }

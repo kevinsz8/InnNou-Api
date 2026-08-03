@@ -3,7 +3,11 @@ namespace InnNou.Application.Responses.Common
     public class PurchaseOrderLine
     {
         public Guid PurchaseOrderLineToken { get; set; }
-        public Guid OrderLineToken { get; set; }
+
+        // NULL when this line was added after the fact via a Purchase Order Rectification (never
+        // went through the cart Order's Submit split) — the frontend uses this to flag such lines
+        // distinctly in the PO detail view.
+        public Guid? OrderLineToken { get; set; }
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }
         public int SupplierId { get; set; }

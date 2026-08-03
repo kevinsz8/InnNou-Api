@@ -1679,8 +1679,10 @@ namespace InnNou.Application.Mapping
                 PdfUrl = d.PdfUrl,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,
+                CreatedByEmail = d.CreatedByEmail,
                 LastUpdatedUtc = d.LastUpdatedUtc,
                 LastUpdatedBy = d.LastUpdatedBy,
+                LastUpdatedByEmail = d.LastUpdatedByEmail,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonOrderLine>(d.Lines),
                 ApprovalSteps = mapper.MapList<CommonOrderApprovalStep>(d.ApprovalSteps)
@@ -1693,6 +1695,7 @@ namespace InnNou.Application.Mapping
                 PurchaseOrderNumber = d.PurchaseOrderNumber,
                 OrderToken = d.OrderToken,
                 SupplierId = d.SupplierId,
+                SupplierToken = d.SupplierToken,
                 SupplierName = d.SupplierName,
                 OrganizationToken = d.OrganizationToken,
                 OrganizationName = d.OrganizationName,

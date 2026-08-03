@@ -17,8 +17,10 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+        public string? CreatedByEmail { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
+        public string? LastUpdatedByEmail { get; set; }
 
         // Only populated by sp_Order_GetPaged (a cheap CROSS APPLY COUNT, not per-row app-level
         // N+1); GetByToken/Create/Submit/Cancel leave this at 0 and OrderService overwrites it

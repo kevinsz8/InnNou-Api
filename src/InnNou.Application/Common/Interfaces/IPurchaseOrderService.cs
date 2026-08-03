@@ -25,7 +25,14 @@ namespace InnNou.Application.Common.Interfaces
         // PurchaseOrders) past a not-yet-approved threshold level is held at PENDING_APPROVAL and
         // reuses the existing OrderApprovalStep machinery; otherwise it applies immediately. See
         // .claude/PurchaseOrderRectificationModule.md.
-        Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
+        //
+        // newLines: articles never on the original PO (e.g. shipped against a phone-in addition)
+        // — same supplier only, same price-resolution/classification/packaging rules as
+        // OrderService.AddLineAsync. The new PurchaseOrderLine row is inserted immediately
+        // regardless of approval state (OrderLineId left NULL, since it never went through the
+        // cart Order's Submit split) but stays invisible to every read path until its owning
+        // rectification is APPLIED — see sp_PurchaseOrderLine_GetEffective's LINE_ADDED filter.
+        Task<PurchaseOrderRectificationDto?> CreateRectificationAsync(Guid purchaseOrderToken, string reason, string? notes, List<RectifyPurchaseOrderLineInputDto> lines, List<RectifyPurchaseOrderNewLineInputDto> newLines, IRequestContext context, CancellationToken cancellationToken);
         Task<List<PurchaseOrderRectificationDto>> GetRectificationsAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
 
         // Goods Receipts ("recepcion de mercaderia") — records what physically arrived against a

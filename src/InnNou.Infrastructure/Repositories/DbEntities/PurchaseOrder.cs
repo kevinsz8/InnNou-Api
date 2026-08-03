@@ -14,6 +14,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int OrderId { get; set; }
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }
+        public Guid SupplierToken { get; set; }
         public string? SupplierName { get; set; }
 
         // Internal-use only, resolved by the extended sp_PurchaseOrder_Create so

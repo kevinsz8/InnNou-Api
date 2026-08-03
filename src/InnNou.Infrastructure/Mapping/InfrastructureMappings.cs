@@ -1033,8 +1033,10 @@ namespace InnNou.Infrastructure.Mapping
                 PdfUrl = e.PdfUrl,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
+                CreatedByEmail = e.CreatedByEmail,
                 LastUpdatedUtc = e.LastUpdatedUtc,
                 LastUpdatedBy = e.LastUpdatedBy,
+                LastUpdatedByEmail = e.LastUpdatedByEmail,
                 LineCount = e.LineCount
             });
 
@@ -1046,6 +1048,7 @@ namespace InnNou.Infrastructure.Mapping
                 OrderId = e.OrderId,
                 OrderToken = e.OrderToken,
                 SupplierId = e.SupplierId,
+                SupplierToken = e.SupplierToken,
                 SupplierName = e.SupplierName,
                 OrganizationId = e.OrganizationId,
                 OrganizationToken = e.OrganizationToken,

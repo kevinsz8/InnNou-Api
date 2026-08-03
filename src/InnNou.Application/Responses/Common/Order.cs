@@ -12,8 +12,10 @@ namespace InnNou.Application.Responses.Common
         public string? PdfUrl { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+        public string? CreatedByEmail { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
         public string? LastUpdatedBy { get; set; }
+        public string? LastUpdatedByEmail { get; set; }
         public int LineCount { get; set; }
         public List<OrderLine> Lines { get; set; } = [];
         public List<OrderApprovalStep> ApprovalSteps { get; set; } = [];

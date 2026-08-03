@@ -8,6 +8,7 @@ namespace InnNou.Domain.Dtos
         public int OrderId { get; set; }
         public Guid OrderToken { get; set; }
         public int SupplierId { get; set; }
+        public Guid SupplierToken { get; set; }
         public string? SupplierName { get; set; }
         public int OrganizationId { get; set; }
         public Guid OrganizationToken { get; set; }

@@ -15,7 +15,10 @@ CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrderLine_Create
 (
     @PurchaseOrderLineToken UNIQUEIDENTIFIER,
     @PurchaseOrderId        INT,
-    @OrderLineId             INT,
+    -- NULL for a line added after the fact via a Purchase Order Rectification (see
+    -- .claude/PurchaseOrderRectificationModule.md) — it never went through the cart Order's
+    -- Submit split, so there is no OrderLine to reference.
+    @OrderLineId             INT           = NULL,
     @ArticleId               INT,
     @Quantity                DECIMAL(18,8),
     @PurchaseUnitId          INT,
@@ -60,7 +63,7 @@ BEGIN
         pol.CreatedUtc, pol.CreatedBy, pol.LastUpdatedUtc, pol.LastUpdatedBy
     FROM dbo.PurchaseOrderLine pol
     JOIN dbo.PurchaseOrder po ON po.PurchaseOrderId = pol.PurchaseOrderId
-    JOIN dbo.OrderLine ol      ON ol.OrderLineId      = pol.OrderLineId
+    LEFT JOIN dbo.OrderLine ol ON ol.OrderLineId     = pol.OrderLineId
     JOIN dbo.Articles a        ON a.ArticleId         = pol.ArticleId
     JOIN dbo.Suppliers s       ON s.SupplierId        = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu ON pu.UnitOfMeasureId  = pol.PurchaseUnitId

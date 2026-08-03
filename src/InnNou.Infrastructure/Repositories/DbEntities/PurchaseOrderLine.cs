@@ -6,8 +6,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid PurchaseOrderLineToken { get; set; }
         public int PurchaseOrderId { get; set; }
         public Guid PurchaseOrderToken { get; set; }
-        public int OrderLineId { get; set; }
-        public Guid OrderLineToken { get; set; }
+        // NULL for a line added after the fact via a Purchase Order Rectification — it never went
+        // through the cart Order's Submit split, so there is no OrderLine to reference. See
+        // .claude/PurchaseOrderRectificationModule.md.
+        public int? OrderLineId { get; set; }
+        public Guid? OrderLineToken { get; set; }
         public int ArticleId { get; set; }
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }

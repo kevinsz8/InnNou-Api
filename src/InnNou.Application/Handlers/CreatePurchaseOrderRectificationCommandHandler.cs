@@ -19,10 +19,13 @@ namespace InnNou.Application.Handlers
             if (string.IsNullOrWhiteSpace(request.Reason))
                 return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Reason is required.", 400);
 
-            if (request.Lines is null || request.Lines.Count == 0)
-                return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified.", 400);
+            var requestedLines = request.Lines ?? [];
+            var requestedNewLines = request.NewLines ?? [];
 
-            var lines = request.Lines.Select(l => new RectifyPurchaseOrderLineInputDto
+            if (requestedLines.Count == 0 && requestedNewLines.Count == 0)
+                return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.PurchaseOrderRectificationEmpty, "At least one line must be rectified or added.", 400);
+
+            var lines = requestedLines.Select(l => new RectifyPurchaseOrderLineInputDto
             {
                 PurchaseOrderLineToken = l.PurchaseOrderLineToken,
                 Cancel = l.Cancel,
@@ -31,7 +34,15 @@ namespace InnNou.Application.Handlers
                 NewCurrencyCode = l.NewCurrencyCode
             }).ToList();
 
-            var result = await purchaseOrderService.CreateRectificationAsync(request.PurchaseOrderToken, request.Reason, request.Notes, lines, context, cancellationToken);
+            var newLines = requestedNewLines.Select(l => new RectifyPurchaseOrderNewLineInputDto
+            {
+                ArticleToken = l.ArticleToken,
+                Quantity = l.Quantity,
+                ManualUnitPrice = l.ManualUnitPrice,
+                ManualCurrencyCode = l.ManualCurrencyCode
+            }).ToList();
+
+            var result = await purchaseOrderService.CreateRectificationAsync(request.PurchaseOrderToken, request.Reason, request.Notes, lines, newLines, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.PurchaseOrderNotFound, "Purchase order not found.", 404);
 
