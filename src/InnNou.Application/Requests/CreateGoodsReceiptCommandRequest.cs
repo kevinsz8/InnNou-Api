@@ -21,6 +21,7 @@ namespace InnNou.Application.Requests
     {
         public Guid PurchaseOrderToken { get; set; }
         public string? DeliveryNoteNumber { get; set; }
+        public DateTime? DeliveryNoteDate { get; set; }
         public string? Notes { get; set; }
         public List<CreateGoodsReceiptLineRequestItem> Lines { get; set; } = [];
     }

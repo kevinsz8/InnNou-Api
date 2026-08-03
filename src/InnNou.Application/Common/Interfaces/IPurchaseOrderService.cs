@@ -37,8 +37,15 @@ namespace InnNou.Application.Common.Interfaces
         // (damaged/wrong/short) are uncapped by design. Creating a receipt recomputes the
         // PurchaseOrder's status (SENT -> PARTIALLY_RECEIVED -> RECEIVED) in the same
         // transaction. See .claude/GoodsReceiptsModule.md.
-        Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
+        Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, DateTime? deliveryNoteDate, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<GoodsReceiptDto>> GetGoodsReceiptsAsync(Guid? purchaseOrderToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+
+        // Read-only preview of every eligible line's effective tax category/rate, resolved the
+        // exact same way CreateGoodsReceiptAsync resolves it for real — lets the receiving page
+        // show %IVA and a per-line/header net+gross total before the user submits anything.
+        // Never throws on missing tax config (unlike the real submission); a line whose category/
+        // rate can't be resolved just comes back with null fields.
+        Task<List<GoodsReceiptTaxPreviewLineDto>?> GetGoodsReceiptTaxPreviewAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
 
         // Backs the standalone "Recepciones" history/search page — every GoodsReceipt across an
         // organization's purchase orders (not scoped to one PurchaseOrder, not filtered by

@@ -35,7 +35,7 @@ namespace InnNou.Application.Handlers
                 Notes = l.Notes
             }).ToList();
 
-            var result = await purchaseOrderService.CreateGoodsReceiptAsync(request.PurchaseOrderToken, request.DeliveryNoteNumber.Trim(), request.Notes, lines, context, cancellationToken);
+            var result = await purchaseOrderService.CreateGoodsReceiptAsync(request.PurchaseOrderToken, request.DeliveryNoteNumber.Trim(), request.DeliveryNoteDate, request.Notes, lines, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateGoodsReceiptCommandResponse>.FailureResponse(ErrorCodes.PurchaseOrderNotFound, "Purchase order not found.", 404);
 

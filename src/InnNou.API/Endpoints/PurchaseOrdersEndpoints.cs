@@ -32,6 +32,11 @@ public class PurchaseOrdersEndpoints : ICarterModule
         group.MapPost("/receiveGoods",           HandleReceiveGoods).Produces<ApiResponse<CreateGoodsReceiptCommandResponse>>(201);
         group.MapPost("/getGoodsReceipts",       HandleGetGoodsReceipts).Produces<ApiResponse<GetGoodsReceiptsQueryResponse>>(200);
 
+        // Read-only preview of every eligible line's effective tax category/rate, before the
+        // receipt is actually submitted — lets the receiving page show %IVA and a net+gross
+        // total live. Never throws on unconfigured tax data (unlike /receiveGoods itself).
+        group.MapPost("/getGoodsReceiptTaxPreview", HandleGetGoodsReceiptTaxPreview).Produces<ApiResponse<GetGoodsReceiptTaxPreviewQueryResponse>>(200);
+
         // Standalone "Recepciones" history/search page — every GoodsReceipt across an
         // organization's purchase orders, not scoped to one PurchaseOrder. See
         // .claude/GoodsReceiptsModule.md's "Recepciones page" section.
@@ -87,6 +92,12 @@ public class PurchaseOrdersEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleGetGoodsReceiptsPaged([FromBody] GetGoodsReceiptsPagedQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleGetGoodsReceiptTaxPreview([FromBody] GetGoodsReceiptTaxPreviewQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

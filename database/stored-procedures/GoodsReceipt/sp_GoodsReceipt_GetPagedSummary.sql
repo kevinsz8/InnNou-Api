@@ -57,7 +57,7 @@ BEGIN
         pos.Code AS PurchaseOrderStatus,
         s.SupplierId, s.Name AS SupplierName,
         gr.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        gr.DeliveryNoteNumber, gr.CreatedUtc AS GoodsReceiptCreatedUtc, gr.CreatedBy,
+        gr.DeliveryNoteNumber, gr.DeliveryNoteDate, gr.CreatedUtc AS GoodsReceiptCreatedUtc, gr.CreatedBy,
         COALESCE(totals.TotalTaxableAmount, 0) AS TotalTaxableAmount,
         COALESCE(totals.TotalAmount, 0)        AS TotalAmount,
         lc.LineCount,

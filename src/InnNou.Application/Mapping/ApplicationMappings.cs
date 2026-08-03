@@ -71,6 +71,7 @@ using CommonSupplierInvoiceMatchTolerance = InnNou.Application.Responses.Common.
 using CommonSupplierInvoicePurchaseOrderPolicy = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrderPolicy;
 using CommonGoodsReceiptForInvoicing = InnNou.Application.Responses.Common.GoodsReceiptForInvoicing;
 using CommonGoodsReceiptSummary = InnNou.Application.Responses.Common.GoodsReceiptSummary;
+using CommonGoodsReceiptTaxPreviewLine = InnNou.Application.Responses.Common.GoodsReceiptTaxPreviewLine;
 using CommonSupplierDeliveryZone = InnNou.Application.Responses.Common.SupplierDeliveryZone;
 
 namespace InnNou.Application.Mapping
@@ -357,11 +358,19 @@ namespace InnNou.Application.Mapping
                 SupplierName = d.SupplierName,
                 WarehouseName = d.WarehouseName,
                 DeliveryNoteNumber = d.DeliveryNoteNumber,
+                DeliveryNoteDate = d.DeliveryNoteDate,
                 GoodsReceiptCreatedUtc = d.GoodsReceiptCreatedUtc,
                 CreatedBy = d.CreatedBy,
                 TotalTaxableAmount = d.TotalTaxableAmount,
                 TotalAmount = d.TotalAmount,
                 LineCount = d.LineCount
+            });
+
+            mapper.Register<GoodsReceiptTaxPreviewLineDto, CommonGoodsReceiptTaxPreviewLine>(d => new CommonGoodsReceiptTaxPreviewLine
+            {
+                PurchaseOrderLineToken = d.PurchaseOrderLineToken,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRatePercent = d.TaxRatePercent
             });
 
             mapper.Register<SupplierInvoicePurchaseOrderDto, CommonSupplierInvoicePurchaseOrder>(d => new CommonSupplierInvoicePurchaseOrder
@@ -1329,6 +1338,7 @@ namespace InnNou.Application.Mapping
                 WarehouseToken = d.WarehouseToken,
                 WarehouseName = d.WarehouseName,
                 DeliveryNoteNumber = d.DeliveryNoteNumber,
+                DeliveryNoteDate = d.DeliveryNoteDate,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,

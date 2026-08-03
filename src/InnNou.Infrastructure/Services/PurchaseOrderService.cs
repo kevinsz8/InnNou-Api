@@ -626,7 +626,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         public required decimal TotalAmount { get; init; }
     }
 
-    public async Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, DateTime? deliveryNoteDate, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -778,6 +778,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             headerParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
             headerParams.Add("@WarehouseId", purchaseOrder.WarehouseId);
             headerParams.Add("@DeliveryNoteNumber", deliveryNoteNumber);
+            headerParams.Add("@DeliveryNoteDate", deliveryNoteDate?.Date);
             headerParams.Add("@Notes", notes);
             headerParams.Add("@CreatedBy", actor);
 
@@ -869,6 +870,59 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    public async Task<List<GoodsReceiptTaxPreviewLineDto>?> GetGoodsReceiptTaxPreviewAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
+            "sp_PurchaseOrder_GetByToken", new { PurchaseOrderToken = purchaseOrderToken }, commandType: CommandType.StoredProcedure);
+
+        if (purchaseOrder is null)
+            return null;
+
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+            throw new ApiException(ErrorCodes.GoodsReceiptForbidden, "Cannot preview tax for a purchase order outside your scope.", 403);
+
+        var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+            "sp_Warehouse_GetByToken", new { purchaseOrder.WarehouseToken }, commandType: CommandType.StoredProcedure);
+
+        var effectiveLines = (await GetLinesForPurchaseOrderAsync(connection, purchaseOrder)).Where(l => !l.IsCancelled).ToList();
+        var result = effectiveLines.Select(l => new GoodsReceiptTaxPreviewLineDto { PurchaseOrderLineToken = l.PurchaseOrderLineToken }).ToList();
+
+        // Same "never fabricate a value the system doesn't actually know" rule as everywhere
+        // else — an unconfigured warehouse jurisdiction/article category/tax rate just leaves
+        // TaxCategoryCode/TaxRatePercent null here (never throws, unlike the real submission
+        // path in CreateGoodsReceiptAsync) so the receiving page can show "-" instead of a
+        // fabricated rate or a blocked page.
+        if (warehouse?.TaxJurisdictionId is null || effectiveLines.Count == 0)
+            return result;
+
+        var distinctArticleIds = effectiveLines.Select(l => l.ArticleId).Distinct().ToList();
+        var effectiveCategories = (await connection.QueryAsync<ArticleEffectiveTaxCategory>(
+            "sp_Article_GetEffectiveTaxCategoryByIds",
+            new { ArticleIds = string.Join(",", distinctArticleIds), warehouse.TaxJurisdictionId },
+            commandType: CommandType.StoredProcedure)).ToDictionary(a => a.ArticleId);
+
+        var rates = (await connection.QueryAsync<TaxRate>(
+            "sp_TaxRate_GetByJurisdictionId",
+            new { warehouse.TaxJurisdictionId },
+            commandType: CommandType.StoredProcedure)).ToDictionary(r => r.TaxCategoryId);
+
+        foreach (var (line, preview) in effectiveLines.Zip(result))
+        {
+            if (!effectiveCategories.TryGetValue(line.ArticleId, out var effective) || !effective.TaxCategoryId.HasValue)
+                continue;
+
+            if (!rates.TryGetValue(effective.TaxCategoryId.Value, out var rate))
+                continue;
+
+            preview.TaxCategoryCode = effective.TaxCategoryCode;
+            preview.TaxRatePercent = rate.RatePercent;
+        }
+
+        return result;
     }
 
     public async Task<PagedResult<GoodsReceiptDto>> GetGoodsReceiptsAsync(Guid? purchaseOrderToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)

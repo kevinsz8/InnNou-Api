@@ -14,6 +14,7 @@ namespace InnNou.Domain.Dtos
         public string SupplierName { get; set; } = default!;
         public string WarehouseName { get; set; } = default!;
         public string DeliveryNoteNumber { get; set; } = default!;
+        public DateTime? DeliveryNoteDate { get; set; }
         public DateTime GoodsReceiptCreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public decimal TotalTaxableAmount { get; set; }

@@ -39,7 +39,7 @@ BEGIN
         gr.PurchaseOrderId, po.PurchaseOrderToken, po.PurchaseOrderNumber,
         po.SupplierId, po.OrganizationId,
         gr.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        gr.DeliveryNoteNumber, gr.Notes, gr.CreatedUtc, gr.CreatedBy,
+        gr.DeliveryNoteNumber, gr.DeliveryNoteDate, gr.Notes, gr.CreatedUtc, gr.CreatedBy,
         lc.LineCount,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.GoodsReceipt gr

@@ -8,6 +8,7 @@ namespace InnNou.Application.Responses.Common
         public Guid WarehouseToken { get; set; }
         public string? WarehouseName { get; set; }
         public string DeliveryNoteNumber { get; set; } = default!;
+        public DateTime? DeliveryNoteDate { get; set; }
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

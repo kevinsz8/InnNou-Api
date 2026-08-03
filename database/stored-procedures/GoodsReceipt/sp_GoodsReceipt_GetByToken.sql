@@ -23,7 +23,7 @@ BEGIN
         po.OrganizationId, po.SupplierId,
         pos.Code AS PurchaseOrderStatus,
         gr.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
-        gr.DeliveryNoteNumber, gr.Notes, gr.CreatedUtc, gr.CreatedBy
+        gr.DeliveryNoteNumber, gr.DeliveryNoteDate, gr.Notes, gr.CreatedUtc, gr.CreatedBy
     FROM dbo.GoodsReceipt gr
     JOIN dbo.PurchaseOrder po           ON po.PurchaseOrderId = gr.PurchaseOrderId
     JOIN dbo.PurchaseOrderStatuses pos  ON pos.PurchaseOrderStatusId = po.PurchaseOrderStatusId
