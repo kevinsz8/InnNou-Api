@@ -216,4 +216,74 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         var detail = await SendAsync(new GetPurchaseOrderByTokenQueryRequest { PurchaseOrderToken = purchaseOrderToken });
         return detail.PurchaseOrder.Status;
     }
+
+    // ── SupplierInvoice: matches a receipt's own frozen tax numbers against a buyer-typed
+    // per-tax-rate VAT breakdown (Base Fra) ─────────────────────────────────────────────────
+
+    public async Task UpsertSupplierInvoiceToleranceAsync(Guid organizationToken, decimal tolerancePercent, decimal toleranceAmount)
+    {
+        await SendAsync(new UpsertSupplierInvoiceMatchToleranceCommandRequest
+        {
+            OrganizationToken = organizationToken,
+            TolerancePercent = tolerancePercent,
+            ToleranceAmount = toleranceAmount
+        });
+    }
+
+    public async Task UpsertSupplierInvoicePurchaseOrderPolicyAsync(Guid organizationToken, bool allowMultiplePurchaseOrders)
+    {
+        await SendAsync(new UpsertSupplierInvoicePurchaseOrderPolicyCommandRequest
+        {
+            OrganizationToken = organizationToken,
+            AllowMultiplePurchaseOrders = allowMultiplePurchaseOrders
+        });
+    }
+
+    /// <summary>Invoices every billable (QuantityAccepted &gt; 0) line of the given receipts in
+    /// full - "a receipt is always invoiced in full" is enforced server-side, so this builder
+    /// never supports a partial-line invoice. <paramref name="unitPrice"/> must match what the
+    /// receipt's lines were actually priced at (this builder always uses one known price per
+    /// article, set via <see cref="CreateArticlePriceAsync"/>, so the caller already knows it).
+    /// A single tax-breakdown row is submitted per distinct <c>TaxRatePercent</c> across all
+    /// billable lines, defaulting <c>BaseAmount</c> to the expected net total (sum of
+    /// <c>TaxableAmount</c>) for that rate - pass <paramref name="baseAmountOverride"/> to submit
+    /// a different (e.g. deliberately mismatched) number for a single-rate scenario instead.</summary>
+    public async Task<SupplierInvoice> CreateSupplierInvoiceAsync(
+        Guid organizationToken,
+        Guid supplierToken,
+        string invoiceNumber,
+        List<GoodsReceipt> receipts,
+        decimal unitPrice,
+        decimal? baseAmountOverride = null)
+    {
+        var billableLines = receipts.SelectMany(r => r.Lines.Where(l => l.QuantityAccepted > 0)).ToList();
+
+        var lines = billableLines.Select(l => new CreateSupplierInvoiceLineRequestItem
+        {
+            GoodsReceiptLineToken = l.GoodsReceiptLineToken,
+            QuantityInvoiced = l.QuantityAccepted,
+            UnitPriceInvoiced = unitPrice
+        }).ToList();
+
+        var breakdown = billableLines
+            .GroupBy(l => l.TaxRatePercent)
+            .Select(g => new CreateSupplierInvoiceTaxBreakdownRequestItem
+            {
+                TaxRatePercent = g.Key,
+                BaseAmount = baseAmountOverride ?? g.Sum(l => l.TaxableAmount!.Value)
+            })
+            .ToList();
+
+        var response = await SendAsync(new CreateSupplierInvoiceCommandRequest
+        {
+            OrganizationToken = organizationToken,
+            SupplierToken = supplierToken,
+            SupplierInvoiceNumber = invoiceNumber,
+            InvoiceDate = DateTime.UtcNow.Date,
+            GoodsReceiptTokens = receipts.Select(r => r.GoodsReceiptToken).ToList(),
+            Lines = lines,
+            TaxBreakdown = breakdown
+        });
+        return response.SupplierInvoice;
+    }
 }

@@ -14,6 +14,13 @@ Each test runs inside a `TransactionScope` that is never completed, so every Dap
 opened anywhere during the test (any service, any depth) auto-enlists and rolls back on dispose.
 Nothing a test creates ever persists - no cleanup code needed, and tests can run in any order.
 
+**The whole assembly runs sequentially** (`AssemblyInfo.cs`, `DisableTestParallelization = true`).
+`TransactionScope`'s default isolation level is Serializable, and enough tests share the same
+seeded rows (e.g. the one `ASSOCIATE` organization every test's fixtures hang off) that xUnit's
+default cross-class parallelism reliably deadlocked unrelated tests on shared locks. If a future
+test module is provably independent of shared state, it's fine to scope parallelism back on for
+just that collection - but the default here is off for a reason, not an oversight.
+
 Test data is built by calling the app's own `Create*` commands via `IMediator.Send()`
 (`TestFixtures/TestDataBuilder.cs`), not raw SQL inserts, so every test run re-verifies those
 create paths too. Stable reference/lookup data (Families' tax categories, `TaxCategories`,
@@ -59,3 +66,8 @@ dotnet test tests/InnNou.IntegrationTests
 - Create fresh entities (fresh `Family`, fresh `Supplier`, etc.) rather than reusing seeded ones
   whose state might carry leftover config from another test or a manual session, unless the test
   is specifically about seeded reference data.
+- The one exception is the shared `ASSOCIATE` organization (`GetAssociateOrganizationAsync`) -
+  there's only one to reuse, and `InnNou_Test` is a snapshot of real dev data, so it may already
+  carry real config on it (e.g. a `SupplierInvoiceMatchTolerance` row from manual UI testing).
+  When a test's correctness depends on that org's config being a specific value, set it explicitly
+  at the top of the test rather than assuming it's unconfigured/default.
