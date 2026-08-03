@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Gives access to IHttpContextAccessor/HttpContextAccessor/AddHttpContextAccessor()
+         without a Web SDK project — IdempotencyBehavior<,> depends on IHttpContextAccessor
+         even outside a real HTTP request (it degrades to a no-op when HttpContext is null). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="appsettings.test.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\InnNou.Application\InnNou.Application.csproj" />
+    <ProjectReference Include="..\..\src\InnNou.Domain\InnNou.Domain.csproj" />
+    <ProjectReference Include="..\..\src\InnNou.Infrastructure\InnNou.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\InnNou.Shared\InnNou.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
