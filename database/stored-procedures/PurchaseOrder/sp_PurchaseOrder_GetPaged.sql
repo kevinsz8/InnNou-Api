@@ -9,6 +9,14 @@ GO
    the owning supplier's own purchase orders; otherwise the
    organization-hierarchy branch applies (@RootOrganizationId = NULL
    is unrestricted, SuperAdmin only).
+
+   @StatusIds is an optional comma-delimited list of PurchaseOrderStatusId
+   values (STRING_SPLIT, no dynamic SQL — same convention as sp_User_GetPaged's
+   own @RoleIds/@OrganizationIds), layered as an additional AND alongside the
+   singular @StatusId — lets a caller fetch e.g. every still-receivable PO
+   (SENT + PARTIALLY_RECEIVED) in one paginated call. @PurchaseOrderNumber is
+   an optional partial (LIKE) match, added for the "Recepciones" page's
+   Pendientes de recepcion tab.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetPaged
 (
@@ -16,6 +24,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrder_GetPaged
     @SupplierId         INT          = NULL,
     @OrderId            INT          = NULL,
     @StatusId            INT         = NULL,
+    @StatusIds          VARCHAR(MAX) = NULL,
+    @PurchaseOrderNumber VARCHAR(50) = NULL,
     @PageNumber         INT,
     @PageSize           INT
 )
@@ -60,6 +70,8 @@ BEGIN
         )
         AND (@OrderId IS NULL OR po.OrderId = @OrderId)
         AND (@StatusId IS NULL OR po.PurchaseOrderStatusId = @StatusId)
+        AND (@StatusIds IS NULL OR po.PurchaseOrderStatusId IN (SELECT TRY_CAST(value AS INT) FROM STRING_SPLIT(@StatusIds, ',')))
+        AND (@PurchaseOrderNumber IS NULL OR po.PurchaseOrderNumber LIKE '%' + @PurchaseOrderNumber + '%')
     ORDER BY po.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

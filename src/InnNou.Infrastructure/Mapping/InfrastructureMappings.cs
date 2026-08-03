@@ -203,6 +203,23 @@ namespace InnNou.Infrastructure.Mapping
                 TotalAmount = gr.TotalAmount
             });
 
+            mapper.Register<GoodsReceiptSummary, GoodsReceiptSummaryDto>(gr => new GoodsReceiptSummaryDto
+            {
+                GoodsReceiptToken = gr.GoodsReceiptToken,
+                PurchaseOrderToken = gr.PurchaseOrderToken,
+                PurchaseOrderNumber = gr.PurchaseOrderNumber,
+                PurchaseOrderSentUtc = gr.PurchaseOrderSentUtc,
+                PurchaseOrderStatus = gr.PurchaseOrderStatus,
+                SupplierName = gr.SupplierName,
+                WarehouseName = gr.WarehouseName,
+                DeliveryNoteNumber = gr.DeliveryNoteNumber,
+                GoodsReceiptCreatedUtc = gr.GoodsReceiptCreatedUtc,
+                CreatedBy = gr.CreatedBy,
+                TotalTaxableAmount = gr.TotalTaxableAmount,
+                TotalAmount = gr.TotalAmount,
+                LineCount = gr.LineCount
+            });
+
             mapper.Register<SupplierInvoiceMatchTolerance, SupplierInvoiceMatchToleranceDto>(t => new SupplierInvoiceMatchToleranceDto
             {
                 SupplierInvoiceMatchToleranceToken = t.SupplierInvoiceMatchToleranceToken,

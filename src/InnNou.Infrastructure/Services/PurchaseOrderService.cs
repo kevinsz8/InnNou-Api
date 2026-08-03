@@ -70,7 +70,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return lines.ToList();
     }
 
-    public async Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, List<string>? statuses, string? purchaseOrderNumber, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
@@ -133,11 +133,26 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             statusId = (int)parsedStatus;
         }
 
+        List<int>? statusIds = null;
+        if (statuses is { Count: > 0 })
+        {
+            statusIds = [];
+            foreach (var s in statuses)
+            {
+                // Same "unrecognized filter matches nothing" rule as the singular Status above.
+                if (!PurchaseOrderStatusCodes.TryFromCode(s, out var parsed))
+                    return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+                statusIds.Add((int)parsed);
+            }
+        }
+
         var p = new DynamicParameters();
         p.Add("@RootOrganizationId", rootOrganizationId);
         p.Add("@SupplierId", supplierId);
         p.Add("@OrderId", orderId);
         p.Add("@StatusId", statusId);
+        p.Add("@StatusIds", statusIds is { Count: > 0 } ? string.Join(',', statusIds) : null);
+        p.Add("@PurchaseOrderNumber", string.IsNullOrWhiteSpace(purchaseOrderNumber) ? null : purchaseOrderNumber.Trim());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
 
@@ -928,6 +943,80 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         return new PagedResult<GoodsReceiptDto>
         {
             Items = items,
+            TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
+            PageNumber = safePageNumber,
+            PageSize = safePageSize
+        };
+    }
+
+    public async Task<PagedResult<GoodsReceiptSummaryDto>> GetGoodsReceiptsPagedAsync(Guid? organizationToken, Guid? warehouseToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    {
+        var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var safePageSize = pageSize < 1 ? 10 : Math.Min(pageSize, MaxPageSize);
+
+        await using var connection = connectionFactory.CreateConnection();
+
+        int? warehouseId = null;
+        if (warehouseToken.HasValue)
+        {
+            var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
+                "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
+
+            if (warehouse is null)
+                return new PagedResult<GoodsReceiptSummaryDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            warehouseId = warehouse.WarehouseId;
+        }
+
+        int? rootOrganizationId = null;
+        int? supplierId = null;
+
+        if (context.SupplierId.HasValue)
+        {
+            supplierId = context.SupplierId.Value;
+        }
+        else if (context.RoleLevel >= SuperAdminRoleLevel)
+        {
+            rootOrganizationId = null; // unrestricted
+        }
+        else if (organizationToken.HasValue)
+        {
+            var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
+                "sp_Organization_GetByToken",
+                new { OrganizationToken = organizationToken.Value, RootOrganizationId = (int?)null },
+                commandType: CommandType.StoredProcedure);
+
+            if (organization is null || !await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
+                return new PagedResult<GoodsReceiptSummaryDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
+            rootOrganizationId = organization.OrganizationId;
+        }
+        else if (context.OrganizationId.HasValue)
+        {
+            rootOrganizationId = context.OrganizationId.Value;
+        }
+        else
+        {
+            return new PagedResult<GoodsReceiptSummaryDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+        }
+
+        var p = new DynamicParameters();
+        p.Add("@RootOrganizationId", rootOrganizationId);
+        p.Add("@SupplierId", supplierId);
+        p.Add("@WarehouseId", warehouseId);
+        p.Add("@PurchaseOrderNumber", string.IsNullOrWhiteSpace(purchaseOrderNumber) ? null : purchaseOrderNumber.Trim());
+        p.Add("@DeliveryNoteNumber", string.IsNullOrWhiteSpace(deliveryNoteNumber) ? null : deliveryNoteNumber.Trim());
+        p.Add("@FromDate", fromDate?.Date);
+        p.Add("@ToDate", toDate?.Date);
+        p.Add("@PageNumber", safePageNumber);
+        p.Add("@PageSize", safePageSize);
+
+        var rows = (await connection.QueryAsync<GoodsReceiptSummary>(
+            "sp_GoodsReceipt_GetPagedSummary", p, commandType: CommandType.StoredProcedure)).ToList();
+
+        return new PagedResult<GoodsReceiptSummaryDto>
+        {
+            Items = mapper.MapList<GoodsReceiptSummaryDto>(rows),
             TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize

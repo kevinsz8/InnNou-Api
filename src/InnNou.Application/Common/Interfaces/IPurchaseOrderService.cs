@@ -5,7 +5,7 @@ namespace InnNou.Application.Common.Interfaces
 {
     public interface IPurchaseOrderService
     {
-        Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, List<string>? statuses, string? purchaseOrderNumber, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<PurchaseOrderDto?> GetByTokenAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<PurchaseOrderDto?> CancelAsync(Guid purchaseOrderToken, IRequestContext context, CancellationToken cancellationToken);
 
@@ -39,5 +39,12 @@ namespace InnNou.Application.Common.Interfaces
         // transaction. See .claude/GoodsReceiptsModule.md.
         Task<GoodsReceiptDto?> CreateGoodsReceiptAsync(Guid purchaseOrderToken, string deliveryNoteNumber, string? notes, List<CreateGoodsReceiptLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<GoodsReceiptDto>> GetGoodsReceiptsAsync(Guid? purchaseOrderToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+
+        // Backs the standalone "Recepciones" history/search page — every GoodsReceipt across an
+        // organization's purchase orders (not scoped to one PurchaseOrder, not filtered by
+        // invoicing state), searchable by PO number/delivery note/warehouse/receipt date. See
+        // sp_GoodsReceipt_GetPagedSummary's own comment for why this stays a flat, unbounded-safe
+        // query rather than reusing GetGoodsReceiptsAsync's per-row Lines hydration.
+        Task<PagedResult<GoodsReceiptSummaryDto>> GetGoodsReceiptsPagedAsync(Guid? organizationToken, Guid? warehouseToken, string? purchaseOrderNumber, string? deliveryNoteNumber, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
     }
 }

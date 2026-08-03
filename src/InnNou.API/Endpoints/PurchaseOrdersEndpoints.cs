@@ -31,6 +31,11 @@ public class PurchaseOrdersEndpoints : ICarterModule
         // Goods Receipts ("recepcion de mercaderia") — see .claude/GoodsReceiptsModule.md.
         group.MapPost("/receiveGoods",           HandleReceiveGoods).Produces<ApiResponse<CreateGoodsReceiptCommandResponse>>(201);
         group.MapPost("/getGoodsReceipts",       HandleGetGoodsReceipts).Produces<ApiResponse<GetGoodsReceiptsQueryResponse>>(200);
+
+        // Standalone "Recepciones" history/search page — every GoodsReceipt across an
+        // organization's purchase orders, not scoped to one PurchaseOrder. See
+        // .claude/GoodsReceiptsModule.md's "Recepciones page" section.
+        group.MapPost("/getGoodsReceiptsPaged",  HandleGetGoodsReceiptsPaged).Produces<ApiResponse<GetGoodsReceiptsPagedQueryResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetPurchaseOrdersQueryRequest request, ISender sender, CancellationToken ct)
@@ -76,6 +81,12 @@ public class PurchaseOrdersEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleGetGoodsReceipts([FromBody] GetGoodsReceiptsQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleGetGoodsReceiptsPaged([FromBody] GetGoodsReceiptsPagedQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
