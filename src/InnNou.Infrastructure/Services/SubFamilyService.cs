@@ -10,6 +10,7 @@ using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -106,6 +107,25 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         catch (SqlException ex) when (ex.Message.Contains("SUB_FAMILY_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
         {
             throw new ApiException(ErrorCodes.SubFamilySystemReadonly, "A system-defined sub-family cannot be deactivated.", 400);
+        }
+    }
+
+    public async Task<SubFamilyDto?> SetNameTranslationsAsync(Guid subFamilyToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("@SubFamilyToken", subFamilyToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", "API");
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
+                "sp_SubFamily_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubFamilyDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
         }
     }
 

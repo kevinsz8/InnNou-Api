@@ -12,6 +12,7 @@ BEGIN
         uom.Code,
         uom.Symbol,
         uom.Decimals,
+        uom.NameTranslations,
         uom.IsSystem,
         uom.IsActive,
         uom.CreatedUtc,

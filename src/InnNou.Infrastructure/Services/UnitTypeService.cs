@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -97,6 +98,25 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
         catch (SqlException ex) when (ex.Message.Contains("UNIT_TYPE_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
         {
             throw new ApiException(ErrorCodes.UnitTypeSystemReadonly, "A system-defined unit type cannot be deactivated.", 400);
+        }
+    }
+
+    public async Task<UnitTypeDto?> SetNameTranslationsAsync(Guid unitTypeToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("@UnitTypeToken", unitTypeToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", "API");
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
+                "sp_UnitType_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitTypeDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
         }
     }
 }

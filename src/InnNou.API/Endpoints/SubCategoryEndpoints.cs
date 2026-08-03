@@ -18,6 +18,7 @@ public class SubCategoryEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateSubCategoryCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditSubCategoryCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveSubCategoryCommandResponse>>(200);
+        group.MapPost("/setNameTranslations", HandleSetNameTranslations).Produces<ApiResponse<SetSubCategoryNameTranslationsCommandResponse>>(200);
 
         group.MapPost("/export",                 HandleExport);
         group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
@@ -51,6 +52,12 @@ public class SubCategoryEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveSubCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSetNameTranslations([FromBody] SetSubCategoryNameTranslationsCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

@@ -6,6 +6,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid SubCategoryToken { get; set; }
         public int CategoryId { get; set; }
         public string Code { get; set; } = default!;
+        public string? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedUtc { get; set; }

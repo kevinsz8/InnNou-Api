@@ -23,9 +23,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? FamilyNameTranslations { get; set; }
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
+        public string? SubFamilyNameTranslations { get; set; }
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
+        public string? PurchaseUnitNameTranslations { get; set; }
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
         public bool IsActive { get; set; }
@@ -42,6 +44,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int? SubCategoryId { get; set; }
         public Guid? SubCategoryToken { get; set; }
         public string? SubCategoryCode { get; set; }
+        public string? SubCategoryNameTranslations { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
         public int? TaxCategoryId { get; set; }

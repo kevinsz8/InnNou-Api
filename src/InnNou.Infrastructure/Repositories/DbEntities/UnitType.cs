@@ -5,6 +5,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int UnitTypeId { get; set; }
         public Guid UnitTypeToken { get; set; }
         public string Code { get; set; } = default!;
+        public string? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedUtc { get; set; }

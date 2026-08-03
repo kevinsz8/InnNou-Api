@@ -614,6 +614,7 @@ namespace InnNou.Application.Mapping
             {
                 UnitTypeToken = d.UnitTypeToken,
                 Code = d.Code,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive
             });
@@ -624,6 +625,7 @@ namespace InnNou.Application.Mapping
                 Code = d.Code,
                 Symbol = d.Symbol,
                 Decimals = d.Decimals,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive
             });
@@ -654,6 +656,7 @@ namespace InnNou.Application.Mapping
                 SubFamilyToken = d.SubFamilyToken,
                 FamilyId = d.FamilyId,
                 Code = d.Code,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive
             });
@@ -700,6 +703,7 @@ namespace InnNou.Application.Mapping
                 SubCategoryToken = d.SubCategoryToken,
                 CategoryId = d.CategoryId,
                 Code = d.Code,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive,
                 OrganizationToken = d.OrganizationTokenResult,
@@ -751,8 +755,10 @@ namespace InnNou.Application.Mapping
                 FamilyNameTranslations = d.FamilyNameTranslations,
                 SubFamilyId = d.SubFamilyId,
                 SubFamilyCode = d.SubFamilyCode,
+                SubFamilyNameTranslations = d.SubFamilyNameTranslations,
                 PurchaseUnitCode = d.PurchaseUnitCode,
                 PurchaseUnitSymbol = d.PurchaseUnitSymbol,
+                PurchaseUnitNameTranslations = d.PurchaseUnitNameTranslations,
                 PackagingLevels = mapper.MapList<CommonArticlePackagingLevel>(d.PackagingLevels),
                 MinimumOrderQty = d.MinimumOrderQty,
                 LeadTimeDays = d.LeadTimeDays,
@@ -766,6 +772,7 @@ namespace InnNou.Application.Mapping
                 CategoryNameTranslations = d.CategoryNameTranslations,
                 SubCategoryToken = d.SubCategoryToken,
                 SubCategoryCode = d.SubCategoryCode,
+                SubCategoryNameTranslations = d.SubCategoryNameTranslations,
                 IsCategoryInherited = d.IsCategoryInherited,
                 ClassificationOrganizationName = d.ClassificationOrganizationName,
                 TaxCategoryToken = d.TaxCategoryToken,

@@ -9,6 +9,7 @@ BEGIN
         SubFamilyToken,
         FamilyId,
         Code,
+        NameTranslations,
         IsSystem,
         IsActive,
         CreatedUtc,

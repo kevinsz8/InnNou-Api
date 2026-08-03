@@ -8,6 +8,7 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -104,6 +105,25 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
         catch (SqlException ex) when (ex.Message.Contains("UNIT_OF_MEASURE_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
         {
             throw new ApiException(ErrorCodes.UnitOfMeasureSystemReadonly, "A system-defined unit of measure cannot be deactivated.", 400);
+        }
+    }
+
+    public async Task<UnitOfMeasureDto?> SetNameTranslationsAsync(Guid unitOfMeasureToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("@UnitOfMeasureToken", unitOfMeasureToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", "API");
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+                "sp_UnitOfMeasure_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitOfMeasureDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
         }
     }
 }

@@ -35,6 +35,7 @@ BEGIN
         sc.SubCategoryToken,
         sc.CategoryId,
         sc.Code,
+        sc.NameTranslations,
         sc.IsSystem,
         sc.IsActive,
         sc.CreatedUtc,

@@ -18,9 +18,11 @@ namespace InnNou.Domain.Dtos
         public Dictionary<string, string>? FamilyNameTranslations { get; set; }
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
+        public Dictionary<string, string>? SubFamilyNameTranslations { get; set; }
         public int PurchaseUnitId { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
+        public Dictionary<string, string>? PurchaseUnitNameTranslations { get; set; }
 
         // The packaging chain: N ordered levels (SequenceOrder 1 = closest to
         // PurchaseUnitId), exactly one flagged IsDefinedUnit = true — always the
@@ -52,6 +54,7 @@ namespace InnNou.Domain.Dtos
         public int? SubCategoryId { get; set; }
         public Guid? SubCategoryToken { get; set; }
         public string? SubCategoryCode { get; set; }
+        public Dictionary<string, string>? SubCategoryNameTranslations { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
 

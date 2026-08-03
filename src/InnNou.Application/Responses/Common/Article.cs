@@ -16,8 +16,10 @@ namespace InnNou.Application.Responses.Common
         public Dictionary<string, string>? FamilyNameTranslations { get; set; }
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
+        public Dictionary<string, string>? SubFamilyNameTranslations { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
+        public Dictionary<string, string>? PurchaseUnitNameTranslations { get; set; }
         public List<ArticlePackagingLevel> PackagingLevels { get; set; } = [];
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
@@ -31,6 +33,7 @@ namespace InnNou.Application.Responses.Common
         public Dictionary<string, string>? CategoryNameTranslations { get; set; }
         public Guid? SubCategoryToken { get; set; }
         public string? SubCategoryCode { get; set; }
+        public Dictionary<string, string>? SubCategoryNameTranslations { get; set; }
         public bool IsCategoryInherited { get; set; }
         public string? ClassificationOrganizationName { get; set; }
         public Guid? TaxCategoryToken { get; set; }

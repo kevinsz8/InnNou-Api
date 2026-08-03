@@ -11,5 +11,6 @@ namespace InnNou.Application.Common.Interfaces
         Task<UnitOfMeasureDto?> CreateAsync(UnitOfMeasureDto dto, CancellationToken cancellationToken = default);
         Task<UnitOfMeasureDto?> EditAsync(UnitOfMeasureDto dto, CancellationToken cancellationToken = default);
         Task<UnitOfMeasureDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
+        Task<UnitOfMeasureDto?> SetNameTranslationsAsync(Guid unitOfMeasureToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default);
     }
 }

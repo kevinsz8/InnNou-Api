@@ -10,6 +10,7 @@ using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -151,6 +152,33 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         catch (SqlException ex) when (ex.Message.Contains("SUB_CATEGORY_SYSTEM_READONLY", StringComparison.OrdinalIgnoreCase))
         {
             throw new ApiException(ErrorCodes.SubCategorySystemReadonly, "A system-defined sub-category cannot be deactivated.", 400);
+        }
+    }
+
+    public async Task<SubCategoryDto?> SetNameTranslationsAsync(Guid subCategoryToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var existing = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+            "sp_SubCategory_GetByToken", new { SubCategoryToken = subCategoryToken }, commandType: CommandType.StoredProcedure);
+        if (existing is null)
+            return null;
+
+        EnsureCanWriteSubCategory(context, existing.OrganizationId);
+
+        var p = new DynamicParameters();
+        p.Add("@SubCategoryToken", subCategoryToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+                "sp_SubCategory_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubCategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
         }
     }
 

@@ -9,6 +9,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string Code { get; set; } = default!;
         public string Symbol { get; set; } = default!;
         public int Decimals { get; set; }
+        public string? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedUtc { get; set; }

@@ -16,6 +16,7 @@ BEGIN
         u.Code,
         u.Symbol,
         u.Decimals,
+        u.NameTranslations,
         u.IsSystem,
         u.IsActive,
         u.CreatedUtc,

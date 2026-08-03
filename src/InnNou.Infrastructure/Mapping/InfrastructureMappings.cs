@@ -423,6 +423,7 @@ namespace InnNou.Infrastructure.Mapping
                 UnitTypeId = e.UnitTypeId,
                 UnitTypeToken = e.UnitTypeToken,
                 Code = e.Code,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive
             });
@@ -435,6 +436,7 @@ namespace InnNou.Infrastructure.Mapping
                 Code = e.Code,
                 Symbol = e.Symbol,
                 Decimals = e.Decimals,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive
             });
@@ -469,6 +471,7 @@ namespace InnNou.Infrastructure.Mapping
                 SubFamilyToken = e.SubFamilyToken,
                 FamilyId = e.FamilyId,
                 Code = e.Code,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive
             });
@@ -490,6 +493,7 @@ namespace InnNou.Infrastructure.Mapping
                 SubCategoryToken = e.SubCategoryToken,
                 CategoryId = e.CategoryId,
                 Code = e.Code,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive,
                 OrganizationId = e.OrganizationId,
@@ -515,9 +519,11 @@ namespace InnNou.Infrastructure.Mapping
                 FamilyNameTranslations = ParseNameTranslations(e.FamilyNameTranslations),
                 SubFamilyId = e.SubFamilyId,
                 SubFamilyCode = e.SubFamilyCode,
+                SubFamilyNameTranslations = ParseNameTranslations(e.SubFamilyNameTranslations),
                 PurchaseUnitId = e.PurchaseUnitId,
                 PurchaseUnitCode = e.PurchaseUnitCode,
                 PurchaseUnitSymbol = e.PurchaseUnitSymbol,
+                PurchaseUnitNameTranslations = ParseNameTranslations(e.PurchaseUnitNameTranslations),
                 MinimumOrderQty = e.MinimumOrderQty,
                 LeadTimeDays = e.LeadTimeDays,
                 IsActive = e.IsActive,
@@ -534,6 +540,7 @@ namespace InnNou.Infrastructure.Mapping
                 SubCategoryId = e.SubCategoryId,
                 SubCategoryToken = e.SubCategoryToken,
                 SubCategoryCode = e.SubCategoryCode,
+                SubCategoryNameTranslations = ParseNameTranslations(e.SubCategoryNameTranslations),
                 IsCategoryInherited = e.IsCategoryInherited,
                 ClassificationOrganizationName = e.ClassificationOrganizationName,
                 TaxCategoryId = e.TaxCategoryId,

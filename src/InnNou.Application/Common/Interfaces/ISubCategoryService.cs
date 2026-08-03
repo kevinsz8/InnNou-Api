@@ -12,6 +12,7 @@ namespace InnNou.Application.Common.Interfaces
         Task<SubCategoryDto?> CreateAsync(SubCategoryDto dto, IRequestContext context, bool bypassAuthorization = false, CancellationToken cancellationToken = default);
         Task<SubCategoryDto?> EditAsync(SubCategoryDto dto, IRequestContext context, CancellationToken cancellationToken = default);
         Task<SubCategoryDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<SubCategoryDto?> SetNameTranslationsAsync(Guid subCategoryToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default);
         Task<BulkImportSubCategoryResultDto> BulkImportSubCategoriesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> ExportSubCategoriesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> GenerateSubCategoryImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default);

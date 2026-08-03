@@ -11,5 +11,6 @@ namespace InnNou.Application.Common.Interfaces
         Task<UnitTypeDto?> CreateAsync(UnitTypeDto dto, CancellationToken cancellationToken = default);
         Task<UnitTypeDto?> EditAsync(UnitTypeDto dto, CancellationToken cancellationToken = default);
         Task<UnitTypeDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
+        Task<UnitTypeDto?> SetNameTranslationsAsync(Guid unitTypeToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default);
     }
 }

@@ -12,6 +12,7 @@ BEGIN
         UnitTypeId,
         UnitTypeToken,
         Code,
+        NameTranslations,
         IsSystem,
         IsActive,
         CreatedUtc,

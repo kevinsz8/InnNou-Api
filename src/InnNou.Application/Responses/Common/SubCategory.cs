@@ -5,6 +5,7 @@ namespace InnNou.Application.Responses.Common
         public Guid SubCategoryToken { get; set; }
         public int CategoryId { get; set; }
         public string Code { get; set; } = default!;
+        public Dictionary<string, string>? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
         public Guid? OrganizationToken { get; set; }

@@ -18,6 +18,7 @@ public class SubFamilyEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateSubFamilyCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditSubFamilyCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveSubFamilyCommandResponse>>(200);
+        group.MapPost("/setNameTranslations", HandleSetNameTranslations).Produces<ApiResponse<SetSubFamilyNameTranslationsCommandResponse>>(200);
 
         group.MapPost("/export",                 HandleExport);
         group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
@@ -51,6 +52,12 @@ public class SubFamilyEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveSubFamilyCommandRequest request, ISender sender, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSetNameTranslations([FromBody] SetSubFamilyNameTranslationsCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

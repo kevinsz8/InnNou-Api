@@ -18,6 +18,7 @@ public class UnitTypeEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateUnitTypeCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditUnitTypeCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveUnitTypeCommandResponse>>(200);
+        group.MapPost("/setNameTranslations", HandleSetNameTranslations).Produces<ApiResponse<SetUnitTypeNameTranslationsCommandResponse>>(200);
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetUnitTypesQueryRequest request, ISender sender, CancellationToken cancellationToken)
@@ -45,6 +46,12 @@ public class UnitTypeEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveUnitTypeCommandRequest request, ISender sender, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSetNameTranslations([FromBody] SetUnitTypeNameTranslationsCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
