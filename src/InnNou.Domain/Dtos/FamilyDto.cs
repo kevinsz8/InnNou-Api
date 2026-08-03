@@ -5,6 +5,10 @@ namespace InnNou.Domain.Dtos
         public int FamilyId { get; set; }
         public Guid FamilyToken { get; set; }
         public string Code { get; set; } = default!;
+
+        // Parsed from the Entity's raw JSON text — any subset of the app's i18next language codes
+        // (en/es/ca) may be present. See .claude/CatalogTranslationsModule.md.
+        public Dictionary<string, string>? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
 

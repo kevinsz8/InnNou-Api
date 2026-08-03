@@ -10,6 +10,7 @@ using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -125,6 +126,25 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         var row = await connection.QueryFirstOrDefaultAsync<Family>(
             "sp_Family_SetDefaultTaxCategory", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<FamilyDto>(row);
+    }
+
+    public async Task<FamilyDto?> SetNameTranslationsAsync(Guid familyToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("@FamilyToken", familyToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", "API");
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Family>(
+                "sp_Family_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<FamilyDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
+        }
     }
 
     public async Task<BulkImportFamilyResultDto> BulkImportFamiliesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default)

@@ -15,6 +15,7 @@ namespace InnNou.Domain.Dtos
         public string? Brand { get; set; }
         public int? FamilyId { get; set; }
         public string? FamilyCode { get; set; }
+        public Dictionary<string, string>? FamilyNameTranslations { get; set; }
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
         public int PurchaseUnitId { get; set; }
@@ -47,6 +48,7 @@ namespace InnNou.Domain.Dtos
         public int? CategoryId { get; set; }
         public Guid? CategoryToken { get; set; }
         public string? CategoryCode { get; set; }
+        public Dictionary<string, string>? CategoryNameTranslations { get; set; }
         public int? SubCategoryId { get; set; }
         public Guid? SubCategoryToken { get; set; }
         public string? SubCategoryCode { get; set; }

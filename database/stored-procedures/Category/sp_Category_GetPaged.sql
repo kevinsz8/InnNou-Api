@@ -39,6 +39,7 @@ BEGIN
         c.CategoryId,
         c.CategoryToken,
         c.Code,
+        c.NameTranslations,
         c.OrganizationId,
         c.IsSystem,
         c.IsActive,

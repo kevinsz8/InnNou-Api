@@ -8,6 +8,7 @@ BEGIN
         f.FamilyId,
         f.FamilyToken,
         f.Code,
+        f.NameTranslations,
         f.IsSystem,
         f.IsActive,
         f.DefaultTaxCategoryId,

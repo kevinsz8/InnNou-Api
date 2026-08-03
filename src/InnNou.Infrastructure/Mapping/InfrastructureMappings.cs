@@ -3,6 +3,7 @@ using InnNou.Domain.Dtos;
 using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using System.Text.Json;
 using UserEntity = InnNou.Infrastructure.Repositories.DbEntities.User;
 using OrganizationEntity = InnNou.Infrastructure.Repositories.DbEntities.Organization;
 using RoleEntity = InnNou.Infrastructure.Repositories.DbEntities.Role;
@@ -56,6 +57,25 @@ namespace InnNou.Infrastructure.Mapping
 {
     public static class InfrastructureMappings
     {
+        // Parses a NameTranslations JSON column (e.g. '{"es":"Bebidas","en":"Beverages"}') into a
+        // Dictionary, or null when absent/malformed — never throws, matches this codebase's "never
+        // fabricate/never fail a read over optional denormalized data" convention. See
+        // .claude/CatalogTranslationsModule.md.
+        private static Dictionary<string, string>? ParseNameTranslations(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
         public static void Register(Mapper mapper)
         {
             mapper.Register<UserEntity, UserDto>(u => new UserDto
@@ -436,6 +456,7 @@ namespace InnNou.Infrastructure.Mapping
                 FamilyId = e.FamilyId,
                 FamilyToken = e.FamilyToken,
                 Code = e.Code,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive,
                 DefaultTaxCategoryId = e.DefaultTaxCategoryId,
@@ -456,6 +477,7 @@ namespace InnNou.Infrastructure.Mapping
                 CategoryId = e.CategoryId,
                 CategoryToken = e.CategoryToken,
                 Code = e.Code,
+                NameTranslations = ParseNameTranslations(e.NameTranslations),
                 IsSystem = e.IsSystem,
                 IsActive = e.IsActive,
                 OrganizationId = e.OrganizationId,
@@ -490,6 +512,7 @@ namespace InnNou.Infrastructure.Mapping
                 Brand = e.Brand,
                 FamilyId = e.FamilyId,
                 FamilyCode = e.FamilyCode,
+                FamilyNameTranslations = ParseNameTranslations(e.FamilyNameTranslations),
                 SubFamilyId = e.SubFamilyId,
                 SubFamilyCode = e.SubFamilyCode,
                 PurchaseUnitId = e.PurchaseUnitId,
@@ -507,6 +530,7 @@ namespace InnNou.Infrastructure.Mapping
                 CategoryId = e.CategoryId,
                 CategoryToken = e.CategoryToken,
                 CategoryCode = e.CategoryCode,
+                CategoryNameTranslations = ParseNameTranslations(e.CategoryNameTranslations),
                 SubCategoryId = e.SubCategoryId,
                 SubCategoryToken = e.SubCategoryToken,
                 SubCategoryCode = e.SubCategoryCode,

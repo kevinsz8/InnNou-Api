@@ -643,6 +643,7 @@ namespace InnNou.Application.Mapping
             {
                 FamilyToken = d.FamilyToken,
                 Code = d.Code,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive,
                 DefaultTaxCategoryToken = d.DefaultTaxCategoryToken,
@@ -688,6 +689,7 @@ namespace InnNou.Application.Mapping
             {
                 CategoryToken = d.CategoryToken,
                 Code = d.Code,
+                NameTranslations = d.NameTranslations,
                 IsSystem = d.IsSystem,
                 IsActive = d.IsActive,
                 OrganizationToken = d.OrganizationTokenResult,
@@ -746,6 +748,7 @@ namespace InnNou.Application.Mapping
                 Brand = d.Brand,
                 FamilyId = d.FamilyId,
                 FamilyCode = d.FamilyCode,
+                FamilyNameTranslations = d.FamilyNameTranslations,
                 SubFamilyId = d.SubFamilyId,
                 SubFamilyCode = d.SubFamilyCode,
                 PurchaseUnitCode = d.PurchaseUnitCode,
@@ -760,6 +763,7 @@ namespace InnNou.Application.Mapping
                 FavoriteOrganizationName = d.FavoriteOrganizationName,
                 CategoryToken = d.CategoryToken,
                 CategoryCode = d.CategoryCode,
+                CategoryNameTranslations = d.CategoryNameTranslations,
                 SubCategoryToken = d.SubCategoryToken,
                 SubCategoryCode = d.SubCategoryCode,
                 IsCategoryInherited = d.IsCategoryInherited,

@@ -17,6 +17,10 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? Brand { get; set; }
         public int? FamilyId { get; set; }
         public string? FamilyCode { get; set; }
+
+        // Raw JSON text, parsed at the mapping layer — see Family.cs and
+        // .claude/CatalogTranslationsModule.md.
+        public string? FamilyNameTranslations { get; set; }
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
         public int PurchaseUnitId { get; set; }
@@ -34,6 +38,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int? CategoryId { get; set; }
         public Guid? CategoryToken { get; set; }
         public string? CategoryCode { get; set; }
+        public string? CategoryNameTranslations { get; set; }
         public int? SubCategoryId { get; set; }
         public Guid? SubCategoryToken { get; set; }
         public string? SubCategoryCode { get; set; }

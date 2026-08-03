@@ -13,6 +13,7 @@ BEGIN
         FamilyId,
         FamilyToken,
         Code,
+        NameTranslations,
         IsSystem,
         IsActive,
         CreatedUtc,

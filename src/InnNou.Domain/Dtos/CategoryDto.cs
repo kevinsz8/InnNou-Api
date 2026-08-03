@@ -5,6 +5,7 @@ namespace InnNou.Domain.Dtos
         public int CategoryId { get; set; }
         public Guid CategoryToken { get; set; }
         public string Code { get; set; } = default!;
+        public Dictionary<string, string>? NameTranslations { get; set; }
         public bool IsSystem { get; set; }
         public bool IsActive { get; set; }
 

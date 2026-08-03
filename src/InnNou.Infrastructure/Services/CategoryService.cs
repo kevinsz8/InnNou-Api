@@ -10,6 +10,7 @@ using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
@@ -165,6 +166,35 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         var row = await connection.QueryFirstOrDefaultAsync<Category>(
             "sp_Category_Update", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<CategoryDto>(row);
+    }
+
+    public async Task<CategoryDto?> SetNameTranslationsAsync(Guid categoryToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        // Fetch unrestricted, same reasoning as EditAsync above — a real-but-out-of-scope row must
+        // 403, not collapse into the same null a genuinely nonexistent one returns.
+        var existing = await connection.QueryFirstOrDefaultAsync<Category>(
+            "sp_Category_GetByToken", new { CategoryToken = categoryToken }, commandType: CommandType.StoredProcedure);
+        if (existing is null)
+            return null;
+
+        EnsureCanWriteCategory(context, existing.OrganizationId);
+
+        var p = new DynamicParameters();
+        p.Add("@CategoryToken", categoryToken);
+        p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Category>(
+                "sp_Category_SetNameTranslations", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<CategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("INVALID_REQUEST", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "Invalid name translations payload.", 400);
+        }
     }
 
     public async Task<CategoryDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

@@ -18,6 +18,7 @@ public class CategoryEndpoints : ICarterModule
         group.MapPost("/create", HandleCreate).Produces<ApiResponse<CreateCategoryCommandResponse>>(201);
         group.MapPost("/edit", HandleEdit).Produces<ApiResponse<EditCategoryCommandResponse>>(200);
         group.MapPost("/setActive", HandleSetActive).Produces<ApiResponse<SetActiveCategoryCommandResponse>>(200);
+        group.MapPost("/setNameTranslations", HandleSetNameTranslations).Produces<ApiResponse<SetCategoryNameTranslationsCommandResponse>>(200);
 
         group.MapPost("/export",                 HandleExport);
         group.MapPost("/downloadImportTemplate", HandleDownloadImportTemplate);
@@ -51,6 +52,12 @@ public class CategoryEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleSetActive([FromBody] SetActiveCategoryCommandRequest request, ISender sender, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleSetNameTranslations([FromBody] SetCategoryNameTranslationsCommandRequest request, ISender sender, CancellationToken cancellationToken)
     {
         var result = await sender.Send(request, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
