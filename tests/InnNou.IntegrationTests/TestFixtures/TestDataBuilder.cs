@@ -90,7 +90,7 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         return updated.Family.FamilyToken;
     }
 
-    public async Task<Guid> CreateWarehouseAsync(Guid organizationToken, Guid taxJurisdictionToken, string namePrefix)
+    public async Task<Guid> CreateWarehouseAsync(Guid organizationToken, Guid taxJurisdictionToken, string namePrefix, bool canReceivePurchases = true)
     {
         var warehouse = await SendAsync(new CreateWarehouseCommandRequest
         {
@@ -98,7 +98,7 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
             Name = Truncate($"{namePrefix} {Guid.NewGuid():N}", 40),
             TaxJurisdictionToken = taxJurisdictionToken,
             IsInventoriable = true,
-            CanReceivePurchases = true
+            CanReceivePurchases = canReceivePurchases
         });
         return warehouse.WarehouseToken;
     }
@@ -175,7 +175,16 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         return result.PurchaseOrders.Single();
     }
 
-    public async Task<GoodsReceipt> ReceiveFullyAsync(Guid purchaseOrderToken, decimal quantity, string deliveryNoteNumber)
+    /// <summary>Records a receipt against the PO's single line with an arbitrary
+    /// Accepted/Courtesy/Rejected split - the general-purpose entry point for GoodsReceipt tests.
+    /// Assumes (like the rest of this builder) a PO with exactly one line.</summary>
+    public async Task<GoodsReceipt> ReceiveSingleLineAsync(
+        Guid purchaseOrderToken,
+        string deliveryNoteNumber,
+        decimal quantityAccepted = 0,
+        decimal quantityCourtesy = 0,
+        decimal quantityRejected = 0,
+        string? rejectionReason = null)
     {
         var detail = await SendAsync(new GetPurchaseOrderByTokenQueryRequest { PurchaseOrderToken = purchaseOrderToken });
         var line = detail.PurchaseOrder.Lines.Single();
@@ -189,12 +198,22 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
                 new CreateGoodsReceiptLineRequestItem
                 {
                     PurchaseOrderLineToken = line.PurchaseOrderLineToken,
-                    QuantityAccepted = quantity,
-                    QuantityCourtesy = 0,
-                    QuantityRejected = 0
+                    QuantityAccepted = quantityAccepted,
+                    QuantityCourtesy = quantityCourtesy,
+                    QuantityRejected = quantityRejected,
+                    RejectionReason = rejectionReason
                 }
             ]
         });
         return receipt.GoodsReceipt!;
+    }
+
+    public Task<GoodsReceipt> ReceiveFullyAsync(Guid purchaseOrderToken, decimal quantity, string deliveryNoteNumber) =>
+        ReceiveSingleLineAsync(purchaseOrderToken, deliveryNoteNumber, quantityAccepted: quantity);
+
+    public async Task<string> GetPurchaseOrderStatusAsync(Guid purchaseOrderToken)
+    {
+        var detail = await SendAsync(new GetPurchaseOrderByTokenQueryRequest { PurchaseOrderToken = purchaseOrderToken });
+        return detail.PurchaseOrder.Status;
     }
 }
