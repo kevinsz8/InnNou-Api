@@ -386,9 +386,18 @@ namespace InnNou.Application.Common
         public const string TaxJurisdictionNotFound = "TAX_JURISDICTION_NOT_FOUND";
         public const string TaxRateForbidden = "TAX_RATE_FORBIDDEN";
         public const string TaxRateInvalidPercent = "TAX_RATE_INVALID_PERCENT";
+        public const string TaxJurisdictionForbidden = "TAX_JURISDICTION_FORBIDDEN";
+        public const string TaxJurisdictionCountryNotFound = "TAX_JURISDICTION_COUNTRY_NOT_FOUND";
+        public const string TaxJurisdictionCodeAlreadyExists = "TAX_JURISDICTION_CODE_ALREADY_EXISTS";
+        public const string TaxJurisdictionCodeRequired = "TAX_JURISDICTION_CODE_REQUIRED";
         public const string GoodsReceiptWarehouseTaxJurisdictionMissing = "GOODS_RECEIPT_WAREHOUSE_TAX_JURISDICTION_MISSING";
         public const string GoodsReceiptArticleTaxCategoryMissing = "GOODS_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING";
         public const string GoodsReceiptTaxRateMissing = "GOODS_RECEIPT_TAX_RATE_MISSING";
+        public const string TaxCategoryForbidden = "TAX_CATEGORY_FORBIDDEN";
+        public const string TaxCategoryCodeRequired = "TAX_CATEGORY_CODE_REQUIRED";
+        public const string TaxCategoryCodeAlreadyExists = "TAX_CATEGORY_CODE_ALREADY_EXISTS";
+        public const string FamilyTaxCategoryOverrideForbidden = "FAMILY_TAX_CATEGORY_OVERRIDE_FORBIDDEN";
+        public const string FamilyTaxCategoryOverrideNotFound = "FAMILY_TAX_CATEGORY_OVERRIDE_NOT_FOUND";
 
         // SupplierInvoice (Facturacion Phase B — 3-way matching PO<->Recepcion<->Factura)
         public const string SupplierInvoiceNotFound = "SUPPLIER_INVOICE_NOT_FOUND";
@@ -405,7 +414,6 @@ namespace InnNou.Application.Common
         public const string SupplierInvoiceLineInvalid = "SUPPLIER_INVOICE_LINE_INVALID";
         public const string SupplierInvoiceTaxBreakdownRequired = "SUPPLIER_INVOICE_TAX_BREAKDOWN_REQUIRED";
         public const string SupplierInvoiceTaxBreakdownInvalid = "SUPPLIER_INVOICE_TAX_BREAKDOWN_INVALID";
-        public const string SupplierInvoiceToleranceNotConfigured = "SUPPLIER_INVOICE_TOLERANCE_NOT_CONFIGURED";
         public const string SupplierInvoiceToleranceForbidden = "SUPPLIER_INVOICE_TOLERANCE_FORBIDDEN";
         public const string SupplierInvoiceToleranceInvalid = "SUPPLIER_INVOICE_TOLERANCE_INVALID";
         public const string SupplierInvoiceAttachmentInvalidFile = "SUPPLIER_INVOICE_ATTACHMENT_INVALID_FILE";

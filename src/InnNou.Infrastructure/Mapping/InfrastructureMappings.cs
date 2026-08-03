@@ -169,6 +169,17 @@ namespace InnNou.Infrastructure.Mapping
                 RatePercent = r.RatePercent
             });
 
+            mapper.Register<FamilyTaxCategoryOverride, FamilyTaxCategoryOverrideDto>(o => new FamilyTaxCategoryOverrideDto
+            {
+                FamilyTaxCategoryOverrideToken = o.FamilyTaxCategoryOverrideToken,
+                IsActive = o.IsActive,
+                TaxJurisdictionToken = o.TaxJurisdictionToken,
+                TaxJurisdictionCode = o.TaxJurisdictionCode,
+                TaxJurisdictionName = o.TaxJurisdictionName,
+                TaxCategoryToken = o.TaxCategoryToken,
+                TaxCategoryCode = o.TaxCategoryCode
+            });
+
             mapper.Register<SupplierInvoicePurchaseOrderPolicy, SupplierInvoicePurchaseOrderPolicyDto>(pol => new SupplierInvoicePurchaseOrderPolicyDto
             {
                 SupplierInvoicePurchaseOrderPolicyToken = pol.SupplierInvoicePurchaseOrderPolicyToken,

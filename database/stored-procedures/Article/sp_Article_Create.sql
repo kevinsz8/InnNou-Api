@@ -40,7 +40,9 @@ BEGIN
         a.SubFamilyId, sf.Code AS SubFamilyCode,
         a.PurchaseUnitId, pu.Code AS PurchaseUnitCode, pu.Symbol AS PurchaseUnitSymbol,
         a.MinimumOrderQty, a.LeadTimeDays,
-        a.TaxCategoryId, tc.Code AS TaxCategoryCode,
+        a.TaxCategoryId, tc.TaxCategoryToken AS TaxCategoryToken, tc.Code AS TaxCategoryCode,
+        COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId) AS EffectiveTaxCategoryId,
+        etc.Code AS EffectiveTaxCategoryCode,
         a.IsActive, a.IsDeleted,
         a.ReplacedByArticleId, r.ArticleToken AS ReplacedByArticleToken
     FROM   Articles        a
@@ -49,6 +51,7 @@ BEGIN
     LEFT JOIN Families     f  ON f.FamilyId         = a.FamilyId
     LEFT JOIN SubFamilies  sf ON sf.SubFamilyId      = a.SubFamilyId
     LEFT JOIN Articles     r  ON r.ArticleId         = a.ReplacedByArticleId
-    LEFT JOIN TaxCategories tc ON tc.TaxCategoryId   = a.TaxCategoryId
+    LEFT JOIN TaxCategories tc  ON tc.TaxCategoryId  = a.TaxCategoryId
+    LEFT JOIN TaxCategories etc ON etc.TaxCategoryId = COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId)
     WHERE  a.ArticleToken = @ArticleToken;
 END;

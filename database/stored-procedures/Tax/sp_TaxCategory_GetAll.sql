@@ -4,8 +4,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 /* =============================================================
    TAXCATEGORY - GET ALL
-   Small fixed lookup set (4 rows) — feeds the Family/Article edit forms'
-   tax-category dropdown.
+   Feeds the Family/Article edit forms' tax-category dropdown. No longer a
+   fixed 4-row set — sp_TaxCategory_Create lets a SuperAdmin add more
+   (e.g. Costa Rica's extra 4%/2%/1% tiers beyond GENERAL/REDUCED).
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_TaxCategory_GetAll
 AS

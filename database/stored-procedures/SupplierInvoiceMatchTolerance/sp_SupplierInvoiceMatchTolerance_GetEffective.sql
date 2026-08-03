@@ -11,7 +11,8 @@ GO
 
    Returns zero rows if no organization in the ancestry chain (including
    @OrganizationId itself) has ever configured a tolerance — the caller
-   (CreateAsync) must treat that as a hard-block, not a silent default.
+   (CreateAsync) then falls back to an in-memory EXACT match (0%/0), never
+   a hard block; see SupplierInvoiceService.CreateAsync's own comment.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_SupplierInvoiceMatchTolerance_GetEffective
 (

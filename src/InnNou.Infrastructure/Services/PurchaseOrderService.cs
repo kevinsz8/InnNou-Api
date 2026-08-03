@@ -704,7 +704,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             var distinctArticleIds = billableLines.Select(v => v.Line.ArticleId).Distinct().ToList();
             var effectiveCategories = (await connection.QueryAsync<ArticleEffectiveTaxCategory>(
                 "sp_Article_GetEffectiveTaxCategoryByIds",
-                new { ArticleIds = string.Join(",", distinctArticleIds) },
+                new { ArticleIds = string.Join(",", distinctArticleIds), warehouse.TaxJurisdictionId },
                 commandType: CommandType.StoredProcedure)).ToDictionary(a => a.ArticleId);
 
             var rates = (await connection.QueryAsync<TaxRate>(

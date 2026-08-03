@@ -62,6 +62,7 @@ using CommonZone = InnNou.Application.Responses.Common.Zone;
 using CommonTaxCategory = InnNou.Application.Responses.Common.TaxCategory;
 using CommonTaxJurisdiction = InnNou.Application.Responses.Common.TaxJurisdiction;
 using CommonTaxRateGridRow = InnNou.Application.Responses.Common.TaxRateGridRow;
+using CommonFamilyTaxCategoryOverride = InnNou.Application.Responses.Common.FamilyTaxCategoryOverride;
 using CommonSupplierInvoice = InnNou.Application.Responses.Common.SupplierInvoice;
 using CommonSupplierInvoiceLine = InnNou.Application.Responses.Common.SupplierInvoiceLine;
 using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrder;
@@ -300,6 +301,16 @@ namespace InnNou.Application.Mapping
                 TaxCategoryCode = d.TaxCategoryCode,
                 TaxRateToken = d.TaxRateToken,
                 RatePercent = d.RatePercent
+            });
+            mapper.Register<FamilyTaxCategoryOverrideDto, CommonFamilyTaxCategoryOverride>(d => new CommonFamilyTaxCategoryOverride
+            {
+                FamilyTaxCategoryOverrideToken = d.FamilyTaxCategoryOverrideToken,
+                IsActive = d.IsActive,
+                TaxJurisdictionToken = d.TaxJurisdictionToken,
+                TaxJurisdictionCode = d.TaxJurisdictionCode,
+                TaxJurisdictionName = d.TaxJurisdictionName,
+                TaxCategoryToken = d.TaxCategoryToken,
+                TaxCategoryCode = d.TaxCategoryCode
             });
 
             mapper.Register<SupplierInvoiceMatchToleranceDto, CommonSupplierInvoiceMatchTolerance>(d => new CommonSupplierInvoiceMatchTolerance

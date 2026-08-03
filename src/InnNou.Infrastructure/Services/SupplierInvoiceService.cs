@@ -478,11 +478,22 @@ public class SupplierInvoiceService(
         if (submittedTokens.Count != expectedLines.Count)
             throw new ApiException(ErrorCodes.SupplierInvoiceLineIncomplete, "Every billable line of every selected goods receipt must be invoiced — a receipt is always invoiced in full.", 400);
 
-        // Tolerance — a hard requirement, unlike tax below (matching cannot be computed without it).
+        // Tolerance — an organization with none configured anywhere in its ancestry no longer
+        // blocks invoice creation; it defaults to an EXACT match (0%/0) instead, the strictest
+        // possible reading of "no tolerance was granted." A real tolerance is an opt-in
+        // relaxation an org configures once it knows its own supplier-invoice noise, not a
+        // prerequisite every new org must clear before it can invoice at all.
         var tolerance = await connection.QueryFirstOrDefaultAsync<SupplierInvoiceMatchTolerance>(
-            "sp_SupplierInvoiceMatchTolerance_GetEffective", new { organization.OrganizationId }, commandType: CommandType.StoredProcedure);
-        if (tolerance is null)
-            throw new ApiException(ErrorCodes.SupplierInvoiceToleranceNotConfigured, "No invoice-matching tolerance is configured for this organization or any of its ancestors — configure one before creating a supplier invoice.", 400);
+            "sp_SupplierInvoiceMatchTolerance_GetEffective", new { organization.OrganizationId }, commandType: CommandType.StoredProcedure)
+            ?? new SupplierInvoiceMatchTolerance
+            {
+                EffectiveOrganizationId = organization.OrganizationId,
+                EffectiveOrganizationToken = organizationToken,
+                EffectiveOrganizationName = organization.Name,
+                TolerancePercent = 0,
+                ToleranceAmount = 0,
+                IsInherited = false
+            };
 
         // Tax is reused as-is from what was already frozen on each GoodsReceiptLine at receipt
         // time (ResolvedLine.TaxCategoryId/TaxRatePercent) — never re-resolved live here, same
