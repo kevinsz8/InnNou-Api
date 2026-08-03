@@ -286,4 +286,67 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         });
         return response.SupplierInvoice;
     }
+
+    // ── Order Approval Workflow: per-Family spend thresholds, sequential designated approvers ─
+
+    /// <summary>A fresh User within the given Organization, usable as a
+    /// <see cref="CreateFamilyApprovalThresholdCommandRequest.ApproverUserToken"/> and then as the
+    /// caller identity (<c>TestRequestContext.ActorUserToken</c>/<c>EffectiveUserToken</c>) when a
+    /// test acts as that designated approver. The Role assigned is arbitrary - the approval flow's
+    /// "is this caller the designated approver" check compares the resolved UserId only, never the
+    /// user's own RoleLevel (that's driven entirely by the test's own TestRequestContext).</summary>
+    public async Task<Guid> CreateApproverUserAsync(int organizationId, string namePrefix)
+    {
+        await using var connection = ConnectionFactory.CreateConnection();
+        // A caller can only assign a Role at or below their own RoleLevel (UserService.CreateUserAsync) -
+        // every test in this builder acts as an Admin (RoleLevel 80), so pick a Staff-range role
+        // (<= 20) to stay safely under that ceiling regardless of exactly which roles are seeded.
+        var roleId = await connection.QuerySingleAsync<int>(
+            "SELECT TOP 1 RoleId FROM Roles WHERE IsActive = 1 AND RoleLevel <= 20 ORDER BY RoleLevel DESC");
+
+        var user = await SendAsync(new CreateUserCommandRequest
+        {
+            Email = $"{Guid.NewGuid():N}@grtest.invalid",
+            Password = "TestPassword123!",
+            FirstName = Truncate(namePrefix, 50),
+            LastName = "Approver",
+            UserName = Truncate($"{namePrefix}_{Guid.NewGuid():N}", 50),
+            RoleId = roleId,
+            OrganizationId = organizationId
+        });
+        return user.UserToken;
+    }
+
+    /// <summary>Levels must be created strictly in order starting at 1, with each
+    /// ThresholdAmount exceeding the previous level's - enforced server-side, so a test building a
+    /// multi-level threshold must call this once per level, lowest first.</summary>
+    public async Task CreateFamilyApprovalThresholdAsync(Guid organizationToken, Guid familyToken, int level, decimal thresholdAmount, Guid approverUserToken)
+    {
+        await SendAsync(new CreateFamilyApprovalThresholdCommandRequest
+        {
+            OrganizationToken = organizationToken,
+            FamilyToken = familyToken,
+            Level = level,
+            ThresholdAmount = thresholdAmount,
+            ApproverUserToken = approverUserToken
+        });
+    }
+
+    public async Task<Order> GetOrderAsync(Guid orderToken)
+    {
+        var response = await SendAsync(new GetOrderByTokenQueryRequest { OrderToken = orderToken });
+        return response.Order;
+    }
+
+    public async Task<OrderApprovalStep> ApproveOrderApprovalStepAsync(Guid orderApprovalStepToken)
+    {
+        var response = await SendAsync(new ApproveOrderApprovalStepCommandRequest { OrderApprovalStepToken = orderApprovalStepToken });
+        return response.OrderApprovalStep;
+    }
+
+    public async Task<OrderApprovalStep> RejectOrderApprovalStepAsync(Guid orderApprovalStepToken, string reason)
+    {
+        var response = await SendAsync(new RejectOrderApprovalStepCommandRequest { OrderApprovalStepToken = orderApprovalStepToken, Reason = reason });
+        return response.OrderApprovalStep;
+    }
 }
