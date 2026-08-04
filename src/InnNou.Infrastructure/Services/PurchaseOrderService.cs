@@ -822,6 +822,118 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
     {
         public required PurchaseOrderLine Line { get; init; }
         public required CreateGoodsReceiptLineInputDto Input { get; init; }
+
+        // Generated at validation time (before the transaction opens) rather than inside the
+        // batch-insert helper, so the same token can be used both to build the
+        // GoodsReceiptLineTableType row and, after sp_GoodsReceiptLine_CreateBatch returns, to
+        // look up this line's generated GoodsReceiptLineId for the InventoryMovement batch below.
+        public Guid GoodsReceiptLineToken { get; } = Guid.NewGuid();
+    }
+
+    private sealed class GoodsReceiptLineIdMapping
+    {
+        public Guid GoodsReceiptLineToken { get; init; }
+        public int GoodsReceiptLineId { get; init; }
+    }
+
+    // Column order/types must match dbo.GoodsReceiptLineTableType exactly (see
+    // migrations/20260804_GoodsReceiptBatch_CreateTableTypes.sql) — SQL Server matches TVP
+    // columns positionally, not by name.
+    private static DataTable BuildGoodsReceiptLineTable(int goodsReceiptId, List<ValidatedGoodsReceiptLine> validatedLines, Dictionary<int, GoodsReceiptLineTax> taxByLineId)
+    {
+        var table = new DataTable();
+        table.Columns.Add("GoodsReceiptLineToken", typeof(Guid));
+        table.Columns.Add("GoodsReceiptId", typeof(int));
+        table.Columns.Add("PurchaseOrderLineId", typeof(int));
+        table.Columns.Add("ArticleId", typeof(int));
+        table.Columns.Add("QuantityAccepted", typeof(decimal));
+        table.Columns.Add("QuantityCourtesy", typeof(decimal));
+        table.Columns.Add("QuantityRejected", typeof(decimal));
+        table.Columns.Add("RejectionReason", typeof(string));
+        table.Columns.Add("LotNumber", typeof(string));
+        table.Columns.Add("ExpirationDate", typeof(DateTime));
+        table.Columns.Add("SerialNumber", typeof(string));
+        table.Columns.Add("Notes", typeof(string));
+        table.Columns.Add("TaxCategoryId", typeof(int));
+        table.Columns.Add("TaxRateId", typeof(int));
+        table.Columns.Add("TaxRatePercent", typeof(decimal));
+        table.Columns.Add("TaxableAmount", typeof(decimal));
+        table.Columns.Add("TaxAmount", typeof(decimal));
+        table.Columns.Add("TotalAmount", typeof(decimal));
+
+        foreach (var validated in validatedLines)
+        {
+            var tax = taxByLineId.GetValueOrDefault(validated.Line.PurchaseOrderLineId);
+            table.Rows.Add(
+                validated.GoodsReceiptLineToken,
+                goodsReceiptId,
+                validated.Line.PurchaseOrderLineId,
+                validated.Line.ArticleId,
+                validated.Input.QuantityAccepted,
+                validated.Input.QuantityCourtesy,
+                validated.Input.QuantityRejected,
+                (object?)validated.Input.RejectionReason ?? DBNull.Value,
+                (object?)validated.Input.LotNumber ?? DBNull.Value,
+                (object?)validated.Input.ExpirationDate ?? DBNull.Value,
+                (object?)validated.Input.SerialNumber ?? DBNull.Value,
+                (object?)validated.Input.Notes ?? DBNull.Value,
+                (object?)tax?.TaxCategoryId ?? DBNull.Value,
+                (object?)tax?.TaxRateId ?? DBNull.Value,
+                (object?)tax?.TaxRatePercent ?? DBNull.Value,
+                (object?)tax?.TaxableAmount ?? DBNull.Value,
+                (object?)tax?.TaxAmount ?? DBNull.Value,
+                (object?)tax?.TotalAmount ?? DBNull.Value);
+        }
+
+        return table;
+    }
+
+    // Column order/types must match dbo.StockLevelDeltaTableType exactly.
+    private static DataTable BuildStockLevelDeltaTable(int warehouseId, List<(int ArticleId, decimal Delta)> deltas)
+    {
+        var table = new DataTable();
+        table.Columns.Add("WarehouseId", typeof(int));
+        table.Columns.Add("ArticleId", typeof(int));
+        table.Columns.Add("Delta", typeof(decimal));
+
+        foreach (var (articleId, delta) in deltas)
+            table.Rows.Add(warehouseId, articleId, delta);
+
+        return table;
+    }
+
+    // Column order/types must match dbo.InventoryMovementTableType exactly.
+    private static DataTable BuildInventoryMovementTable(int warehouseId, List<(ValidatedGoodsReceiptLine Validated, decimal StockDelta)> stockedLines, Dictionary<Guid, int> goodsReceiptLineIdByToken)
+    {
+        var table = new DataTable();
+        table.Columns.Add("InventoryMovementToken", typeof(Guid));
+        table.Columns.Add("WarehouseId", typeof(int));
+        table.Columns.Add("ArticleId", typeof(int));
+        table.Columns.Add("Type", typeof(string));
+        table.Columns.Add("Quantity", typeof(decimal));
+        table.Columns.Add("GoodsReceiptLineId", typeof(int));
+        table.Columns.Add("InventoryTransferLineId", typeof(int));
+        table.Columns.Add("InventoryPeriodCountId", typeof(int));
+        table.Columns.Add("Reason", typeof(string));
+
+        foreach (var (validated, stockDelta) in stockedLines)
+        {
+            if (!goodsReceiptLineIdByToken.TryGetValue(validated.GoodsReceiptLineToken, out var goodsReceiptLineId))
+                throw new InvalidOperationException($"GoodsReceiptLine {validated.GoodsReceiptLineToken} was not returned by sp_GoodsReceiptLine_CreateBatch.");
+
+            table.Rows.Add(
+                Guid.NewGuid(),
+                warehouseId,
+                validated.Line.ArticleId,
+                InventoryMovementTypeCodes.Receipt,
+                stockDelta,
+                goodsReceiptLineId,
+                DBNull.Value,
+                DBNull.Value,
+                DBNull.Value);
+        }
+
+        return table;
     }
 
     private sealed class GoodsReceiptLineTax
@@ -999,62 +1111,55 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 return null;
             }
 
-            foreach (var validated in validatedLines)
+            // GoodsReceiptLine insert, StockLevel delta application, and InventoryMovement
+            // insert — each previously one round trip per accepted line (up to 3) — are now one
+            // batch call each via table-valued parameters (see
+            // migrations/20260804_GoodsReceiptBatch_CreateTableTypes.sql). This codebase's first
+            // two TVP-based batches (alongside sp_PurchaseOrderLine_CreateBatch), reserved for
+            // exactly this shape: a per-line write loop on a hot path (every receipt) where
+            // STRING_SPLIT-style scalar batching (used everywhere else for reads) doesn't apply.
+            var linesTable = BuildGoodsReceiptLineTable(header.GoodsReceiptId, validatedLines, taxByLineId);
+            var lineBatchParams = new DynamicParameters();
+            lineBatchParams.Add("@Lines", linesTable.AsTableValuedParameter("dbo.GoodsReceiptLineTableType"));
+            lineBatchParams.Add("@CreatedBy", actor);
+            var goodsReceiptLineIdByToken = (await connection.QueryAsync<GoodsReceiptLineIdMapping>(
+                "sp_GoodsReceiptLine_CreateBatch", lineBatchParams, transaction, commandType: CommandType.StoredProcedure))
+                .ToDictionary(m => m.GoodsReceiptLineToken, m => m.GoodsReceiptLineId);
+
+            // Stock effect — the RECEIPT trigger Inventory's own module doc describes. Both
+            // Accepted and Courtesy are real physical stock regardless of billing; Rejected
+            // never touches stock. Skipped entirely (not a failure) when the warehouse doesn't
+            // track inventory — receiving is still recorded in GoodsReceipt itself, stock
+            // tracking is an optional side effect. See .claude/InventoryModule.md. Deltas are
+            // summed per ArticleId (not one row per line) — sp_StockLevel_ApplyDeltaBatch's
+            // MERGE requires each target (Warehouse,Article) row to be matched at most once.
+            if (warehouse.IsInventoriable)
             {
-                var lineParams = new DynamicParameters();
-                lineParams.Add("@GoodsReceiptLineToken", Guid.NewGuid());
-                lineParams.Add("@GoodsReceiptId", header.GoodsReceiptId);
-                lineParams.Add("@PurchaseOrderLineId", validated.Line.PurchaseOrderLineId);
-                lineParams.Add("@ArticleId", validated.Line.ArticleId);
-                lineParams.Add("@QuantityAccepted", validated.Input.QuantityAccepted);
-                lineParams.Add("@QuantityCourtesy", validated.Input.QuantityCourtesy);
-                lineParams.Add("@QuantityRejected", validated.Input.QuantityRejected);
-                lineParams.Add("@RejectionReason", validated.Input.RejectionReason);
-                lineParams.Add("@LotNumber", validated.Input.LotNumber);
-                lineParams.Add("@ExpirationDate", validated.Input.ExpirationDate);
-                lineParams.Add("@SerialNumber", validated.Input.SerialNumber);
-                lineParams.Add("@Notes", validated.Input.Notes);
+                var stockedLines = validatedLines
+                    .Select(v => (Validated: v, StockDelta: v.Input.QuantityAccepted + v.Input.QuantityCourtesy))
+                    .Where(x => x.StockDelta > 0)
+                    .ToList();
 
-                if (taxByLineId.TryGetValue(validated.Line.PurchaseOrderLineId, out var tax))
+                if (stockedLines.Count > 0)
                 {
-                    lineParams.Add("@TaxCategoryId", tax.TaxCategoryId);
-                    lineParams.Add("@TaxRateId", tax.TaxRateId);
-                    lineParams.Add("@TaxRatePercent", tax.TaxRatePercent);
-                    lineParams.Add("@TaxableAmount", tax.TaxableAmount);
-                    lineParams.Add("@TaxAmount", tax.TaxAmount);
-                    lineParams.Add("@TotalAmount", tax.TotalAmount);
-                }
+                    var deltasByArticle = stockedLines
+                        .GroupBy(x => x.Validated.Line.ArticleId)
+                        .Select(g => (ArticleId: g.Key, Delta: g.Sum(x => x.StockDelta)))
+                        .ToList();
 
-                lineParams.Add("@CreatedBy", actor);
-
-                var receiptLine = await connection.QueryFirstOrDefaultAsync<GoodsReceiptLine>(
-                    "sp_GoodsReceiptLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
-
-                // Stock effect — the RECEIPT trigger Inventory's own module doc describes. Both
-                // Accepted and Courtesy are real physical stock regardless of billing; Rejected
-                // never touches stock. Skipped entirely (not a failure) when the warehouse
-                // doesn't track inventory — receiving is still recorded in GoodsReceipt itself,
-                // stock tracking is an optional side effect. See .claude/InventoryModule.md.
-                var stockDelta = validated.Input.QuantityAccepted + validated.Input.QuantityCourtesy;
-                if (warehouse.IsInventoriable && stockDelta > 0 && receiptLine is not null)
-                {
+                    var deltaTable = BuildStockLevelDeltaTable(warehouse.WarehouseId, deltasByArticle);
+                    var deltaParams = new DynamicParameters();
+                    deltaParams.Add("@Deltas", deltaTable.AsTableValuedParameter("dbo.StockLevelDeltaTableType"));
+                    deltaParams.Add("@ActorBy", actor);
                     await connection.ExecuteAsync(
-                        "sp_StockLevel_ApplyDelta",
-                        new { warehouse.WarehouseId, validated.Line.ArticleId, Delta = stockDelta, ActorBy = actor },
-                        transaction, commandType: CommandType.StoredProcedure);
+                        "sp_StockLevel_ApplyDeltaBatch", deltaParams, transaction, commandType: CommandType.StoredProcedure);
 
-                    var movementParams = new DynamicParameters();
-                    movementParams.Add("@InventoryMovementToken", Guid.NewGuid());
-                    movementParams.Add("@WarehouseId", warehouse.WarehouseId);
-                    movementParams.Add("@ArticleId", validated.Line.ArticleId);
-                    movementParams.Add("@Type", InventoryMovementTypeCodes.Receipt);
-                    movementParams.Add("@Quantity", stockDelta);
-                    movementParams.Add("@GoodsReceiptLineId", receiptLine.GoodsReceiptLineId);
-                    movementParams.Add("@InventoryTransferLineId", (int?)null);
-                    movementParams.Add("@Reason", (string?)null);
-                    movementParams.Add("@CreatedBy", actor);
-
-                    await connection.ExecuteAsync("sp_InventoryMovement_Create", movementParams, transaction, commandType: CommandType.StoredProcedure);
+                    var movementTable = BuildInventoryMovementTable(warehouse.WarehouseId, stockedLines, goodsReceiptLineIdByToken);
+                    var movementBatchParams = new DynamicParameters();
+                    movementBatchParams.Add("@Movements", movementTable.AsTableValuedParameter("dbo.InventoryMovementTableType"));
+                    movementBatchParams.Add("@CreatedBy", actor);
+                    await connection.ExecuteAsync(
+                        "sp_InventoryMovement_CreateBatch", movementBatchParams, transaction, commandType: CommandType.StoredProcedure);
                 }
             }
 

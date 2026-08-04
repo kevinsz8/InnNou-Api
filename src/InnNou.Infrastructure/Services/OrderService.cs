@@ -87,6 +87,53 @@ public class OrderService(
         return lines.ToList();
     }
 
+    // Column order/types must match dbo.PurchaseOrderLineTableType exactly (see
+    // migrations/20260804_PurchaseOrderLine_CreateBatchTableType.sql) — SQL Server matches TVP
+    // columns positionally, not by name.
+    private static DataTable BuildPurchaseOrderLineTable(int purchaseOrderId, List<OrderLine> lines)
+    {
+        var table = new DataTable();
+        table.Columns.Add("PurchaseOrderLineToken", typeof(Guid));
+        table.Columns.Add("PurchaseOrderId", typeof(int));
+        table.Columns.Add("OrderLineId", typeof(int));
+        table.Columns.Add("ArticleId", typeof(int));
+        table.Columns.Add("Quantity", typeof(decimal));
+        table.Columns.Add("PurchaseUnitId", typeof(int));
+        table.Columns.Add("PurchaseQuantity", typeof(decimal));
+        table.Columns.Add("ContentUnitId", typeof(int));
+        table.Columns.Add("ContentQuantity", typeof(decimal));
+        table.Columns.Add("UnitPrice", typeof(decimal));
+        table.Columns.Add("CurrencyCode", typeof(string));
+        table.Columns.Add("CategoryId", typeof(int));
+        table.Columns.Add("CategoryCode", typeof(string));
+        table.Columns.Add("SubCategoryId", typeof(int));
+        table.Columns.Add("SubCategoryCode", typeof(string));
+        table.Columns.Add("Notes", typeof(string));
+
+        foreach (var line in lines)
+        {
+            table.Rows.Add(
+                Guid.NewGuid(),
+                purchaseOrderId,
+                line.OrderLineId,
+                line.ArticleId,
+                line.Quantity,
+                line.PurchaseUnitId,
+                line.PurchaseQuantity,
+                line.ContentUnitId,
+                (object?)line.ContentQuantity ?? DBNull.Value,
+                line.UnitPrice,
+                line.CurrencyCode,
+                (object?)line.CategoryId ?? DBNull.Value,
+                (object?)line.CategoryCode ?? DBNull.Value,
+                (object?)line.SubCategoryId ?? DBNull.Value,
+                (object?)line.SubCategoryCode ?? DBNull.Value,
+                (object?)line.Notes ?? DBNull.Value);
+        }
+
+        return table;
+    }
+
     private static async Task<List<OrderApprovalStep>> GetApprovalStepsAsync(IDbConnection connection, int orderId, IDbTransaction? transaction = null)
     {
         var steps = await connection.QueryAsync<OrderApprovalStep>(
@@ -566,31 +613,18 @@ public class OrderService(
 
                 // One PurchaseOrderLine per OrderLine in this supplier's group — an
                 // independent snapshot copy captured at split time, not a shared row
-                // with OrderLine (see .claude/OrdersModule.md for why).
-                foreach (var line in supplierLines)
-                {
-                    var polParams = new DynamicParameters();
-                    polParams.Add("@PurchaseOrderLineToken", Guid.NewGuid());
-                    polParams.Add("@PurchaseOrderId", purchaseOrder.PurchaseOrderId);
-                    polParams.Add("@OrderLineId", line.OrderLineId);
-                    polParams.Add("@ArticleId", line.ArticleId);
-                    polParams.Add("@Quantity", line.Quantity);
-                    polParams.Add("@PurchaseUnitId", line.PurchaseUnitId);
-                    polParams.Add("@PurchaseQuantity", line.PurchaseQuantity);
-                    polParams.Add("@ContentUnitId", line.ContentUnitId);
-                    polParams.Add("@ContentQuantity", line.ContentQuantity);
-                    polParams.Add("@UnitPrice", line.UnitPrice);
-                    polParams.Add("@CurrencyCode", line.CurrencyCode);
-                    polParams.Add("@CategoryId", line.CategoryId);
-                    polParams.Add("@CategoryCode", line.CategoryCode);
-                    polParams.Add("@SubCategoryId", line.SubCategoryId);
-                    polParams.Add("@SubCategoryCode", line.SubCategoryCode);
-                    polParams.Add("@Notes", line.Notes);
-                    polParams.Add("@CreatedBy", actor);
-
-                    await connection.ExecuteAsync(
-                        "sp_PurchaseOrderLine_Create", polParams, transaction, commandType: CommandType.StoredProcedure);
-                }
+                // with OrderLine (see .claude/OrdersModule.md for why). Batched via a
+                // table-valued parameter (sp_PurchaseOrderLine_CreateBatch) instead of one
+                // sp_PurchaseOrderLine_Create round trip per line — this codebase's first use of a
+                // TVP, reserved for exactly this shape: a per-row INSERT loop on a hot path
+                // (every Order submission) where each row needs no generated value fed back into
+                // the next call. The caller here never reads the created rows back either way.
+                var linesTable = BuildPurchaseOrderLineTable(purchaseOrder.PurchaseOrderId, supplierLines);
+                var polBatchParams = new DynamicParameters();
+                polBatchParams.Add("@Lines", linesTable.AsTableValuedParameter("dbo.PurchaseOrderLineTableType"));
+                polBatchParams.Add("@CreatedBy", actor);
+                await connection.ExecuteAsync(
+                    "sp_PurchaseOrderLine_CreateBatch", polBatchParams, transaction, commandType: CommandType.StoredProcedure);
             }
 
             var updatedOrder = await connection.QueryFirstOrDefaultAsync<Order>(

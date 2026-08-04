@@ -204,6 +204,17 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.InventoryTransferEmpty, "At least one line must be transferred.", 400);
 
+        // Batched — one round trip for every StockLevel in the source warehouse (same SP
+        // InventoryPeriodService.CloseAsync already uses) instead of one
+        // sp_StockLevel_GetByWarehouseAndArticle call per line. The Article-by-token lookup below
+        // stays per-line: sp_Article_GetByToken's full visibility/favorite/classification CTEs
+        // would need a real batch-by-tokens SP variant to replicate safely, and this call site
+        // already runs with @ContextRoleLevel defaulted to 100 (bypass) — not a trivial reuse of
+        // an existing simple batch SP the way the StockLevel half is.
+        var stockByArticle = (await connection.QueryAsync<StockLevel>(
+            "sp_StockLevel_GetAllByWarehouseId", new { fromWarehouse.WarehouseId }, commandType: CommandType.StoredProcedure))
+            .ToDictionary(s => s.ArticleId, s => s.QuantityOnHand);
+
         var validatedLines = new List<ValidatedTransferLine>();
         var requestedArticleIds = new HashSet<int>();
 
@@ -221,10 +232,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             if (!requestedArticleIds.Add(article.ArticleId))
                 throw new ApiException(ErrorCodes.InventoryInvalidAdjustment, $"Article '{article.Name}' was submitted more than once.", 400);
 
-            var existing = await connection.QueryFirstOrDefaultAsync<StockLevel>(
-                "sp_StockLevel_GetByWarehouseAndArticle", new { fromWarehouse.WarehouseId, article.ArticleId }, commandType: CommandType.StoredProcedure);
-
-            var currentQuantity = existing?.QuantityOnHand ?? 0m;
+            var currentQuantity = stockByArticle.GetValueOrDefault(article.ArticleId, 0m);
             if (currentQuantity - input.Quantity < 0)
                 throw new ApiException(ErrorCodes.InventoryNegativeStockNotAllowed, $"Cannot transfer {input.Quantity} of '{article.Name}' — only {currentQuantity} available at the source warehouse.", 400);
 
