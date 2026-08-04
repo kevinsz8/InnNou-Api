@@ -22,6 +22,15 @@ namespace InnNou.Application.Handlers
             if (request.Lines is null || request.Lines.Count == 0)
                 return ApiResponse<CreateGoodsReceiptCommandResponse>.FailureResponse(ErrorCodes.GoodsReceiptEmpty, "At least one line must be received.", 400);
 
+            foreach (var line in request.Lines)
+            {
+                if (line.QuantityAccepted < 0 || line.QuantityCourtesy < 0 || line.QuantityRejected < 0)
+                    return ApiResponse<CreateGoodsReceiptCommandResponse>.FailureResponse(ErrorCodes.GoodsReceiptLineEmpty, "Quantities cannot be negative.", 400);
+
+                if (line.QuantityAccepted + line.QuantityCourtesy + line.QuantityRejected <= 0)
+                    return ApiResponse<CreateGoodsReceiptCommandResponse>.FailureResponse(ErrorCodes.GoodsReceiptLineEmpty, "At least one quantity must be greater than zero.", 400);
+            }
+
             var lines = request.Lines.Select(l => new CreateGoodsReceiptLineInputDto
             {
                 PurchaseOrderLineToken = l.PurchaseOrderLineToken,

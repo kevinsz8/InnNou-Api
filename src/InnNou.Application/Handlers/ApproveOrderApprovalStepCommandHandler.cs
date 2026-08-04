@@ -12,6 +12,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<ApproveOrderApprovalStepCommandResponse>> Handle(ApproveOrderApprovalStepCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.OrderApprovalStepToken == Guid.Empty)
+                return ApiResponse<ApproveOrderApprovalStepCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "OrderApprovalStepToken is required.", 400);
+
             var result = await orderService.ApproveOrderApprovalStepAsync(request.OrderApprovalStepToken, context, cancellationToken);
             if (result is null)
                 return ApiResponse<ApproveOrderApprovalStepCommandResponse>.FailureResponse(ErrorCodes.OrderApprovalStepNotFound, "Approval step not found.", 404);

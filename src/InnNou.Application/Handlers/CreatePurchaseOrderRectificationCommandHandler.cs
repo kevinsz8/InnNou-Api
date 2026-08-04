@@ -19,6 +19,9 @@ namespace InnNou.Application.Handlers
             if (string.IsNullOrWhiteSpace(request.Reason))
                 return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Reason is required.", 400);
 
+            if (!PurchaseOrderRectificationReasonCodes.TryFromCode(request.Reason, out _))
+                return ApiResponse<CreatePurchaseOrderRectificationCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Invalid rectification reason.", 400);
+
             var requestedLines = request.Lines ?? [];
             var requestedNewLines = request.NewLines ?? [];
 

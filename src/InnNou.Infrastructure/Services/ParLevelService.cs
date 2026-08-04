@@ -55,23 +55,6 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
 
     private static int ToMmdd(int month, int day) => month * 100 + day;
 
-    // Validates the (month, day) pair is a real calendar date, using a non-leap reference year
-    // (2001) so Feb 29 is rejected as a boundary value — a deliberate simplification that
-    // sidesteps all leap-year ambiguity in the wrap-around math, at the cost of forcing an
-    // end-of-year window to use Feb 28/Mar 1 instead of Feb 29.
-    private static bool IsValidMonthDay(int month, int day)
-    {
-        try
-        {
-            _ = new DateTime(2001, month, day);
-            return true;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return false;
-        }
-    }
-
     // A SEASONAL window can wrap across the year boundary (e.g. Dec 20 -> Jan 6). Decomposed into
     // 1 or 2 non-wrapping MMDD sub-ranges so overlap can be checked uniformly against another
     // window's own sub-ranges.
@@ -217,7 +200,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
             if (startMonth is null || startDay is null || endMonth is null || endDay is null)
                 throw new ApiException(ErrorCodes.ParLevelOverrideInvalidDateRange, "Start/end month and day are required for a seasonal override.", 400);
 
-            if (!IsValidMonthDay(startMonth.Value, startDay.Value) || !IsValidMonthDay(endMonth.Value, endDay.Value))
+            if (!ParLevelDateValidation.IsValidMonthDay(startMonth.Value, startDay.Value) || !ParLevelDateValidation.IsValidMonthDay(endMonth.Value, endDay.Value))
                 throw new ApiException(ErrorCodes.ParLevelOverrideInvalidDateRange, "Invalid start/end date — note Feb 29 is not supported as a seasonal boundary.", 400);
         }
         else

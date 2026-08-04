@@ -15,6 +15,12 @@ namespace InnNou.Application.Handlers
             if (request.ParLevelToken == Guid.Empty)
                 return ApiResponse<EditParLevelCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "ParLevelToken is required.", 400);
 
+            if (request.MinimumQuantity < 0)
+                return ApiResponse<EditParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelInvalidQuantity, "Minimum quantity cannot be negative.", 400);
+
+            if (request.ReorderQuantity <= 0)
+                return ApiResponse<EditParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelInvalidQuantity, "Reorder quantity must be greater than zero.", 400);
+
             var result = await parLevelService.EditBaseAsync(request.ParLevelToken, request.MinimumQuantity, request.ReorderQuantity, context, cancellationToken);
             if (result is null)
                 return ApiResponse<EditParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelNotFound, "Par level not found.", 404);

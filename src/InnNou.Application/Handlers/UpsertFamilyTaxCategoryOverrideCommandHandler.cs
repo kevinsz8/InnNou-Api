@@ -12,6 +12,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<UpsertFamilyTaxCategoryOverrideCommandResponse>> Handle(UpsertFamilyTaxCategoryOverrideCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.FamilyToken == Guid.Empty || request.TaxJurisdictionToken == Guid.Empty || request.TaxCategoryToken == Guid.Empty)
+                return ApiResponse<UpsertFamilyTaxCategoryOverrideCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "FamilyToken, TaxJurisdictionToken and TaxCategoryToken are required.", 400);
+
             var result = await taxService.UpsertFamilyTaxCategoryOverrideAsync(
                 request.FamilyToken, request.TaxJurisdictionToken, request.TaxCategoryToken, context, cancellationToken);
 

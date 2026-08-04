@@ -18,6 +18,12 @@ namespace InnNou.Application.Handlers
             if (request.ArticleToken == Guid.Empty)
                 return ApiResponse<CreateParLevelCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "ArticleToken is required.", 400);
 
+            if (request.MinimumQuantity < 0)
+                return ApiResponse<CreateParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelInvalidQuantity, "Minimum quantity cannot be negative.", 400);
+
+            if (request.ReorderQuantity <= 0)
+                return ApiResponse<CreateParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelInvalidQuantity, "Reorder quantity must be greater than zero.", 400);
+
             var result = await parLevelService.CreateBaseAsync(request.WarehouseToken, request.ArticleToken, request.MinimumQuantity, request.ReorderQuantity, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateParLevelCommandResponse>.FailureResponse(ErrorCodes.ParLevelWarehouseNotFound, "Warehouse not found.", 404);

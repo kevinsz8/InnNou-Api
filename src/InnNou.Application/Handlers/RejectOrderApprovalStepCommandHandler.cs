@@ -12,6 +12,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<RejectOrderApprovalStepCommandResponse>> Handle(RejectOrderApprovalStepCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.OrderApprovalStepToken == Guid.Empty)
+                return ApiResponse<RejectOrderApprovalStepCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "OrderApprovalStepToken is required.", 400);
+
             if (string.IsNullOrWhiteSpace(request.Reason))
                 return ApiResponse<RejectOrderApprovalStepCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "A rejection reason is required.", 400);
 

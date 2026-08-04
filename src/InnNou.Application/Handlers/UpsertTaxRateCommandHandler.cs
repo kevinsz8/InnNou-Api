@@ -12,6 +12,12 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<UpsertTaxRateCommandResponse>> Handle(UpsertTaxRateCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.TaxJurisdictionToken == Guid.Empty || request.TaxCategoryToken == Guid.Empty)
+                return ApiResponse<UpsertTaxRateCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "TaxJurisdictionToken and TaxCategoryToken are required.", 400);
+
+            if (request.RatePercent < 0 || request.RatePercent > 100)
+                return ApiResponse<UpsertTaxRateCommandResponse>.FailureResponse(ErrorCodes.TaxRateInvalidPercent, "A tax rate must be between 0 and 100.", 400);
+
             var result = await taxService.UpsertTaxRateAsync(request.TaxJurisdictionToken, request.TaxCategoryToken, request.RatePercent, context, cancellationToken);
             if (result is null)
                 return ApiResponse<UpsertTaxRateCommandResponse>.FailureResponse(ErrorCodes.TaxJurisdictionNotFound, "Tax rate not found after upsert.", 404);

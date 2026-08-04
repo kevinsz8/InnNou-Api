@@ -19,6 +19,9 @@ namespace InnNou.Application.Handlers
             if (request.Lines is null || request.Lines.Count == 0)
                 return ApiResponse<CreateInventoryTransferCommandResponse>.FailureResponse(ErrorCodes.InventoryTransferEmpty, "At least one line must be transferred.", 400);
 
+            if (request.Lines.Any(l => l.Quantity <= 0))
+                return ApiResponse<CreateInventoryTransferCommandResponse>.FailureResponse(ErrorCodes.InventoryInvalidAdjustment, "Transfer quantity must be greater than zero.", 400);
+
             var lines = request.Lines.Select(l => new CreateInventoryTransferLineInputDto
             {
                 ArticleToken = l.ArticleToken,

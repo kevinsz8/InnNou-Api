@@ -16,6 +16,15 @@ namespace InnNou.Application.Handlers
             if (string.IsNullOrWhiteSpace(request.SupplierInvoiceNumber))
                 return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "SupplierInvoiceNumber is required.", 400);
 
+            if (request.GoodsReceiptTokens is null || request.GoodsReceiptTokens.Count == 0)
+                return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceEmpty, "At least one goods receipt must be selected.", 400);
+
+            if (request.Lines is null || request.Lines.Count == 0)
+                return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceEmpty, "At least one line must be invoiced.", 400);
+
+            if (request.TaxBreakdown is null || request.TaxBreakdown.Count == 0)
+                return ApiResponse<CreateSupplierInvoiceCommandResponse>.FailureResponse(ErrorCodes.SupplierInvoiceTaxBreakdownRequired, "At least one tax-rate breakdown row (Base Fra) is required, transcribed from the supplier's real invoice.", 400);
+
             var lines = request.Lines.Select(l => new CreateSupplierInvoiceLineInputDto
             {
                 GoodsReceiptLineToken = l.GoodsReceiptLineToken,
