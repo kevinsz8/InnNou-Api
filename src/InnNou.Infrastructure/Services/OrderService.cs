@@ -21,6 +21,7 @@ public class OrderService(
     IMapper mapper,
     IOrderPdfStorage orderPdfStorage,
     IEmailSender emailSender,
+    INotificationService notificationService,
     ILogger<OrderService> logger,
     IConfiguration configuration) : IOrderService
 {
@@ -157,6 +158,25 @@ public class OrderService(
         var user = await connection.QueryFirstOrDefaultAsync<User>(
             "sp_User_GetByToken", new { UserToken = userToken }, commandType: CommandType.StoredProcedure);
         return user?.Email;
+    }
+
+    // Order.CreatedBy is the submitting actor's own UserToken (stamped from context.ActorUserToken
+    // at creation, same audit convention as every other entity) — reused here as the recipient for
+    // an approval-step outcome notification, no separate lookup needed. Best-effort/non-blocking,
+    // same convention as every email call site in this file.
+    private async Task NotifyOrderSubmitterAsync(Order order, NotificationType type, object data, IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(order.CreatedBy, out var submitterToken))
+            return;
+
+        try
+        {
+            await notificationService.NotifyAsync(submitterToken, type, data, $"/orders/{order.OrderToken}", context, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Approval-outcome notification failed for order {OrderToken}", order.OrderToken);
+        }
     }
 
     // The order confirmation PDF/email header shows the delivery warehouse's own address and
@@ -693,8 +713,27 @@ public class OrderService(
                 }, cancellationToken);
             }
 
+            await notificationService.NotifyAsync(
+                context.ActorUserToken, NotificationType.Order_Confirmed,
+                new { organizationName, purchaseOrderCount = purchaseOrdersWithLines.Count },
+                $"/orders/{updatedOrder.OrderToken}", context, cancellationToken);
+
             foreach (var (purchaseOrder, supplierLines) in purchaseOrdersWithLines)
             {
+                // Notified regardless of whether SupplierEmail is set — every Supplier has a
+                // shadow User (see CLAUDE.md's "Supplier system access" note), so an in-app
+                // notification never depends on the supplier having a real email on file the way
+                // the email send below does.
+                var supplierUser = await connection.QueryFirstOrDefaultAsync<User>(
+                    "sp_User_GetBySupplierId", new { purchaseOrder.SupplierId }, commandType: CommandType.StoredProcedure);
+                if (supplierUser is not null)
+                {
+                    await notificationService.NotifyAsync(
+                        supplierUser.UserToken, NotificationType.New_Purchase_Order,
+                        new { purchaseOrderNumber = purchaseOrder.PurchaseOrderNumber, organizationName },
+                        $"/orders/{updatedOrder.OrderToken}", context, cancellationToken);
+                }
+
                 if (string.IsNullOrWhiteSpace(purchaseOrder.SupplierEmail))
                     continue;
 
@@ -869,7 +908,7 @@ public class OrderService(
         {
             var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, order.OrganizationToken);
             foreach (var step in newlyActionableSteps)
-                await SendApprovalRequestEmailAsync(connection, step, order, organizationName, organizationLanguageCode, cancellationToken);
+                await SendApprovalRequestEmailAsync(connection, step, order, organizationName, organizationLanguageCode, context, cancellationToken);
         }
 
         return dto;
@@ -942,6 +981,11 @@ public class OrderService(
         // InvalidOperationException if the connection is already open).
         await connection.CloseAsync();
 
+        await NotifyOrderSubmitterAsync(
+            order, NotificationType.Approval_Step_Approved,
+            new { familyCode = approved.FamilyCode, level = approved.Level },
+            context, cancellationToken);
+
         if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
             return approved;
 
@@ -959,7 +1003,7 @@ public class OrderService(
             if (nextStep is not null)
             {
                 var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, order.OrganizationToken);
-                await SendApprovalRequestEmailAsync(connection, nextStep, order, organizationName, organizationLanguageCode, cancellationToken);
+                await SendApprovalRequestEmailAsync(connection, nextStep, order, organizationName, organizationLanguageCode, context, cancellationToken);
             }
         }
 
@@ -1098,10 +1142,15 @@ public class OrderService(
     // OrderApprovalEmailContent. Best-effort/non-blocking, same convention as
     // SendOrderConfirmationAsync — an SMTP outage here must never fail the Submit/Approve call
     // that triggered it.
-    private async Task SendApprovalRequestEmailAsync(IDbConnection connection, OrderApprovalStep step, Order order, string organizationName, string? organizationLanguageCode, CancellationToken cancellationToken)
+    private async Task SendApprovalRequestEmailAsync(IDbConnection connection, OrderApprovalStep step, Order order, string organizationName, string? organizationLanguageCode, IRequestContext context, CancellationToken cancellationToken)
     {
         try
         {
+            await notificationService.NotifyAsync(
+                step.ApproverUserToken, NotificationType.Approval_Requested,
+                new { organizationName, familyCode = step.FamilyCode, level = step.Level },
+                "/pending-approvals", context, cancellationToken);
+
             var approverEmail = await GetUserEmailAsync(connection, step.ApproverUserToken);
             if (string.IsNullOrWhiteSpace(approverEmail))
                 return;
@@ -1140,6 +1189,9 @@ public class OrderService(
 
         await EnsureCanDecideStepAsync(connection, context, step);
 
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { step.OrderToken }, commandType: CommandType.StoredProcedure);
+
         // A rectification-triggered step is rejected independently of the Order itself — the
         // Order stays exactly as it is (already SUBMITTED); only the proposed correction is
         // discarded. Uses a dedicated SP so the sibling-cancel is scoped to this rectification's
@@ -1161,6 +1213,12 @@ public class OrderService(
                 new { PurchaseOrderRectificationId = step.TriggeringPurchaseOrderRectificationId.Value, Status = PurchaseOrderRectificationStatusCodes.Rejected },
                 commandType: CommandType.StoredProcedure);
 
+            if (order is not null)
+                await NotifyOrderSubmitterAsync(
+                    order, NotificationType.Approval_Step_Rejected,
+                    new { familyCode = rejectedRectificationStep.FamilyCode, level = rejectedRectificationStep.Level, reason },
+                    context, cancellationToken);
+
             return mapper.Map<OrderApprovalStepDto>(rejectedRectificationStep);
         }
 
@@ -1176,6 +1234,12 @@ public class OrderService(
             "sp_Order_SetStatus",
             new { OrderToken = step.OrderToken, Status = OrderStatusCodes.Draft, ActorBy = context.ActorUserToken.ToString() },
             commandType: CommandType.StoredProcedure);
+
+        if (order is not null)
+            await NotifyOrderSubmitterAsync(
+                order, NotificationType.Approval_Step_Rejected,
+                new { familyCode = rejected.FamilyCode, level = rejected.Level, reason },
+                context, cancellationToken);
 
         return mapper.Map<OrderApprovalStepDto>(rejected);
     }

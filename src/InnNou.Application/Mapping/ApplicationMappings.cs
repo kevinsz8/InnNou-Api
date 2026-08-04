@@ -42,6 +42,7 @@ using CommonInternalOrderShipment = InnNou.Application.Responses.Common.Internal
 using CommonInternalOrderShipmentLine = InnNou.Application.Responses.Common.InternalOrderShipmentLine;
 using CommonInternalOrderReceipt = InnNou.Application.Responses.Common.InternalOrderReceipt;
 using CommonInternalOrderReceiptLine = InnNou.Application.Responses.Common.InternalOrderReceiptLine;
+using CommonNotification = InnNou.Application.Responses.Common.Notification;
 using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPeriod;
 using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
 using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
@@ -1398,6 +1399,18 @@ namespace InnNou.Application.Mapping
                 InternalOrderShipmentToken = d.InternalOrderShipmentToken,
                 InternalOrderReceiptToken = d.InternalOrderReceiptToken,
                 Reason = d.Reason,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<NotificationDto, CommonNotification>(d => new CommonNotification
+            {
+                NotificationToken = d.NotificationToken,
+                Type = d.Type,
+                DataJson = d.DataJson,
+                LinkUrl = d.LinkUrl,
+                IsRead = d.IsRead,
+                ReadUtc = d.ReadUtc,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
             });

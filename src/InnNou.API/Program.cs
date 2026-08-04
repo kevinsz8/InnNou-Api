@@ -1,6 +1,8 @@
 using Carter;
+using InnNou.API.Hubs;
 using InnNou.Application.Abstractions;
 using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
 using InnNou.Infrastructure.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -39,6 +41,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddCarter();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+
+// SignalR — real-time push for the Notifications module (see INotificationPusher). No polling:
+// the bell's unread badge and dropdown list update live over one hub connection per browser tab.
+builder.Services.AddSignalR();
+builder.Services.AddScoped<INotificationPusher, SignalRNotificationPusher>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -96,6 +103,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
             )
+        };
+
+        // SignalR's browser client can't attach an Authorization header to the WebSocket
+        // handshake — the standard workaround (documented by ASP.NET Core itself) is to accept
+        // the token from a query string parameter instead, scoped strictly to the hub's own path
+        // so no other endpoint's bearer-token handling changes.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs/notifications"))
+                    context.Token = accessToken;
+
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -219,6 +242,8 @@ app.UseAuthorization();
 app.UseRateLimiter();
 
 app.MapCarter();
+
+app.MapHub<NotificationsHub>("/hubs/notifications").RequireAuthorization();
 
 app.MapGet("/ping", () => "pong")
     .WithName("Ping")

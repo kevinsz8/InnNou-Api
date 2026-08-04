@@ -49,6 +49,7 @@ using InternalOrderShipmentEntity = InnNou.Infrastructure.Repositories.DbEntitie
 using InternalOrderShipmentLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderShipmentLine;
 using InternalOrderReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderReceipt;
 using InternalOrderReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderReceiptLine;
+using NotificationEntity = InnNou.Infrastructure.Repositories.DbEntities.Notification;
 using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
 using ConsolidatedPurchaseOrderMemberEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrderMember;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
@@ -925,6 +926,18 @@ namespace InnNou.Infrastructure.Mapping
                 InternalOrderShipmentToken = e.InternalOrderShipmentToken,
                 InternalOrderReceiptToken = e.InternalOrderReceiptToken,
                 Reason = e.Reason,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<NotificationEntity, NotificationDto>(e => new NotificationDto
+            {
+                NotificationToken = e.NotificationToken,
+                Type = NotificationTypeCodes.ToCode(e.Type),
+                DataJson = e.DataJson,
+                LinkUrl = e.LinkUrl,
+                IsRead = e.IsRead,
+                ReadUtc = e.ReadUtc,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
             });
