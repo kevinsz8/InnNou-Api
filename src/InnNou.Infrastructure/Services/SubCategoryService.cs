@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -301,7 +302,6 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         string[] headers = ["CategoryCode", "Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var subCategory in subCategories.Items)
@@ -309,10 +309,11 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
             worksheet.Cell(r, 1).Value = categoryCodesById.GetValueOrDefault(subCategory.CategoryId, "");
             worksheet.Cell(r, 2).Value = subCategory.Code;
             worksheet.Cell(r, 3).Value = subCategory.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 3), subCategory.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -333,15 +334,13 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         string[] headers = ["CategoryCode", "Code"];
         for (var i = 0; i < headers.Length; i++)
             subCategoriesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        subCategoriesSheet.Row(1).Style.Font.Bold = true;
 
         var categoriesSheet = workbook.Worksheets.Add("Categories");
         categoriesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
-        categoriesSheet.Row(1).Style.Font.Bold = true;
         var categoryRow = 2;
         foreach (var category in categories.Items.OrderBy(c => c.Code))
             categoriesSheet.Cell(categoryRow++, 1).Value = category.Code;
-        categoriesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(categoriesSheet, 1, categoryRow - 1);
 
         // Restricts the CategoryCode column to a dropdown sourced from "Categories" — same
         // named-range technique as Organizations' ParentOrganizationName dropdown. Only wired up
@@ -352,7 +351,7 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
             subCategoriesSheet.Range(2, 1, MaxBulkImportRows + 1, 1).CreateDataValidation().List(namedRange.Name, true);
         }
 
-        subCategoriesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(subCategoriesSheet, headers.Length, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

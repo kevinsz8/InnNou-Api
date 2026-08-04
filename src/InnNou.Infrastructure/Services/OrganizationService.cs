@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -501,7 +502,6 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         string[] headers = ["Name", "LegalName", "Code", "ParentOrganizationName", "TimeZone", "CurrencyCode", "LanguageCode", "OrganizationTypeCode", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var organization in organizations.Items)
@@ -517,10 +517,11 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
             worksheet.Cell(r, 7).Value = organization.LanguageCode;
             worksheet.Cell(r, 8).Value = organization.OrganizationTypeCode;
             worksheet.Cell(r, 9).Value = organization.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 9), organization.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -543,15 +544,13 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
         string[] headers = ["Name", "LegalName", "Code", "ParentOrganizationName", "TimeZone", "CurrencyCode", "LanguageCode"];
         for (var i = 0; i < headers.Length; i++)
             organizationsSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        organizationsSheet.Row(1).Style.Font.Bold = true;
 
         var existingSheet = workbook.Worksheets.Add("Existing Organizations");
         existingSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-        existingSheet.Row(1).Style.Font.Bold = true;
         var existingRow = 2;
         foreach (var organization in organizations.Items.OrderBy(o => o.Name))
             existingSheet.Cell(existingRow++, 1).Value = organization.Name;
-        existingSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(existingSheet, 1, existingRow - 1);
 
         // Restricts the ParentOrganizationName column to a dropdown sourced from "Existing
         // Organizations" — this is what makes picking a parent foolproof for whoever fills the sheet
@@ -568,7 +567,7 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
             parentColumnRange.CreateDataValidation().List(namedRange.Name, true);
         }
 
-        organizationsSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(organizationsSheet, headers.Length, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

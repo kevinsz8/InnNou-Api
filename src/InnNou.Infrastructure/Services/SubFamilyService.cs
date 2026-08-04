@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -246,7 +247,6 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         string[] headers = ["FamilyCode", "Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var subFamily in subFamilies.Items)
@@ -254,10 +254,11 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
             worksheet.Cell(r, 1).Value = familyCodesById.GetValueOrDefault(subFamily.FamilyId, "");
             worksheet.Cell(r, 2).Value = subFamily.Code;
             worksheet.Cell(r, 3).Value = subFamily.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 3), subFamily.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -278,15 +279,13 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         string[] headers = ["FamilyCode", "Code"];
         for (var i = 0; i < headers.Length; i++)
             subFamiliesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        subFamiliesSheet.Row(1).Style.Font.Bold = true;
 
         var familiesSheet = workbook.Worksheets.Add("Families");
         familiesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
-        familiesSheet.Row(1).Style.Font.Bold = true;
         var familyRow = 2;
         foreach (var family in families.Items.OrderBy(f => f.Code))
             familiesSheet.Cell(familyRow++, 1).Value = family.Code;
-        familiesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(familiesSheet, 1, familyRow - 1);
 
         // Restricts the FamilyCode column to a dropdown sourced from "Families" — same named-range
         // technique as SubCategory's CategoryCode dropdown / Organizations' ParentOrganizationName.
@@ -296,7 +295,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
             subFamiliesSheet.Range(2, 1, MaxBulkImportRows + 1, 1).CreateDataValidation().List(namedRange.Name, true);
         }
 
-        subFamiliesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(subFamiliesSheet, headers.Length, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

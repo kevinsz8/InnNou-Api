@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -961,7 +962,6 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "LanguageCode", "IsGlobal", "SupplierType", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var supplier in suppliers.Items)
@@ -981,10 +981,11 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
             worksheet.Cell(r, 13).Value = (supplier.IsGlobal ?? false) ? "TRUE" : "FALSE";
             worksheet.Cell(r, 14).Value = supplier.SupplierType;
             worksheet.Cell(r, 15).Value = supplier.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 15), supplier.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -1005,8 +1006,7 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
         string[] headers = ["Name", "LegalName", "TaxId", "Email", "Phone", "AddressLine1", "AddressLine2", "City", "State", "PostalCode", "Country", "LanguageCode", "IsGlobal", "SupplierType"];
         for (var i = 0; i < headers.Length; i++)
             suppliersSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        suppliersSheet.Row(1).Style.Font.Bold = true;
-        suppliersSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(suppliersSheet, headers.Length, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -317,17 +318,17 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         string[] headers = ["Code", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var category in categories.Items)
         {
             worksheet.Cell(r, 1).Value = category.Code;
             worksheet.Cell(r, 2).Value = category.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 2), category.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -346,8 +347,7 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
 
         var categoriesSheet = workbook.Worksheets.Add("Categories");
         categoriesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
-        categoriesSheet.Row(1).Style.Font.Bold = true;
-        categoriesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(categoriesSheet, 1, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

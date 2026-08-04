@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -431,7 +432,6 @@ public class ArticlePriceService(
         string[] headers = ["SupplierName", "SupplierSku", "ArticleName", "OrganizationName", "Price", "CurrencyCode", "EffectiveDate", "Notes", "CreatedUtc", "ArticleToken"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var price in rows)
@@ -441,15 +441,18 @@ public class ArticlePriceService(
             worksheet.Cell(r, 3).Value = price.ArticleName;
             worksheet.Cell(r, 4).Value = price.OrganizationName;
             worksheet.Cell(r, 5).Value = price.Price;
+            ExcelExportStyling.ApplyMoneyFormat(worksheet.Cell(r, 5));
             worksheet.Cell(r, 6).Value = price.CurrencyCode;
             worksheet.Cell(r, 7).Value = price.EffectiveDate;
+            ExcelExportStyling.ApplyDateFormat(worksheet.Cell(r, 7));
             worksheet.Cell(r, 8).Value = price.Notes;
             worksheet.Cell(r, 9).Value = price.CreatedUtc;
+            ExcelExportStyling.ApplyDateTimeFormat(worksheet.Cell(r, 9));
             worksheet.Cell(r, 10).Value = price.ArticleToken.ToString();
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

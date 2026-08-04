@@ -5,6 +5,7 @@ using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
@@ -955,7 +956,6 @@ public class ArticleService(
         string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "Level1UnitCode", "Level1Quantity", "Level2UnitCode", "Level2Quantity", "Level3UnitCode", "Level3Quantity", "Level4UnitCode", "Level4Quantity", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var article in articles.Items)
@@ -979,16 +979,19 @@ public class ArticleService(
                 {
                     worksheet.Cell(r, unitColumn).Value = levels[levelIndex].UnitOfMeasureCode;
                     worksheet.Cell(r, quantityColumn).Value = levels[levelIndex].QuantityInParentUnit;
+                    ExcelExportStyling.ApplyQuantityFormat(worksheet.Cell(r, quantityColumn));
                 }
             }
             worksheet.Cell(r, 18).Value = article.MinimumOrderQty;
+            ExcelExportStyling.ApplyQuantityFormat(worksheet.Cell(r, 18));
             worksheet.Cell(r, 19).Value = article.LeadTimeDays;
             worksheet.Cell(r, 20).Value = article.ArticleToken.ToString();
             worksheet.Cell(r, 21).Value = article.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 21), article.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -1017,7 +1020,6 @@ public class ArticleService(
         string[] headers = ["SupplierName", "SupplierSku", "Name", "Description", "Barcode", "Brand", "FamilyCode", "SubFamilyCode", "PurchaseUnitCode", "Level1UnitCode", "Level1Quantity", "Level2UnitCode", "Level2Quantity", "Level3UnitCode", "Level3Quantity", "Level4UnitCode", "Level4Quantity", "MinimumOrderQty", "LeadTimeDays", "ArticleToken", "Status"];
         for (var i = 0; i < headers.Length; i++)
             articlesSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        articlesSheet.Row(1).Style.Font.Bold = true;
 
         // Suppliers reference sheet + dropdown — only wired up for an Admin+ actor, who must
         // specify which supplier each row belongs to. A supplier-scoped caller's SupplierName cell
@@ -1028,11 +1030,10 @@ public class ArticleService(
             var suppliers = await supplierService.GetSuppliersAsync(1, MaxExportRows, null, null, false, warehouseToken: null, context, cancellationToken);
             var suppliersSheet = workbook.Worksheets.Add("Suppliers");
             suppliersSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-            suppliersSheet.Row(1).Style.Font.Bold = true;
             var supplierRow = 2;
             foreach (var supplier in suppliers.Items.OrderBy(s => s.Name))
                 suppliersSheet.Cell(supplierRow++, 1).Value = supplier.Name;
-            suppliersSheet.Columns().AdjustToContents();
+            ExcelExportStyling.FinalizeWorksheet(suppliersSheet, 1, supplierRow - 1);
 
             if (suppliers.Items.Count > 0)
             {
@@ -1044,11 +1045,10 @@ public class ArticleService(
         var families = await familyService.GetPagedAsync(1, MaxExportRows, null, false, cancellationToken);
         var familiesSheet = workbook.Worksheets.Add("Families");
         familiesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
-        familiesSheet.Row(1).Style.Font.Bold = true;
         var familyRow = 2;
         foreach (var family in families.Items.OrderBy(f => f.Code))
             familiesSheet.Cell(familyRow++, 1).Value = family.Code;
-        familiesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(familiesSheet, 1, familyRow - 1);
 
         if (families.Items.Count > 0)
         {
@@ -1065,7 +1065,6 @@ public class ArticleService(
         var subFamiliesSheet = workbook.Worksheets.Add("SubFamilies");
         subFamiliesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("FamilyCode", language);
         subFamiliesSheet.Cell(1, 2).Value = BulkExcelLocalization.Header("SubFamilyCode", language);
-        subFamiliesSheet.Row(1).Style.Font.Bold = true;
         var subFamilyRow = 2;
         var familyCodesById = families.Items.ToDictionary(f => f.FamilyId, f => f.Code);
         foreach (var subFamily in subFamilies.Items.OrderBy(sf => familyCodesById.GetValueOrDefault(sf.FamilyId, "")).ThenBy(sf => sf.Code))
@@ -1074,7 +1073,7 @@ public class ArticleService(
             subFamiliesSheet.Cell(subFamilyRow, 2).Value = subFamily.Code;
             subFamilyRow++;
         }
-        subFamiliesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(subFamiliesSheet, 2, subFamilyRow - 1);
 
         if (subFamilies.Items.Count > 0)
         {
@@ -1091,7 +1090,6 @@ public class ArticleService(
         var unitsSheet = workbook.Worksheets.Add("Units");
         unitsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Code", language);
         unitsSheet.Cell(1, 2).Value = BulkExcelLocalization.Header("UnitType", language);
-        unitsSheet.Row(1).Style.Font.Bold = true;
         var unitRow = 2;
         foreach (var unit in units.Items.OrderBy(u => u.UnitTypeCode).ThenBy(u => u.Code))
         {
@@ -1099,7 +1097,7 @@ public class ArticleService(
             unitsSheet.Cell(unitRow, 2).Value = unit.UnitTypeCode;
             unitRow++;
         }
-        unitsSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(unitsSheet, 2, unitRow - 1);
 
         if (units.Items.Count > 0)
         {
@@ -1109,7 +1107,7 @@ public class ArticleService(
                 articlesSheet.Range(2, unitColumn, MaxBulkImportRows + 1, unitColumn).CreateDataValidation().List(unitNamedRange.Name, true);
         }
 
-        articlesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(articlesSheet, headers.Length, 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);

@@ -6,6 +6,7 @@ using InnNou.Application.Persistence;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
+using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
@@ -483,7 +484,6 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         string[] headers = ["FirstName", "LastName", "Email", "UserName", "RoleName", "OrganizationName", "Status"];
         for (var i = 0; i < headers.Length; i++)
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        worksheet.Row(1).Style.Font.Bold = true;
 
         var r = 2;
         foreach (var user in users.Items)
@@ -495,10 +495,11 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
             worksheet.Cell(r, 5).Value = roleNames.GetValueOrDefault(user.RoleId, "");
             worksheet.Cell(r, 6).Value = user.OrganizationId.HasValue ? organizationNames.GetValueOrDefault(user.OrganizationId.Value, "") : "";
             worksheet.Cell(r, 7).Value = user.IsActive ? "Active" : "Inactive";
+            ExcelExportStyling.StyleStatusCell(worksheet.Cell(r, 7), user.IsActive);
             r++;
         }
 
-        worksheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(worksheet, headers.Length, r - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
@@ -523,24 +524,21 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         string[] headers = ["FirstName", "LastName", "Email", "UserName", "Password", "RoleName", "OrganizationName"];
         for (var i = 0; i < headers.Length; i++)
             usersSheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
-        usersSheet.Row(1).Style.Font.Bold = true;
-        usersSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(usersSheet, headers.Length, 1);
 
         var rolesSheet = workbook.Worksheets.Add("Roles");
         rolesSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-        rolesSheet.Row(1).Style.Font.Bold = true;
         var roleRow = 2;
         foreach (var role in roles.Items.OrderByDescending(role => role.RoleLevel))
             rolesSheet.Cell(roleRow++, 1).Value = role.Name;
-        rolesSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(rolesSheet, 1, roleRow - 1);
 
         var organizationsSheet = workbook.Worksheets.Add("Organizations");
         organizationsSheet.Cell(1, 1).Value = BulkExcelLocalization.Header("Name", language);
-        organizationsSheet.Row(1).Style.Font.Bold = true;
         var organizationRow = 2;
         foreach (var organization in organizations.Items.OrderBy(organization => organization.Name))
             organizationsSheet.Cell(organizationRow++, 1).Value = organization.Name;
-        organizationsSheet.Columns().AdjustToContents();
+        ExcelExportStyling.FinalizeWorksheet(organizationsSheet, 1, organizationRow - 1);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
