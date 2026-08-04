@@ -16,7 +16,7 @@ using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper, IRoleService roleService, IOrganizationService organizationService, ILogger<UserService> logger) : IUserService
+public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper, IRoleService roleService, IOrganizationService organizationService, INotificationService notificationService, ILogger<UserService> logger) : IUserService
 {
     private sealed class UserPageRow : User { public int TotalCount { get; set; } }
 
@@ -175,6 +175,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
         }
 
         var newRoleId = existing.RoleId;
+        string? newRoleName = null;
         if (request.RoleId != 0 && request.RoleId != existing.RoleId)
         {
             var newRole = await connection.QueryFirstOrDefaultAsync<Role>(
@@ -189,6 +190,7 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
                 throw new ApiException(ErrorCodes.UserCannotAssignHigherRole, "Cannot assign higher role", 403);
 
             newRoleId = newRole.RoleId;
+            newRoleName = newRole.Name;
         }
 
         var newEmail = !string.IsNullOrWhiteSpace(request.Email) ? request.Email : existing.Email;
@@ -214,6 +216,27 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
                 LastUpdatedBy = context.ActorUserToken.ToString()
             },
             commandType: CommandType.StoredProcedure);
+
+        if (updatedUser is not null && newRoleName is not null)
+        {
+            // Best-effort/non-blocking. Only fires when the role actually changed (newRoleName is
+            // set only inside that branch above) — never for an edit that leaves the role alone.
+            try
+            {
+                // notificationService.NotifyAsync opens its own connection — close this one first,
+                // it isn't used again after this point. See
+                // PurchaseOrderService.NotifyOrderBuyerAsync's own comment for the full reasoning.
+                await connection.CloseAsync();
+
+                await notificationService.NotifyAsync(
+                    request.UserToken, NotificationType.User_Role_Changed,
+                    new { newRoleName }, null, context, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Role-change notification failed for user {UserToken}", request.UserToken);
+            }
+        }
 
         return updatedUser is null ? null : mapper.Map<UserDto>(updatedUser);
     }

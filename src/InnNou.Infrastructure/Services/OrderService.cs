@@ -719,6 +719,14 @@ public class OrderService(
                 }, cancellationToken);
             }
 
+            // notificationService.NotifyAsync opens its own connection each call — closed right
+            // before every call in this method (Dapper transparently reopens this connection on
+            // its own next query) so at most one connection is ever open at once. Doesn't matter
+            // in production (no ambient transaction), but the integration test harness wraps every
+            // test in a System.Transactions.TransactionScope, where two simultaneously-open
+            // connections force a DTC promotion that isn't configured on a local/CI SQL Server —
+            // same reasoning as ApproveStepAndAdvanceAsync's own connection.CloseAsync() above.
+            await connection.CloseAsync();
             await notificationService.NotifyAsync(
                 submitterToken, NotificationType.Order_Confirmed,
                 new { organizationName, purchaseOrderCount = purchaseOrdersWithLines.Count },
@@ -734,6 +742,7 @@ public class OrderService(
                     "sp_User_GetBySupplierId", new { purchaseOrder.SupplierId }, commandType: CommandType.StoredProcedure);
                 if (supplierUser is not null)
                 {
+                    await connection.CloseAsync();
                     await notificationService.NotifyAsync(
                         supplierUser.UserToken, NotificationType.New_Purchase_Order,
                         new { purchaseOrderNumber = purchaseOrder.PurchaseOrderNumber, organizationName },
@@ -1148,10 +1157,14 @@ public class OrderService(
     // OrderApprovalEmailContent. Best-effort/non-blocking, same convention as
     // SendOrderConfirmationAsync — an SMTP outage here must never fail the Submit/Approve call
     // that triggered it.
-    private async Task SendApprovalRequestEmailAsync(IDbConnection connection, OrderApprovalStep step, Order order, string organizationName, string? organizationLanguageCode, IRequestContext context, CancellationToken cancellationToken)
+    private async Task SendApprovalRequestEmailAsync(DbConnection connection, OrderApprovalStep step, Order order, string organizationName, string? organizationLanguageCode, IRequestContext context, CancellationToken cancellationToken)
     {
         try
         {
+            // notificationService.NotifyAsync opens its own connection — close this one first
+            // (Dapper transparently reopens it on the GetUserEmailAsync call right below). See
+            // ApproveStepAndAdvanceAsync's own connection.CloseAsync() for the full reasoning.
+            await connection.CloseAsync();
             await notificationService.NotifyAsync(
                 step.ApproverUserToken, NotificationType.Approval_Requested,
                 new { organizationName, familyCode = step.FamilyCode, level = step.Level },
@@ -1220,10 +1233,17 @@ public class OrderService(
                 commandType: CommandType.StoredProcedure);
 
             if (order is not null)
+            {
+                // notificationService.NotifyAsync (inside NotifyOrderSubmitterAsync) opens its own
+                // connection — close this one first, it isn't used again after this point. Same
+                // reasoning as the established fix a few lines below/above in this file
+                // (ApproveStepAndAdvanceAsync's own connection.CloseAsync()).
+                await connection.CloseAsync();
                 await NotifyOrderSubmitterAsync(
                     order, NotificationType.Approval_Step_Rejected,
                     new { familyCode = rejectedRectificationStep.FamilyCode, level = rejectedRectificationStep.Level, reason },
                     context, cancellationToken);
+            }
 
             return mapper.Map<OrderApprovalStepDto>(rejectedRectificationStep);
         }
@@ -1242,10 +1262,13 @@ public class OrderService(
             commandType: CommandType.StoredProcedure);
 
         if (order is not null)
+        {
+            await connection.CloseAsync();
             await NotifyOrderSubmitterAsync(
                 order, NotificationType.Approval_Step_Rejected,
                 new { familyCode = rejected.FamilyCode, level = rejected.Level, reason },
                 context, cancellationToken);
+        }
 
         return mapper.Map<OrderApprovalStepDto>(rejected);
     }

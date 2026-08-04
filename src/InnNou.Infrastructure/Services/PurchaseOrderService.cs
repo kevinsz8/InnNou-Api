@@ -6,12 +6,13 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
-public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMapper mapper) : IPurchaseOrderService
+public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMapper mapper, INotificationService notificationService, ILogger<PurchaseOrderService> logger) : IPurchaseOrderService
 {
     private sealed class PurchaseOrderPageRow : PurchaseOrder { public int TotalCount { get; set; } }
     private sealed class GoodsReceiptPageRow : GoodsReceipt { public int TotalCount { get; set; } }
@@ -69,6 +70,38 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             new { purchaseOrder.OrderId, purchaseOrder.PurchaseOrderId },
             commandType: CommandType.StoredProcedure);
         return lines.ToList();
+    }
+
+    // Best-effort/non-blocking (same convention as every notification call site elsewhere).
+    // Recipient is resolved from the originating Order's own CreatedBy (the buyer who submitted
+    // it) — never context.ActorUserToken, since receiving/rectifying a PO is normally done by
+    // warehouse/ops staff, not the buyer themselves (same reasoning as the Order_Confirmed
+    // recipient fix — see .claude/OrderConfirmationModule.md).
+    private async Task NotifyOrderBuyerAsync(DbConnection connection, PurchaseOrder purchaseOrder, NotificationType type, object data, IRequestContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var order = await connection.QueryFirstOrDefaultAsync<Order>(
+                "sp_Order_GetByToken", new { purchaseOrder.OrderToken }, commandType: CommandType.StoredProcedure);
+
+            if (order is null || !Guid.TryParse(order.CreatedBy, out var buyerToken))
+                return;
+
+            // notificationService.NotifyAsync opens its own connection — closing this one first
+            // keeps at most one connection open at a time on this logical unit of work (Dapper
+            // transparently reopens it on the caller's next query). Doesn't matter in production
+            // (no ambient transaction), but the integration test harness wraps every test in a
+            // System.Transactions.TransactionScope, and two simultaneously-open connections there
+            // forces a DTC promotion that isn't configured on a local/CI SQL Server — same
+            // reasoning as ApproveStepAndAdvanceAsync's own explicit connection.CloseAsync().
+            await connection.CloseAsync();
+
+            await notificationService.NotifyAsync(buyerToken, type, data, $"/orders/{purchaseOrder.OrderToken}", context, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Notification failed for PurchaseOrder {PurchaseOrderToken}", purchaseOrder.PurchaseOrderToken);
+        }
     }
 
     public async Task<PagedResult<PurchaseOrderDto>> GetPagedAsync(Guid? organizationToken, Guid? orderToken, string? status, List<string>? statuses, string? purchaseOrderNumber, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
@@ -771,6 +804,11 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
             await transaction.CommitAsync(cancellationToken);
 
+            await NotifyOrderBuyerAsync(
+                connection, purchaseOrder, NotificationType.Purchase_Order_Rectified,
+                new { purchaseOrderNumber = purchaseOrder.PurchaseOrderNumber, reason = normalizedReason, needsApproval },
+                context, cancellationToken);
+
             var dto = mapper.Map<PurchaseOrderRectificationDto>(header);
             dto.Lines = mapper.MapList<PurchaseOrderLineRectificationDto>(
                 await connection.QueryAsync<PurchaseOrderLineRectification>(
@@ -1169,6 +1207,11 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 transaction, commandType: CommandType.StoredProcedure);
 
             await transaction.CommitAsync(cancellationToken);
+
+            await NotifyOrderBuyerAsync(
+                connection, purchaseOrder, NotificationType.Goods_Receipt_Created,
+                new { purchaseOrderNumber = purchaseOrder.PurchaseOrderNumber, deliveryNoteNumber },
+                context, cancellationToken);
 
             var dto = mapper.Map<GoodsReceiptDto>(header);
             dto.Lines = mapper.MapList<GoodsReceiptLineDto>(

@@ -113,7 +113,8 @@ namespace InnNou.Application.Mapping
                 FirstName = r.FirstName ?? string.Empty,
                 LastName = r.LastName ?? string.Empty,
                 Password = r.Password ?? string.Empty,
-                UserName = r.UserName ?? string.Empty
+                UserName = r.UserName ?? string.Empty,
+                RoleId = r.RoleId
             });
             mapper.Register<UserDto, EditUserCommandResponse>(d => new EditUserCommandResponse
             {

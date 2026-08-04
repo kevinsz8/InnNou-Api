@@ -1,5 +1,6 @@
 using InnNou.Application.Abstractions;
 using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
 using InnNou.Infrastructure.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +44,11 @@ public class DatabaseFixture
         // Overrides AddInfrastructure()'s own IRequestContext registration (which reads JWT
         // claims off HttpContext) - last registration wins for GetService<IRequestContext>().
         services.AddScoped<IRequestContext, TestRequestContext>();
+
+        // INotificationPusher has no registration in AddInfrastructure() at all - the real one
+        // (SignalRNotificationPusher) lives in InnNou.API, out of reach here. See
+        // NoOpNotificationPusher's own comment for why.
+        services.AddScoped<INotificationPusher, NoOpNotificationPusher>();
 
         Services = services.BuildServiceProvider();
     }

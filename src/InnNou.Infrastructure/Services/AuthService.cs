@@ -1,9 +1,12 @@
 using Dapper;
+using InnNou.Application.Common;
+using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Models;
 using InnNou.Domain.Persistence;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
@@ -13,8 +16,27 @@ using System.Text;
 
 namespace InnNou.Infrastructure.Services;
 
-public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration configuration) : IAuthService
+public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration configuration, INotificationService notificationService, ILogger<AuthService> logger) : IAuthService
 {
+    // Minimal IRequestContext for stamping a best-effort notification's CreatedBy — there is no
+    // ambient HTTP request context available inside AuthService (IAuthService is a Domain
+    // contract, resolved before any authenticated session in some flows), but the actor's own
+    // identity IS already known as a method parameter. Same shape/reasoning as
+    // OrderService.EmailApprovalRequestContext.
+    private sealed class ImpersonationActionRequestContext(Guid actorUserToken) : IRequestContext
+    {
+        public Guid ActorUserToken => actorUserToken;
+        public Guid EffectiveUserToken => actorUserToken;
+        public int? OrganizationId => null;
+        public string? OrganizationTypeCode => null;
+        public int? SupplierId => null;
+        public int RoleLevel => 0;
+        public int ActorRoleLevel => 0;
+        public int? ActorOrganizationId => null;
+        public bool IsAuthenticated => false;
+        public bool IsImpersonating => false;
+    }
+
     public async Task<Login?> LoginAsync(string email, string password, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -190,6 +212,25 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             "sp_Auth_InsertRefreshToken",
             new { RefreshTokenToken = tokenId, UserId = actor.UserId, TokenHash = tokenHash, ExpiresUtc = now.AddDays(7), CreatedUtc = now, ImpersonatedUserId = target.UserId },
             commandType: CommandType.StoredProcedure);
+
+        // Best-effort/non-blocking — covers all four impersonation entry points (user/supplier/
+        // warehouse-contact/organization), since they all delegate to this method.
+        try
+        {
+            // notificationService.NotifyAsync opens its own connection — close this one first, it
+            // isn't used again after this point. See
+            // PurchaseOrderService.NotifyOrderBuyerAsync's own comment for the full reasoning.
+            await connection.CloseAsync();
+
+            await notificationService.NotifyAsync(
+                target.UserToken, NotificationType.Impersonation_Started,
+                new { actorEmail = actor.Email }, null,
+                new ImpersonationActionRequestContext(actor.UserToken), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Impersonation-started notification failed for target user {UserToken}", target.UserToken);
+        }
 
         return new Login
         {

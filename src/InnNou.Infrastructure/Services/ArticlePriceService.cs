@@ -12,6 +12,7 @@ using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 
 namespace InnNou.Infrastructure.Services;
@@ -137,7 +138,7 @@ public class ArticlePriceService(
     // (many ids) in one call: groups by Supplier (a bulk-import file can span more than one) and
     // fires exactly ONE notification per subscriber per supplier, regardless of how many of that
     // supplier's articles changed in this event — never one notification per row.
-    private async Task NotifySupplierPriceSubscribersAsync(IDbConnection connection, List<int> articlePriceIds, IRequestContext context, CancellationToken cancellationToken)
+    private async Task NotifySupplierPriceSubscribersAsync(DbConnection connection, List<int> articlePriceIds, IRequestContext context, CancellationToken cancellationToken)
     {
         if (articlePriceIds.Count == 0)
             return;
@@ -204,6 +205,13 @@ public class ArticlePriceService(
                         }
                     }
 
+                    // notificationService.NotifyAsync opens its own connection — close this one
+                    // first each time (Dapper transparently reopens it on the next loop
+                    // iteration's query) so at most one connection is ever open at once. See
+                    // OrderService.ApproveStepAndAdvanceAsync's own connection.CloseAsync() for
+                    // the full reasoning (integration tests wrap everything in an ambient
+                    // TransactionScope that can't survive two simultaneously-open connections).
+                    await connection.CloseAsync();
                     await notificationService.NotifyAsync(
                         subscriber.UserToken, NotificationType.Supplier_Price_Updated, data,
                         "/articles", context, cancellationToken);

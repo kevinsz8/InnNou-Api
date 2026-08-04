@@ -6,11 +6,13 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
-public class InternalOrderService(IDbConnectionFactory connectionFactory, IMapper mapper) : IInternalOrderService
+public class InternalOrderService(IDbConnectionFactory connectionFactory, IMapper mapper, INotificationService notificationService, ILogger<InternalOrderService> logger) : IInternalOrderService
 {
     private sealed class InternalOrderPageRow : InternalOrder { public int TotalCount { get; set; } }
 
@@ -91,6 +93,33 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             commandType: CommandType.StoredProcedure);
 
         return canAccess == 1;
+    }
+
+    // Best-effort/non-blocking. Recipient is resolved from the InternalOrder's own CreatedBy —
+    // the requesting organization's user who originally created the request — never
+    // context.ActorUserToken, since shipping/receiving/cancelling can legitimately be done by a
+    // different person on the same team (same "resolve from the entity, not the acting context"
+    // principle as OrderService.NotifyOrderSubmitterAsync).
+    private async Task NotifyRequestingOrganizationAsync(DbConnection connection, InternalOrder header, NotificationType type, object data, IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(header.CreatedBy, out var requesterToken))
+            return;
+
+        try
+        {
+            // notificationService.NotifyAsync opens its own connection — close the caller's first
+            // so at most one is ever open at once (Dapper transparently reopens it on next use).
+            // See PurchaseOrderService.NotifyOrderBuyerAsync's own comment for the full reasoning
+            // (integration tests wrap everything in an ambient TransactionScope that can't survive
+            // two simultaneously-open connections without MSDTC).
+            await connection.CloseAsync();
+
+            await notificationService.NotifyAsync(requesterToken, type, data, $"/internalOrders/{header.InternalOrderToken}", context, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Notification failed for InternalOrder {InternalOrderToken}", header.InternalOrderToken);
+        }
     }
 
     public async Task<InternalOrderDto?> CreateAsync(Guid sourceOrganizationToken, Guid destinationWarehouseToken, string? notes, List<CreateInternalOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
@@ -343,7 +372,15 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             new { InternalOrderToken = internalOrderToken, CancelledBy = context.ActorUserToken.ToString(), CancelledReason = reason },
             commandType: CommandType.StoredProcedure);
 
-        return updated is null ? null : mapper.Map<InternalOrderDto>(updated);
+        if (updated is null)
+            return null;
+
+        await NotifyRequestingOrganizationAsync(
+            connection, updated, NotificationType.Internal_Order_Cancelled,
+            new { internalOrderNumber = updated.InternalOrderNumber, reason },
+            context, cancellationToken);
+
+        return mapper.Map<InternalOrderDto>(updated);
     }
 
     public async Task<InternalOrderShipmentDto?> CreateShipmentAsync(Guid internalOrderToken, Guid sourceWarehouseToken, string? notes, List<CreateInternalOrderShipmentLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
@@ -487,6 +524,11 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             }
 
             await transaction.CommitAsync(cancellationToken);
+
+            await NotifyRequestingOrganizationAsync(
+                connection, header, NotificationType.Internal_Order_Shipped,
+                new { internalOrderNumber = header.InternalOrderNumber },
+                context, cancellationToken);
 
             var dto = mapper.Map<InternalOrderShipmentDto>(shipmentHeader);
             dto.Lines = mapper.MapList<InternalOrderShipmentLineDto>(
@@ -723,6 +765,11 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             }
 
             await transaction.CommitAsync(cancellationToken);
+
+            await NotifyRequestingOrganizationAsync(
+                connection, header, NotificationType.Internal_Order_Received,
+                new { internalOrderNumber = header.InternalOrderNumber },
+                context, cancellationToken);
 
             var dto = mapper.Map<InternalOrderReceiptDto>(receiptHeader);
             dto.Lines = mapper.MapList<InternalOrderReceiptLineDto>(

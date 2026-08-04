@@ -13,5 +13,9 @@ namespace InnNou.Application.Requests
         public string? LastName { get; set; }
         public string? Password { get; set; }
         public string? UserName { get; set; }
+        // 0 = "leave the role as-is" (UserService.EditUserAsync's own convention) — the frontend's
+        // Edit User form always sends the currently-selected role, but this stays optional at the
+        // wire level for any other caller.
+        public int RoleId { get; set; }
     }
 }

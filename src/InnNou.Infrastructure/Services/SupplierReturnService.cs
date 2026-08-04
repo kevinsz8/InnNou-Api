@@ -6,11 +6,12 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapper mapper) : ISupplierReturnService
+public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapper mapper, INotificationService notificationService, ILogger<SupplierReturnService> logger) : ISupplierReturnService
 {
     private sealed class SupplierReturnPageRow : SupplierReturn { public int TotalCount { get; set; } }
 
@@ -195,6 +196,29 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
 
         if (header is null)
             return null;
+
+        // Best-effort/non-blocking. Recipient resolved from the return's own CreatedBy (whoever
+        // opened it) — never context.ActorUserToken, since a different Admin can close a return
+        // someone else on the team opened.
+        if (Guid.TryParse(header.CreatedBy, out var openerToken))
+        {
+            try
+            {
+                // notificationService.NotifyAsync opens its own connection — close this one first
+                // (Dapper reopens it transparently on the next query below). See
+                // PurchaseOrderService.NotifyOrderBuyerAsync's own comment for the full reasoning.
+                await connection.CloseAsync();
+
+                await notificationService.NotifyAsync(
+                    openerToken, NotificationType.Supplier_Return_Closed,
+                    new { purchaseOrderNumber = header.PurchaseOrderNumber, resolutionType },
+                    $"/supplierReturns/{header.SupplierReturnToken}", context, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Notification failed for SupplierReturn {SupplierReturnToken}", header.SupplierReturnToken);
+            }
+        }
 
         var dto = mapper.Map<SupplierReturnDto>(header);
         dto.Lines = mapper.MapList<SupplierReturnLineDto>(
