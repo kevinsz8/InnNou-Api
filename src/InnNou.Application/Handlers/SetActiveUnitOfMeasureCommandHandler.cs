@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetActiveUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper)
+    public class SetActiveUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetActiveUnitOfMeasureCommandRequest, ApiResponse<SetActiveUnitOfMeasureCommandResponse>>
     {
         public async Task<ApiResponse<SetActiveUnitOfMeasureCommandResponse>> Handle(SetActiveUnitOfMeasureCommandRequest request, CancellationToken cancellationToken)
         {
-            var result = await unitOfMeasureService.SetActiveAsync(request.UnitOfMeasureToken, request.IsActive, cancellationToken);
+            var result = await unitOfMeasureService.SetActiveAsync(request.UnitOfMeasureToken, request.IsActive, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetActiveUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 

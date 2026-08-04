@@ -21,6 +21,15 @@ namespace InnNou.Application.Handlers
         }
         public async Task<ApiResponse<CreateUserCommandResponse>> Handle(CreateUserCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName) || string.IsNullOrWhiteSpace(request.UserName))
+                return ApiResponse<CreateUserCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "FirstName, LastName and UserName are required.", 400);
+
+            if (!UserValidation.IsValidEmail(request.Email))
+                return ApiResponse<CreateUserCommandResponse>.FailureResponse(ErrorCodes.UserInvalidEmail, "A valid email address is required.", 400);
+
+            if (!UserValidation.IsStrongPassword(request.Password))
+                return ApiResponse<CreateUserCommandResponse>.FailureResponse(ErrorCodes.UserWeakPassword, "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number and special character.", 400);
+
             var userDto = _mapper.Map<UserDto>(request);
 
             var userExists = await _userService.IsUserExists(request.Email, cancellationToken);

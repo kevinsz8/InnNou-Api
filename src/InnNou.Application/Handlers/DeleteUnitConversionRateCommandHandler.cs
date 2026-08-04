@@ -6,12 +6,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class DeleteUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService)
+    public class DeleteUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IRequestContext context)
         : IRequestHandler<DeleteUnitConversionRateCommandRequest, ApiResponse<DeleteUnitConversionRateCommandResponse>>
     {
         public async Task<ApiResponse<DeleteUnitConversionRateCommandResponse>> Handle(DeleteUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
         {
-            var deleted = await unitConversionRateService.DeleteAsync(request.UnitConversionRateToken, cancellationToken);
+            var deleted = await unitConversionRateService.DeleteAsync(request.UnitConversionRateToken, context, cancellationToken);
             if (!deleted)
                 return ApiResponse<DeleteUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateNotFound, "Unit conversion rate not found.", 404);
 

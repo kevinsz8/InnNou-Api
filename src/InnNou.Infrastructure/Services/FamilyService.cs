@@ -10,18 +10,19 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
-public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mapper) : IFamilyService
+public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mapper, ILogger<FamilyService> logger) : IFamilyService
 {
     private sealed class FamilyPageRow : Family { public int TotalCount { get; set; } }
 
-    // Family/SubFamily Create/Edit have no RoleLevel gate at all today (open to any
-    // authenticated user) — bulk import introduces the first one, at AdminRoleLevel, matching
-    // Category/SubCategory's identical bulk-import gate.
+    // Family is a pure global catalog (no per-organization ownership, unlike Category) — a flat
+    // AdminRoleLevel gate on every write method is the whole authorization model, same floor
+    // BulkImportFamiliesAsync already enforced.
     private const int AdminRoleLevel = 80;
     private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
@@ -68,37 +69,46 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
             "sp_Family_ExistsByCode", p, commandType: CommandType.StoredProcedure);
     }
 
-    public async Task<FamilyDto?> CreateAsync(FamilyDto dto, CancellationToken cancellationToken = default)
+    public async Task<FamilyDto?> CreateAsync(FamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.FamilyForbidden, "Only Admins and SuperAdmins can create families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@FamilyToken", Guid.NewGuid());
         p.Add("@Code", dto.Code);
-        p.Add("@CreatedBy", "API");
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Family>(
             "sp_Family_Create", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<FamilyDto>(row);
     }
 
-    public async Task<FamilyDto?> EditAsync(FamilyDto dto, CancellationToken cancellationToken = default)
+    public async Task<FamilyDto?> EditAsync(FamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.FamilyForbidden, "Only Admins and SuperAdmins can edit families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@FamilyToken", dto.FamilyToken);
         p.Add("@Code", dto.Code);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Family>(
             "sp_Family_Update", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<FamilyDto>(row);
     }
 
-    public async Task<FamilyDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<FamilyDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.FamilyForbidden, "Only Admins and SuperAdmins can activate/deactivate families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@FamilyToken", token);
         p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<Family>(
@@ -111,8 +121,11 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         }
     }
 
-    public async Task<FamilyDto?> SetDefaultTaxCategoryAsync(Guid familyToken, Guid taxCategoryToken, CancellationToken cancellationToken = default)
+    public async Task<FamilyDto?> SetDefaultTaxCategoryAsync(Guid familyToken, Guid taxCategoryToken, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.FamilyForbidden, "Only Admins and SuperAdmins can set a family's default tax category.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var category = await connection.QueryFirstOrDefaultAsync<TaxCategory>(
@@ -123,19 +136,22 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         var p = new DynamicParameters();
         p.Add("@FamilyToken", familyToken);
         p.Add("@DefaultTaxCategoryId", category.TaxCategoryId);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Family>(
             "sp_Family_SetDefaultTaxCategory", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<FamilyDto>(row);
     }
 
-    public async Task<FamilyDto?> SetNameTranslationsAsync(Guid familyToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    public async Task<FamilyDto?> SetNameTranslationsAsync(Guid familyToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.FamilyForbidden, "Only Admins and SuperAdmins can edit a family's name translations.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@FamilyToken", familyToken);
         p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<Family>(
@@ -203,7 +219,7 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
 
                 try
                 {
-                    var created = await CreateAsync(new FamilyDto { Code = code }, cancellationToken);
+                    var created = await CreateAsync(new FamilyDto { Code = code }, context, cancellationToken);
                     if (created is null)
                     {
                         result.Errors.Add(new BulkImportFamilyRowErrorDto { RowNumber = rowNumber, FamilyCode = code, Code = ErrorCodes.FamilyCreateFailed, Description = "Family creation failed." });
@@ -216,8 +232,9 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
                 {
                     result.Errors.Add(new BulkImportFamilyRowErrorDto { RowNumber = rowNumber, FamilyCode = code, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "FamilyService.BulkImportFamiliesAsync: unexpected error processing row {RowNumber} ({FamilyCode})", rowNumber, code);
                     result.Errors.Add(new BulkImportFamilyRowErrorDto { RowNumber = rowNumber, FamilyCode = code, Code = ErrorCodes.FamilyBulkImportRowFailed, Description = "An unexpected error occurred while creating this family." });
                 }
             }

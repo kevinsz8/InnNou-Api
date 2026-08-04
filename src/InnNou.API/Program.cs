@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Serilog;
+using Serilog.Events;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -15,7 +17,22 @@ using System.Threading.RateLimiting;
 
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
+// Prior to this, the app had no logging framework at all beyond ASP.NET Core's bare default
+// console logger (no file sink, nothing that survives a console buffer roll/restart) — an
+// unhandled exception in ExceptionHandlingBehavior/the global handler below literally had
+// nowhere to go. Console + rolling daily file, retained 14 days; flushed on process exit so a
+// graceful shutdown doesn't drop buffered entries.
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("Logs/innnou-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14)
+    .CreateLogger();
+AppDomain.CurrentDomain.ProcessExit += (_, _) => Log.CloseAndFlush();
+
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
 
 
 builder.Services.AddHttpContextAccessor();
@@ -143,6 +160,7 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
 
 
 app.UseExceptionHandler(app =>
@@ -157,6 +175,16 @@ app.UseExceptionHandler(app =>
             BadHttpRequestException => (ErrorCodes.InvalidRequest, "Invalid request format", 400),
             _ => (ErrorCodes.UnhandledError, "An unexpected error occurred.", 500)
         };
+
+        // ApiException is an anticipated, already-classified failure (a 4xx the caller can act
+        // on) — logged at Warning so it doesn't drown out genuine unhandled exceptions in the
+        // log file. Anything else reaching this global handler is by definition unanticipated,
+        // so it's logged at Error with the full exception (previously this was completely
+        // unlogged — see CLAUDE.md's ExceptionHandlingBehavior note).
+        if (error is ApiException)
+            Log.Warning("Request failed with {ErrorCode}: {ErrorMessage}", code, message);
+        else
+            Log.Error(error, "Unhandled exception reached the global exception handler");
 
         context.Response.StatusCode = statusCode;
 

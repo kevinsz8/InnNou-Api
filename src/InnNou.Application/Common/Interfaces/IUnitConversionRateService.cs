@@ -7,9 +7,9 @@ namespace InnNou.Application.Common.Interfaces
     {
         Task<PagedResult<UnitConversionRateDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default);
         Task<UnitConversionRateDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
-        Task<UnitConversionRateDto?> CreateAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default);
-        Task<UnitConversionRateDto?> EditAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default);
-        Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
-        Task<bool> DeleteAsync(Guid token, CancellationToken cancellationToken = default);
+        Task<UnitConversionRateDto?> CreateAsync(UnitConversionRateDto dto, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<UnitConversionRateDto?> EditAsync(UnitConversionRateDto dto, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default);
     }
 }

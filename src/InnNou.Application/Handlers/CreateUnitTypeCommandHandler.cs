@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class CreateUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper)
+    public class CreateUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper, IRequestContext context)
         : IRequestHandler<CreateUnitTypeCommandRequest, ApiResponse<CreateUnitTypeCommandResponse>>
     {
         public async Task<ApiResponse<CreateUnitTypeCommandResponse>> Handle(CreateUnitTypeCommandRequest request, CancellationToken cancellationToken)
@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeCodeExists, "A unit type with this code already exists.", 409);
 
             var dto = new UnitTypeDto { Code = request.Code };
-            var result = await unitTypeService.CreateAsync(dto, cancellationToken);
+            var result = await unitTypeService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeCreateFailed, "Unit type could not be created.", 500);
 

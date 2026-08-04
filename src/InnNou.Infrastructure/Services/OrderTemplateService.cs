@@ -9,11 +9,12 @@ using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMapper mapper, IOrderService orderService) : IOrderTemplateService
+public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMapper mapper, IOrderService orderService, ILogger<OrderTemplateService> logger) : IOrderTemplateService
 {
     private sealed class OrderTemplatePageRow : OrderTemplate { public int TotalCount { get; set; } }
 
@@ -475,8 +476,9 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
                 lineResult.ErrorMessage = ex.Message;
                 result.FailedCount++;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                logger.LogWarning(ex, "OrderTemplateService.ApplyAsync: unexpected error adding line for article {ArticleToken} into order {OrderToken}", line.ArticleToken, orderToken);
                 lineResult.Outcome = ApplyOrderTemplateLineOutcomes.Failed;
                 lineResult.ErrorCode = ErrorCodes.UnhandledError;
                 lineResult.ErrorMessage = "An unexpected error occurred while adding this line.";

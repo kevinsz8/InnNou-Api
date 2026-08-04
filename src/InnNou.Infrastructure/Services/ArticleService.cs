@@ -9,6 +9,7 @@ using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Globalization;
 
@@ -20,7 +21,8 @@ public class ArticleService(
     ISupplierService supplierService,
     IFamilyService familyService,
     ISubFamilyService subFamilyService,
-    IUnitOfMeasureService unitOfMeasureService) : IArticleService
+    IUnitOfMeasureService unitOfMeasureService,
+    ILogger<ArticleService> logger) : IArticleService
 {
     private sealed class ArticlePageRow : Article { public int TotalCount { get; set; } }
 
@@ -37,6 +39,21 @@ public class ArticleService(
             : context.RoleLevel >= AdminRoleLevel;
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    // Shared by CreateAsync/EditAsync/SupersedeAsync — BulkImportArticlesAsync already enforces
+    // this same shape per-row (Name required, MinimumOrderQty/LeadTimeDays non-negative), but the
+    // single-row write paths had no equivalent guard until now.
+    private static void ValidateFields(ArticleDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new ApiException(ErrorCodes.ArticleNameRequired, "Name is required.", 400);
+
+        if (dto.MinimumOrderQty.HasValue && dto.MinimumOrderQty.Value < 0)
+            throw new ApiException(ErrorCodes.ArticleInvalidMinimumOrderQty, "MinimumOrderQty must be a non-negative number.", 400);
+
+        if (dto.LeadTimeDays.HasValue && dto.LeadTimeDays.Value < 0)
+            throw new ApiException(ErrorCodes.ArticleInvalidLeadTimeDays, "LeadTimeDays must be a non-negative whole number.", 400);
+    }
 
     public async Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, string? searchText, bool includeInactive, bool favoritesOnly, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default)
     {
@@ -155,6 +172,8 @@ public class ArticleService(
         if (!CanManage(context, dto.SupplierId))
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to create articles for this supplier.", 403);
 
+        ValidateFields(dto);
+
         await using var connection = connectionFactory.CreateConnection();
         var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, dto.TaxCategoryToken);
         await connection.OpenAsync(cancellationToken);
@@ -224,6 +243,8 @@ public class ArticleService(
     {
         if (!CanManage(context, dto.SupplierId))
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to edit articles for this supplier.", 403);
+
+        ValidateFields(dto);
 
         await using var connection = connectionFactory.CreateConnection();
 
@@ -305,6 +326,8 @@ public class ArticleService(
 
         if (!CanManage(context, existing.SupplierId))
             throw new ApiException(ErrorCodes.ArticleSupplierForbidden, "Not allowed to supersede articles for this supplier.", 403);
+
+        ValidateFields(newArticleData);
 
         if (existing.ReplacedByArticleId.HasValue)
             throw new ApiException(ErrorCodes.ArticleAlreadyReplaced, "This article has already been replaced.", 409);
@@ -634,8 +657,9 @@ public class ArticleService(
                     {
                         result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        logger.LogWarning(ex, "ArticleService.BulkImportArticlesAsync: unexpected error deleting row {RowNumber} ({Identifier})", rowNumber, rowIdentifier);
                         result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
                     }
 
@@ -909,8 +933,9 @@ public class ArticleService(
                 {
                     result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "ArticleService.BulkImportArticlesAsync: unexpected error processing row {RowNumber} ({Identifier})", rowNumber, rowIdentifier);
                     result.Errors.Add(new BulkImportArticleRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.ArticleBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
                 }
             }

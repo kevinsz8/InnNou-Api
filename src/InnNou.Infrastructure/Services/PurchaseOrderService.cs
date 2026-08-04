@@ -19,6 +19,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
     private const int StaffRoleLevel = 20;
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
+    private const int ApprovalThresholdBatchPageSize = 1000;
 
     // Read visibility, no RoleLevel floor — matches WarehouseService.CanManageReadAsync. The
     // owning Supplier branch is checked separately by callers before falling back to this.
@@ -572,14 +573,19 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         var newSteps = new List<TriggeredRectificationApprovalStep>();
 
+        // Batched: one call for every configured threshold across the whole organization (omitting
+        // @FamilyId, which the SP already treats as "all families" — see
+        // sp_FamilyApprovalThreshold_GetPaged.sql) instead of one round trip per distinct Family
+        // touched by this rectification.
+        var allThresholds = await connection.QueryAsync<FamilyApprovalThreshold>(
+            "sp_FamilyApprovalThreshold_GetPaged",
+            new { OrganizationId = purchaseOrder.OrganizationId, PageNumber = 1, PageSize = ApprovalThresholdBatchPageSize, FamilyId = (int?)null, IncludeInactive = false },
+            commandType: CommandType.StoredProcedure);
+        var thresholdsByFamily = allThresholds.ToLookup(t => t.FamilyId);
+
         foreach (var (familyId, total) in familyTotals)
         {
-            var configuredLevels = (await connection.QueryAsync<FamilyApprovalThreshold>(
-                "sp_FamilyApprovalThreshold_GetPaged",
-                new { OrganizationId = purchaseOrder.OrganizationId, PageNumber = 1, PageSize = MaxPageSize, FamilyId = familyId, IncludeInactive = false },
-                commandType: CommandType.StoredProcedure))
-                .OrderBy(t => t.Level)
-                .ToList();
+            var configuredLevels = thresholdsByFamily[familyId].OrderBy(t => t.Level).ToList();
 
             var highestTriggeredLevel = configuredLevels.Where(t => total >= t.ThresholdAmount).Select(t => (int?)t.Level).DefaultIfEmpty().Max();
             if (!highestTriggeredLevel.HasValue)

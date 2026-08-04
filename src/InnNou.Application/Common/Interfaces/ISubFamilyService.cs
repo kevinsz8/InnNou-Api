@@ -8,10 +8,10 @@ namespace InnNou.Application.Common.Interfaces
         Task<PagedResult<SubFamilyDto>> GetPagedAsync(int pageNumber, int pageSize, int? familyId = null, string? searchText = null, bool includeInactive = false, CancellationToken cancellationToken = default);
         Task<SubFamilyDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default);
         Task<bool> ExistsByCodeAsync(string code, int familyId, CancellationToken cancellationToken = default);
-        Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, CancellationToken cancellationToken = default);
-        Task<SubFamilyDto?> EditAsync(SubFamilyDto dto, CancellationToken cancellationToken = default);
-        Task<SubFamilyDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default);
-        Task<SubFamilyDto?> SetNameTranslationsAsync(Guid subFamilyToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default);
+        Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<SubFamilyDto?> EditAsync(SubFamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<SubFamilyDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<SubFamilyDto?> SetNameTranslationsAsync(Guid subFamilyToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default);
         Task<BulkImportSubFamilyResultDto> BulkImportSubFamiliesAsync(byte[] fileBytes, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> ExportSubFamiliesAsync(string? searchText, bool includeInactive, string? language, IRequestContext context, CancellationToken cancellationToken = default);
         Task<(byte[] FileBytes, string FileName)> GenerateSubFamilyImportTemplateAsync(string? language, IRequestContext context, CancellationToken cancellationToken = default);

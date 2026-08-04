@@ -7,7 +7,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetUnitTypeNameTranslationsCommandHandler(IUnitTypeService unitTypeService, IMapper mapper)
+    public class SetUnitTypeNameTranslationsCommandHandler(IUnitTypeService unitTypeService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetUnitTypeNameTranslationsCommandRequest, ApiResponse<SetUnitTypeNameTranslationsCommandResponse>>
     {
         // Same supported-language set as InnNou.Shared.Localization's own
@@ -23,7 +23,7 @@ namespace InnNou.Application.Handlers
                 request.NameTranslations.Values.Any(string.IsNullOrWhiteSpace))
                 return ApiResponse<SetUnitTypeNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "NameTranslations keys must be one of en/es/ca, with non-empty values.", 400);
 
-            var result = await unitTypeService.SetNameTranslationsAsync(request.UnitTypeToken, request.NameTranslations, cancellationToken);
+            var result = await unitTypeService.SetNameTranslationsAsync(request.UnitTypeToken, request.NameTranslations, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetUnitTypeNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 

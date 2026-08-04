@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class CreateUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IUnitTypeService unitTypeService, IMapper mapper)
+    public class CreateUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IUnitTypeService unitTypeService, IMapper mapper, IRequestContext context)
         : IRequestHandler<CreateUnitOfMeasureCommandRequest, ApiResponse<CreateUnitOfMeasureCommandResponse>>
     {
         public async Task<ApiResponse<CreateUnitOfMeasureCommandResponse>> Handle(CreateUnitOfMeasureCommandRequest request, CancellationToken cancellationToken)
@@ -27,7 +27,7 @@ namespace InnNou.Application.Handlers
                 Symbol = request.Symbol,
                 Decimals = request.Decimals
             };
-            var result = await unitOfMeasureService.CreateAsync(dto, cancellationToken);
+            var result = await unitOfMeasureService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureCreateFailed, "Unit of measure could not be created.", 500);
 

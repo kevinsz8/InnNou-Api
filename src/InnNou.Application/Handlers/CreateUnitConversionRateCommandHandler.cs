@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class CreateUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IUnitOfMeasureService unitOfMeasureService, IMapper mapper)
+    public class CreateUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IUnitOfMeasureService unitOfMeasureService, IMapper mapper, IRequestContext context)
         : IRequestHandler<CreateUnitConversionRateCommandRequest, ApiResponse<CreateUnitConversionRateCommandResponse>>
     {
         public async Task<ApiResponse<CreateUnitConversionRateCommandResponse>> Handle(CreateUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
@@ -27,7 +27,7 @@ namespace InnNou.Application.Handlers
                 ToUnitOfMeasureId = toUnit.UnitOfMeasureId,
                 Factor = request.Factor
             };
-            var result = await unitConversionRateService.CreateAsync(dto, cancellationToken);
+            var result = await unitConversionRateService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateCreateFailed, "Unit conversion rate could not be created.", 500);
 

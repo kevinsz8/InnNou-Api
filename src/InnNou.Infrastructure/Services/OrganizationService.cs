@@ -9,11 +9,12 @@ using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper mapper, ICurrencyService currencyService) : IOrganizationService
+public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper mapper, ICurrencyService currencyService, ILogger<OrganizationService> logger) : IOrganizationService
 {
     private sealed class OrganizationPageRow : Organization { public int TotalCount { get; set; } }
 
@@ -477,8 +478,9 @@ public class OrganizationService(IDbConnectionFactory connectionFactory, IMapper
                 {
                     result.Errors.Add(new BulkImportOrganizationRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "OrganizationService.BulkImportOrganizationsAsync: unexpected error processing row {RowNumber} ({Name})", rowNumber, rowName);
                     result.Errors.Add(new BulkImportOrganizationRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.OrganizationBulkImportRowFailed, Description = "An unexpected error occurred while creating this organization." });
                 }
             }

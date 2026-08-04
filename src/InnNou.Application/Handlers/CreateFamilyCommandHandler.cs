@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class CreateFamilyCommandHandler(IFamilyService familyService, IMapper mapper)
+    public class CreateFamilyCommandHandler(IFamilyService familyService, IMapper mapper, IRequestContext context)
         : IRequestHandler<CreateFamilyCommandRequest, ApiResponse<CreateFamilyCommandResponse>>
     {
         public async Task<ApiResponse<CreateFamilyCommandResponse>> Handle(CreateFamilyCommandRequest request, CancellationToken cancellationToken)
@@ -17,7 +17,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyCodeExists, "A family with this code already exists.", 409);
 
             var dto = new FamilyDto { Code = request.Code };
-            var result = await familyService.CreateAsync(dto, cancellationToken);
+            var result = await familyService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyCreateFailed, "Family could not be created.", 500);
 

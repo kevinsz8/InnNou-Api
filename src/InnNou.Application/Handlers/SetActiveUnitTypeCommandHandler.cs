@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetActiveUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper)
+    public class SetActiveUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetActiveUnitTypeCommandRequest, ApiResponse<SetActiveUnitTypeCommandResponse>>
     {
         public async Task<ApiResponse<SetActiveUnitTypeCommandResponse>> Handle(SetActiveUnitTypeCommandRequest request, CancellationToken cancellationToken)
         {
-            var result = await unitTypeService.SetActiveAsync(request.UnitTypeToken, request.IsActive, cancellationToken);
+            var result = await unitTypeService.SetActiveAsync(request.UnitTypeToken, request.IsActive, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetActiveUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 

@@ -1,4 +1,5 @@
 using Dapper;
+using InnNou.Application.Common;
 using InnNou.Application.Common.Interfaces;
 using InnNou.Domain.Dtos;
 using InnNou.Domain.Dtos.Common;
@@ -13,6 +14,11 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
 {
     private sealed class UnitConversionRatePageRow : UnitConversionRate { public int TotalCount { get; set; } }
 
+    // Pure global catalog (no per-organization ownership) — a flat AdminRoleLevel gate on every
+    // write method, including Delete, is the whole authorization model. Delete is a real physical
+    // row delete (no soft-delete/IsActive recovery), so gating it is the highest-severity part of
+    // this fix.
+    private const int AdminRoleLevel = 80;
     private const int MaxPageSize = 100;
 
     public async Task<PagedResult<UnitConversionRateDto>> GetPagedAsync(int pageNumber, int pageSize, int? unitTypeId = null, bool includeInactive = false, CancellationToken cancellationToken = default)
@@ -47,8 +53,11 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         return row is null ? null : mapper.Map<UnitConversionRateDto>(row);
     }
 
-    public async Task<UnitConversionRateDto?> CreateAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default)
+    public async Task<UnitConversionRateDto?> CreateAsync(UnitConversionRateDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can create unit conversion rates.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var forwardToken = Guid.NewGuid();
@@ -57,7 +66,7 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         p.Add("@FromUnitOfMeasureId", dto.FromUnitOfMeasureId);
         p.Add("@ToUnitOfMeasureId", dto.ToUnitOfMeasureId);
         p.Add("@Factor", dto.Factor);
-        p.Add("@CreatedBy", "API");
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
             "sp_UnitConversionRate_Create", p, commandType: CommandType.StoredProcedure);
         if (row is null) return null;
@@ -70,7 +79,7 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             rp.Add("@FromUnitOfMeasureId", dto.ToUnitOfMeasureId);
             rp.Add("@ToUnitOfMeasureId", dto.FromUnitOfMeasureId);
             rp.Add("@Factor", dto.Factor == 0 ? 0 : 1m / dto.Factor);
-            rp.Add("@CreatedBy", "API");
+            rp.Add("@CreatedBy", context.ActorUserToken.ToString());
             await connection.ExecuteAsync("sp_UnitConversionRate_Create", rp, commandType: CommandType.StoredProcedure);
         }
         catch { /* reverse pair already exists — no-op */ }
@@ -78,14 +87,17 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         return mapper.Map<UnitConversionRateDto>(row);
     }
 
-    public async Task<UnitConversionRateDto?> EditAsync(UnitConversionRateDto dto, CancellationToken cancellationToken = default)
+    public async Task<UnitConversionRateDto?> EditAsync(UnitConversionRateDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can edit unit conversion rates.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var p = new DynamicParameters();
         p.Add("@UnitConversionRateToken", dto.UnitConversionRateToken);
         p.Add("@Factor", dto.Factor);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
             "sp_UnitConversionRate_Update", p, commandType: CommandType.StoredProcedure);
         if (row is null) return null;
@@ -101,21 +113,24 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             var rrp = new DynamicParameters();
             rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
             rrp.Add("@Factor", dto.Factor == 0 ? 0 : 1m / dto.Factor);
-            rrp.Add("@LastUpdatedBy", "API");
+            rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
             await connection.ExecuteAsync("sp_UnitConversionRate_Update", rrp, commandType: CommandType.StoredProcedure);
         }
 
         return mapper.Map<UnitConversionRateDto>(row);
     }
 
-    public async Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can activate/deactivate unit conversion rates.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var p = new DynamicParameters();
         p.Add("@UnitConversionRateToken", token);
         p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
             "sp_UnitConversionRate_SetActive", p, commandType: CommandType.StoredProcedure);
         if (row is null) return null;
@@ -131,15 +146,18 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             var rrp = new DynamicParameters();
             rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
             rrp.Add("@IsActive", isActive);
-            rrp.Add("@LastUpdatedBy", "API");
+            rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
             await connection.ExecuteAsync("sp_UnitConversionRate_SetActive", rrp, commandType: CommandType.StoredProcedure);
         }
 
         return mapper.Map<UnitConversionRateDto>(row);
     }
 
-    public async Task<bool> DeleteAsync(Guid token, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can delete unit conversion rates.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var p = new DynamicParameters();

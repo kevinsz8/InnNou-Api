@@ -10,12 +10,13 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
-public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper mapper, IFamilyService familyService) : ISubFamilyService
+public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper mapper, IFamilyService familyService, ILogger<SubFamilyService> logger) : ISubFamilyService
 {
     private sealed class SubFamilyPageRow : SubFamily { public int TotalCount { get; set; } }
 
@@ -67,38 +68,47 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
             "sp_SubFamily_ExistsByCode", p, commandType: CommandType.StoredProcedure);
     }
 
-    public async Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, CancellationToken cancellationToken = default)
+    public async Task<SubFamilyDto?> CreateAsync(SubFamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SubFamilyForbidden, "Only Admins and SuperAdmins can create sub-families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@SubFamilyToken", Guid.NewGuid());
         p.Add("@FamilyId", dto.FamilyId);
         p.Add("@Code", dto.Code);
-        p.Add("@CreatedBy", "API");
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
             "sp_SubFamily_Create", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubFamilyDto>(row);
     }
 
-    public async Task<SubFamilyDto?> EditAsync(SubFamilyDto dto, CancellationToken cancellationToken = default)
+    public async Task<SubFamilyDto?> EditAsync(SubFamilyDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SubFamilyForbidden, "Only Admins and SuperAdmins can edit sub-families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@SubFamilyToken", dto.SubFamilyToken);
         p.Add("@Code", dto.Code);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
             "sp_SubFamily_Update", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<SubFamilyDto>(row);
     }
 
-    public async Task<SubFamilyDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<SubFamilyDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SubFamilyForbidden, "Only Admins and SuperAdmins can activate/deactivate sub-families.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@SubFamilyToken", token);
         p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
@@ -111,13 +121,16 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         }
     }
 
-    public async Task<SubFamilyDto?> SetNameTranslationsAsync(Guid subFamilyToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    public async Task<SubFamilyDto?> SetNameTranslationsAsync(Guid subFamilyToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.SubFamilyForbidden, "Only Admins and SuperAdmins can edit a sub-family's name translations.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@SubFamilyToken", subFamilyToken);
         p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
@@ -208,7 +221,7 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
 
                 try
                 {
-                    var created = await CreateAsync(new SubFamilyDto { FamilyId = family.FamilyId, Code = code }, cancellationToken);
+                    var created = await CreateAsync(new SubFamilyDto { FamilyId = family.FamilyId, Code = code }, context, cancellationToken);
                     if (created is null)
                     {
                         result.Errors.Add(new BulkImportSubFamilyRowErrorDto { RowNumber = rowNumber, SubFamilyCode = code, Code = ErrorCodes.SubFamilyCreateFailed, Description = "Sub-family creation failed." });
@@ -221,8 +234,9 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
                 {
                     result.Errors.Add(new BulkImportSubFamilyRowErrorDto { RowNumber = rowNumber, SubFamilyCode = code, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "SubFamilyService.BulkImportSubFamiliesAsync: unexpected error processing row {RowNumber} ({SubFamilyCode})", rowNumber, code);
                     result.Errors.Add(new BulkImportSubFamilyRowErrorDto { RowNumber = rowNumber, SubFamilyCode = code, Code = ErrorCodes.SubFamilyBulkImportRowFailed, Description = "An unexpected error occurred while creating this sub-family." });
                 }
             }

@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class EditUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper)
+    public class EditUnitOfMeasureCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper, IRequestContext context)
         : IRequestHandler<EditUnitOfMeasureCommandRequest, ApiResponse<EditUnitOfMeasureCommandResponse>>
     {
         public async Task<ApiResponse<EditUnitOfMeasureCommandResponse>> Handle(EditUnitOfMeasureCommandRequest request, CancellationToken cancellationToken)
@@ -20,7 +20,7 @@ namespace InnNou.Application.Handlers
                 Symbol = request.Symbol,
                 Decimals = request.Decimals
             };
-            var result = await unitOfMeasureService.EditAsync(dto, cancellationToken);
+            var result = await unitOfMeasureService.EditAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<EditUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 

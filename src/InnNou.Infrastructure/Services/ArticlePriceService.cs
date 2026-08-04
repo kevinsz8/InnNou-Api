@@ -10,6 +10,7 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Globalization;
 
@@ -18,7 +19,8 @@ namespace InnNou.Infrastructure.Services;
 public class ArticlePriceService(
     IDbConnectionFactory connectionFactory,
     IMapper mapper,
-    ICurrencyService currencyService) : IArticlePriceService
+    ICurrencyService currencyService,
+    ILogger<ArticlePriceService> logger) : IArticlePriceService
 {
     private sealed class ArticlePricePageRow : ArticlePrice { public int TotalCount { get; set; } }
 
@@ -398,8 +400,9 @@ public class ArticlePriceService(
                 {
                     result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "ArticlePriceService.BulkImportArticlePricesAsync: unexpected error processing row {RowNumber} ({SupplierSku})", rowNumber, rowIdentifier);
                     result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
                 }
             }

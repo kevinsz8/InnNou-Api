@@ -9,11 +9,12 @@ using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class SupplierService(IDbConnectionFactory connectionFactory, IMapper mapper, ISupplierLogoStorage logoStorage) : ISupplierService
+public class SupplierService(IDbConnectionFactory connectionFactory, IMapper mapper, ISupplierLogoStorage logoStorage, ILogger<SupplierService> logger) : ISupplierService
 {
     private const string SupplierRoleNormalizedName = "SUPPLIER";
     private const string NoAccessEmailDomain = "@no-access.innou.internal";
@@ -938,8 +939,9 @@ public class SupplierService(IDbConnectionFactory connectionFactory, IMapper map
                 {
                     result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "SupplierService.BulkImportSuppliersAsync: unexpected error processing row {RowNumber} ({Name})", rowNumber, rowName);
                     result.Errors.Add(new BulkImportSupplierRowErrorDto { RowNumber = rowNumber, Name = rowName, Code = ErrorCodes.SupplierBulkImportRowFailed, Description = "An unexpected error occurred while creating this supplier." });
                 }
             }

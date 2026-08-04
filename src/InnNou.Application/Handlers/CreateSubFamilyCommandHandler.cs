@@ -8,7 +8,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class CreateSubFamilyCommandHandler(ISubFamilyService subFamilyService, IFamilyService familyService, IMapper mapper)
+    public class CreateSubFamilyCommandHandler(ISubFamilyService subFamilyService, IFamilyService familyService, IMapper mapper, IRequestContext context)
         : IRequestHandler<CreateSubFamilyCommandRequest, ApiResponse<CreateSubFamilyCommandResponse>>
     {
         public async Task<ApiResponse<CreateSubFamilyCommandResponse>> Handle(CreateSubFamilyCommandRequest request, CancellationToken cancellationToken)
@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyCodeExists, "A sub-family with this code already exists in the family.", 409);
 
             var dto = new SubFamilyDto { FamilyId = family.FamilyId, Code = request.Code };
-            var result = await subFamilyService.CreateAsync(dto, cancellationToken);
+            var result = await subFamilyService.CreateAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyCreateFailed, "Sub-family could not be created.", 500);
 

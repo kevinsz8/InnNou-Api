@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetActiveUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IMapper mapper)
+    public class SetActiveUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetActiveUnitConversionRateCommandRequest, ApiResponse<SetActiveUnitConversionRateCommandResponse>>
     {
         public async Task<ApiResponse<SetActiveUnitConversionRateCommandResponse>> Handle(SetActiveUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
         {
-            var result = await unitConversionRateService.SetActiveAsync(request.UnitConversionRateToken, request.IsActive, cancellationToken);
+            var result = await unitConversionRateService.SetActiveAsync(request.UnitConversionRateToken, request.IsActive, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetActiveUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateNotFound, "Unit conversion rate not found.", 404);
 

@@ -5,11 +5,12 @@ using InnNou.Domain.Dtos;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class ArticleClassificationService(IDbConnectionFactory connectionFactory, IMapper mapper) : IArticleClassificationService
+public class ArticleClassificationService(IDbConnectionFactory connectionFactory, IMapper mapper, ILogger<ArticleClassificationService> logger) : IArticleClassificationService
 {
     private const int StaffRoleLevel = 20;
     private const int SuperAdminRoleLevel = 100;
@@ -111,8 +112,9 @@ public class ArticleClassificationService(IDbConnectionFactory connectionFactory
             {
                 result.Errors.Add(new BulkAssignArticleClassificationItemErrorDto { ArticleId = articleId, Code = ex.Code, Description = ex.Message });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                logger.LogWarning(ex, "ArticleClassificationService.BulkAssignAsync: unexpected error classifying article {ArticleId}", articleId);
                 result.Errors.Add(new BulkAssignArticleClassificationItemErrorDto { ArticleId = articleId, Code = ErrorCodes.ArticleClassificationCreateFailed, Description = "An unexpected error occurred while classifying this article." });
             }
         }

@@ -29,6 +29,8 @@ namespace InnNou.Application.Common
         public const string UserOrgAndSupplierConflict = "USER_ORG_AND_SUPPLIER_CONFLICT";
         public const string UserOutsideOrganization = "USER_OUTSIDE_ORGANIZATION";
         public const string UserSupplierCreateSuperadminOnly = "USER_SUPPLIER_CREATE_SUPERADMIN_ONLY";
+        public const string UserInvalidEmail = "USER_INVALID_EMAIL";
+        public const string UserWeakPassword = "USER_WEAK_PASSWORD";
         public const string UserBulkImportForbidden = "USER_BULK_IMPORT_FORBIDDEN";
         public const string UserBulkImportInvalidFile = "USER_BULK_IMPORT_INVALID_FILE";
         public const string UserBulkImportTooManyRows = "USER_BULK_IMPORT_TOO_MANY_ROWS";
@@ -79,6 +81,9 @@ namespace InnNou.Application.Common
         public const string SupplierLogoTooLarge = "SUPPLIER_LOGO_TOO_LARGE";
 
         // Article
+        public const string ArticleNameRequired = "ARTICLE_NAME_REQUIRED";
+        public const string ArticleInvalidMinimumOrderQty = "ARTICLE_INVALID_MINIMUM_ORDER_QTY";
+        public const string ArticleInvalidLeadTimeDays = "ARTICLE_INVALID_LEAD_TIME_DAYS";
         public const string ArticleNotFound = "ARTICLE_NOT_FOUND";
         public const string ArticleCreateFailed = "ARTICLE_CREATE_FAILED";
         public const string ArticleSkuExists = "ARTICLE_SKU_EXISTS";
@@ -135,6 +140,7 @@ namespace InnNou.Application.Common
         public const string ArticleClassificationOutsideScope = "ARTICLE_CLASSIFICATION_OUTSIDE_SCOPE";
 
         // Family
+        public const string FamilyForbidden = "FAMILY_FORBIDDEN";
         public const string FamilyNotFound = "FAMILY_NOT_FOUND";
         public const string FamilyCodeExists = "FAMILY_CODE_EXISTS";
         public const string FamilyCreateFailed = "FAMILY_CREATE_FAILED";
@@ -146,6 +152,7 @@ namespace InnNou.Application.Common
         public const string FamilySystemReadonly = "FAMILY_SYSTEM_READONLY";
 
         // SubFamily
+        public const string SubFamilyForbidden = "SUB_FAMILY_FORBIDDEN";
         public const string SubFamilyNotFound = "SUB_FAMILY_NOT_FOUND";
         public const string SubFamilyCodeExists = "SUB_FAMILY_CODE_EXISTS";
         public const string SubFamilyCreateFailed = "SUB_FAMILY_CREATE_FAILED";
@@ -183,12 +190,14 @@ namespace InnNou.Application.Common
         public const string SubCategorySystemReadonly = "SUB_CATEGORY_SYSTEM_READONLY";
 
         // UnitType
+        public const string UnitTypeForbidden = "UNIT_TYPE_FORBIDDEN";
         public const string UnitTypeNotFound = "UNIT_TYPE_NOT_FOUND";
         public const string UnitTypeCodeExists = "UNIT_TYPE_CODE_EXISTS";
         public const string UnitTypeCreateFailed = "UNIT_TYPE_CREATE_FAILED";
         public const string UnitTypeSystemReadonly = "UNIT_TYPE_SYSTEM_READONLY";
 
         // UnitOfMeasure
+        public const string UnitOfMeasureForbidden = "UNIT_OF_MEASURE_FORBIDDEN";
         public const string UnitOfMeasureNotFound = "UNIT_OF_MEASURE_NOT_FOUND";
         public const string UnitOfMeasureCodeExists = "UNIT_OF_MEASURE_CODE_EXISTS";
         public const string UnitOfMeasureCreateFailed = "UNIT_OF_MEASURE_CREATE_FAILED";
@@ -201,6 +210,7 @@ namespace InnNou.Application.Common
         public const string BaseUnitTypeMismatch = "BASE_UNIT_TYPE_MISMATCH";
 
         // UnitConversionRate
+        public const string UnitConversionRateForbidden = "UNIT_CONVERSION_RATE_FORBIDDEN";
         public const string UnitConversionRateNotFound = "UNIT_CONVERSION_RATE_NOT_FOUND";
         public const string UnitConversionRateCreateFailed = "UNIT_CONVERSION_RATE_CREATE_FAILED";
 

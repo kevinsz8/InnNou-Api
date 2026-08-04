@@ -10,12 +10,13 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
-public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper mapper, ICategoryService categoryService) : ISubCategoryService
+public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper mapper, ICategoryService categoryService, ILogger<SubCategoryService> logger) : ISubCategoryService
 {
     private sealed class SubCategoryPageRow : SubCategory { public int TotalCount { get; set; } }
 
@@ -276,8 +277,9 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
                 {
                     result.Errors.Add(new BulkImportSubCategoryRowErrorDto { RowNumber = rowNumber, SubCategoryCode = code, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "SubCategoryService.BulkImportSubCategoriesAsync: unexpected error processing row {RowNumber} ({SubCategoryCode})", rowNumber, code);
                     result.Errors.Add(new BulkImportSubCategoryRowErrorDto { RowNumber = rowNumber, SubCategoryCode = code, Code = ErrorCodes.SubCategoryBulkImportRowFailed, Description = "An unexpected error occurred while creating this sub-category." });
                 }
             }

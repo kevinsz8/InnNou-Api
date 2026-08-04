@@ -16,6 +16,9 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
 {
     private sealed class UnitTypePageRow : UnitType { public int TotalCount { get; set; } }
 
+    // UnitType is a pure global catalog (no per-organization ownership) — a flat AdminRoleLevel
+    // gate on every write method is the whole authorization model, same shape as FamilyService.
+    private const int AdminRoleLevel = 80;
     private const int MaxPageSize = 100;
 
     public async Task<PagedResult<UnitTypeDto>> GetPagedAsync(int pageNumber, int pageSize, bool includeInactive = false, CancellationToken cancellationToken = default)
@@ -58,37 +61,46 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
             "sp_UnitType_ExistsByCode", p, commandType: CommandType.StoredProcedure);
     }
 
-    public async Task<UnitTypeDto?> CreateAsync(UnitTypeDto dto, CancellationToken cancellationToken = default)
+    public async Task<UnitTypeDto?> CreateAsync(UnitTypeDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitTypeForbidden, "Only Admins and SuperAdmins can create unit types.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@UnitTypeToken", Guid.NewGuid());
         p.Add("@Code", dto.Code);
-        p.Add("@CreatedBy", "API");
+        p.Add("@CreatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
             "sp_UnitType_Create", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<UnitTypeDto>(row);
     }
 
-    public async Task<UnitTypeDto?> EditAsync(UnitTypeDto dto, CancellationToken cancellationToken = default)
+    public async Task<UnitTypeDto?> EditAsync(UnitTypeDto dto, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitTypeForbidden, "Only Admins and SuperAdmins can edit unit types.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@UnitTypeToken", dto.UnitTypeToken);
         p.Add("@Code", dto.Code);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
             "sp_UnitType_Update", p, commandType: CommandType.StoredProcedure);
         return row is null ? null : mapper.Map<UnitTypeDto>(row);
     }
 
-    public async Task<UnitTypeDto?> SetActiveAsync(Guid token, bool isActive, CancellationToken cancellationToken = default)
+    public async Task<UnitTypeDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitTypeForbidden, "Only Admins and SuperAdmins can activate/deactivate unit types.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@UnitTypeToken", token);
         p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
@@ -101,13 +113,16 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
         }
     }
 
-    public async Task<UnitTypeDto?> SetNameTranslationsAsync(Guid unitTypeToken, Dictionary<string, string> translations, CancellationToken cancellationToken = default)
+    public async Task<UnitTypeDto?> SetNameTranslationsAsync(Guid unitTypeToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)
     {
+        if (context.RoleLevel < AdminRoleLevel)
+            throw new ApiException(ErrorCodes.UnitTypeForbidden, "Only Admins and SuperAdmins can edit a unit type's name translations.", 403);
+
         await using var connection = connectionFactory.CreateConnection();
         var p = new DynamicParameters();
         p.Add("@UnitTypeToken", unitTypeToken);
         p.Add("@NameTranslations", translations.Count == 0 ? null : JsonSerializer.Serialize(translations));
-        p.Add("@LastUpdatedBy", "API");
+        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         try
         {
             var row = await connection.QueryFirstOrDefaultAsync<UnitType>(

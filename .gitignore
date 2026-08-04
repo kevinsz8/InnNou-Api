@@ -109,6 +109,12 @@ Migrations/*.Designer.cs
 
 src/InnNou.API/UploadedFiles/
 
+#######################################
+# Serilog rolling file sink output
+#######################################
+
+src/InnNou.API/Logs/
+
 #Claude
 .claude
 .claude/*

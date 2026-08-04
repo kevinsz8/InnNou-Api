@@ -7,7 +7,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetUnitOfMeasureNameTranslationsCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper)
+    public class SetUnitOfMeasureNameTranslationsCommandHandler(IUnitOfMeasureService unitOfMeasureService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetUnitOfMeasureNameTranslationsCommandRequest, ApiResponse<SetUnitOfMeasureNameTranslationsCommandResponse>>
     {
         // Same supported-language set as InnNou.Shared.Localization's own
@@ -23,7 +23,7 @@ namespace InnNou.Application.Handlers
                 request.NameTranslations.Values.Any(string.IsNullOrWhiteSpace))
                 return ApiResponse<SetUnitOfMeasureNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "NameTranslations keys must be one of en/es/ca, with non-empty values.", 400);
 
-            var result = await unitOfMeasureService.SetNameTranslationsAsync(request.UnitOfMeasureToken, request.NameTranslations, cancellationToken);
+            var result = await unitOfMeasureService.SetNameTranslationsAsync(request.UnitOfMeasureToken, request.NameTranslations, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetUnitOfMeasureNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Unit of measure not found.", 404);
 

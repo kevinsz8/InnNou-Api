@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetFamilyDefaultTaxCategoryCommandHandler(IFamilyService familyService, IMapper mapper)
+    public class SetFamilyDefaultTaxCategoryCommandHandler(IFamilyService familyService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetFamilyDefaultTaxCategoryCommandRequest, ApiResponse<SetFamilyDefaultTaxCategoryCommandResponse>>
     {
         public async Task<ApiResponse<SetFamilyDefaultTaxCategoryCommandResponse>> Handle(SetFamilyDefaultTaxCategoryCommandRequest request, CancellationToken cancellationToken)
         {
-            var result = await familyService.SetDefaultTaxCategoryAsync(request.FamilyToken, request.DefaultTaxCategoryToken, cancellationToken);
+            var result = await familyService.SetDefaultTaxCategoryAsync(request.FamilyToken, request.DefaultTaxCategoryToken, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetFamilyDefaultTaxCategoryCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);
 

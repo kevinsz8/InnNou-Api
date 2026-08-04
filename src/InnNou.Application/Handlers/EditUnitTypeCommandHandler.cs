@@ -8,13 +8,13 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class EditUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper)
+    public class EditUnitTypeCommandHandler(IUnitTypeService unitTypeService, IMapper mapper, IRequestContext context)
         : IRequestHandler<EditUnitTypeCommandRequest, ApiResponse<EditUnitTypeCommandResponse>>
     {
         public async Task<ApiResponse<EditUnitTypeCommandResponse>> Handle(EditUnitTypeCommandRequest request, CancellationToken cancellationToken)
         {
             var dto = new UnitTypeDto { UnitTypeToken = request.UnitTypeToken, Code = request.Code };
-            var result = await unitTypeService.EditAsync(dto, cancellationToken);
+            var result = await unitTypeService.EditAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<EditUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 

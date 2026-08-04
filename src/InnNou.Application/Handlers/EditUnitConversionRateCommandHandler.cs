@@ -8,13 +8,13 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class EditUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IMapper mapper)
+    public class EditUnitConversionRateCommandHandler(IUnitConversionRateService unitConversionRateService, IMapper mapper, IRequestContext context)
         : IRequestHandler<EditUnitConversionRateCommandRequest, ApiResponse<EditUnitConversionRateCommandResponse>>
     {
         public async Task<ApiResponse<EditUnitConversionRateCommandResponse>> Handle(EditUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
         {
             var dto = new UnitConversionRateDto { UnitConversionRateToken = request.UnitConversionRateToken, Factor = request.Factor };
-            var result = await unitConversionRateService.EditAsync(dto, cancellationToken);
+            var result = await unitConversionRateService.EditAsync(dto, context, cancellationToken);
             if (result is null)
                 return ApiResponse<EditUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitConversionRateNotFound, "Unit conversion rate not found.", 404);
 

@@ -10,12 +10,13 @@ using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Text.Json;
 
 namespace InnNou.Infrastructure.Services;
 
-public class CategoryService(IDbConnectionFactory connectionFactory, IMapper mapper) : ICategoryService
+public class CategoryService(IDbConnectionFactory connectionFactory, IMapper mapper, ILogger<CategoryService> logger) : ICategoryService
 {
     private sealed class CategoryPageRow : Category { public int TotalCount { get; set; } }
 
@@ -294,8 +295,9 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
                 {
                     result.Errors.Add(new BulkImportCategoryRowErrorDto { RowNumber = rowNumber, CategoryCode = code, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "CategoryService.BulkImportCategoriesAsync: unexpected error processing row {RowNumber} ({Code})", rowNumber, code);
                     result.Errors.Add(new BulkImportCategoryRowErrorDto { RowNumber = rowNumber, CategoryCode = code, Code = ErrorCodes.CategoryBulkImportRowFailed, Description = "An unexpected error occurred while creating this category." });
                 }
             }

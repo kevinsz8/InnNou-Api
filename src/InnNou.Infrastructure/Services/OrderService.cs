@@ -30,6 +30,7 @@ public class OrderService(
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
     private const int MaxBulkImportRows = 500;
+    private const int ApprovalThresholdBatchPageSize = 1000;
 
     // RoleLevel >= 100 manages any organization. RoleLevel >= 20 (Staff) manages only within
     // their own organization's hierarchy (root-or-descendant). Below that, or with no
@@ -86,10 +87,10 @@ public class OrderService(
         return lines.ToList();
     }
 
-    private static async Task<List<OrderApprovalStep>> GetApprovalStepsAsync(IDbConnection connection, int orderId)
+    private static async Task<List<OrderApprovalStep>> GetApprovalStepsAsync(IDbConnection connection, int orderId, IDbTransaction? transaction = null)
     {
         var steps = await connection.QueryAsync<OrderApprovalStep>(
-            "sp_OrderApprovalStep_GetByOrderId", new { OrderId = orderId }, commandType: CommandType.StoredProcedure);
+            "sp_OrderApprovalStep_GetByOrderId", new { OrderId = orderId }, transaction, commandType: CommandType.StoredProcedure);
         return steps.ToList();
     }
 
@@ -726,14 +727,20 @@ public class OrderService(
             .GroupBy(l => articleFamilies[l.ArticleId]!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity * l.UnitPrice));
 
+        // Batched: one call for every configured threshold across the whole organization (omitting
+        // @FamilyId, which the SP already treats as "all families" — see
+        // sp_FamilyApprovalThreshold_GetPaged.sql) instead of one round trip per distinct Family in
+        // the order. ApprovalThresholdBatchPageSize is a generous cap (an org realistically has at
+        // most a few dozen Families x a handful of Levels each), not a real pagination boundary.
+        var allThresholds = await connection.QueryAsync<FamilyApprovalThreshold>(
+            "sp_FamilyApprovalThreshold_GetPaged",
+            new { OrganizationId = order.OrganizationId, PageNumber = 1, PageSize = ApprovalThresholdBatchPageSize, FamilyId = (int?)null, IncludeInactive = false },
+            commandType: CommandType.StoredProcedure);
+        var thresholdsByFamily = allThresholds.ToLookup(t => t.FamilyId);
+
         foreach (var (familyId, total) in familyTotals)
         {
-            var levels = (await connection.QueryAsync<FamilyApprovalThreshold>(
-                "sp_FamilyApprovalThreshold_GetPaged",
-                new { OrganizationId = order.OrganizationId, PageNumber = 1, PageSize = MaxPageSize, FamilyId = familyId, IncludeInactive = false },
-                commandType: CommandType.StoredProcedure))
-                .OrderBy(t => t.Level)
-                .ToList();
+            var levels = thresholdsByFamily[familyId].OrderBy(t => t.Level).ToList();
 
             var highestTriggeredLevel = levels.Where(t => total >= t.ThresholdAmount).Select(t => (int?)t.Level).DefaultIfEmpty().Max();
             if (!highestTriggeredLevel.HasValue)
@@ -757,30 +764,53 @@ public class OrderService(
         return result;
     }
 
-    private async Task<OrderDto?> CreatePendingApprovalAsync(IDbConnection connection, Order order, List<OrderLine> lines, List<TriggeredApprovalStep> triggeredSteps, IRequestContext context, CancellationToken cancellationToken)
+    private async Task<OrderDto?> CreatePendingApprovalAsync(DbConnection connection, Order order, List<OrderLine> lines, List<TriggeredApprovalStep> triggeredSteps, IRequestContext context, CancellationToken cancellationToken)
     {
         var actor = context.ActorUserToken.ToString();
 
-        foreach (var step in triggeredSteps)
+        // Inserting every triggered step and flipping the Order to PENDING_APPROVAL must commit
+        // atomically — without a transaction, a failure between the step-insert loop and
+        // sp_Order_SetStatus leaves the Order at DRAFT (still resubmittable) with orphaned
+        // OrderApprovalStep rows already committed; a retried Submit then re-evaluates from
+        // scratch and inserts a second, duplicate set of steps on top of the first. Wrapping
+        // both in one transaction closes that window: either everything commits together, or
+        // nothing does and a retry starts clean.
+        Order? pendingOrder;
+        await connection.OpenAsync(cancellationToken);
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            var stepParams = new DynamicParameters();
-            stepParams.Add("@OrderApprovalStepToken", Guid.NewGuid());
-            stepParams.Add("@OrderId", order.OrderId);
-            stepParams.Add("@FamilyId", step.FamilyId);
-            stepParams.Add("@FamilyCode", step.FamilyCode);
-            stepParams.Add("@Level", step.Level);
-            stepParams.Add("@ThresholdAmount", step.ThresholdAmount);
-            stepParams.Add("@ActualFamilyAmount", step.ActualFamilyAmount);
-            stepParams.Add("@CurrencyCode", step.CurrencyCode);
-            stepParams.Add("@ApproverUserId", step.ApproverUserId);
-            stepParams.Add("@CreatedBy", actor);
-            await connection.ExecuteAsync("sp_OrderApprovalStep_Create", stepParams, commandType: CommandType.StoredProcedure);
-        }
+            try
+            {
+                foreach (var step in triggeredSteps)
+                {
+                    var stepParams = new DynamicParameters();
+                    stepParams.Add("@OrderApprovalStepToken", Guid.NewGuid());
+                    stepParams.Add("@OrderId", order.OrderId);
+                    stepParams.Add("@FamilyId", step.FamilyId);
+                    stepParams.Add("@FamilyCode", step.FamilyCode);
+                    stepParams.Add("@Level", step.Level);
+                    stepParams.Add("@ThresholdAmount", step.ThresholdAmount);
+                    stepParams.Add("@ActualFamilyAmount", step.ActualFamilyAmount);
+                    stepParams.Add("@CurrencyCode", step.CurrencyCode);
+                    stepParams.Add("@ApproverUserId", step.ApproverUserId);
+                    stepParams.Add("@CreatedBy", actor);
+                    await connection.ExecuteAsync("sp_OrderApprovalStep_Create", stepParams, transaction, commandType: CommandType.StoredProcedure);
+                }
 
-        var pendingOrder = await connection.QueryFirstOrDefaultAsync<Order>(
-            "sp_Order_SetStatus",
-            new { OrderToken = order.OrderToken, Status = OrderStatusCodes.PendingApproval, ActorBy = actor },
-            commandType: CommandType.StoredProcedure);
+                pendingOrder = await connection.QueryFirstOrDefaultAsync<Order>(
+                    "sp_Order_SetStatus",
+                    new { OrderToken = order.OrderToken, Status = OrderStatusCodes.PendingApproval, ActorBy = actor },
+                    transaction,
+                    commandType: CommandType.StoredProcedure);
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        }
 
         if (pendingOrder is null)
             return null;
@@ -820,35 +850,59 @@ public class OrderService(
     // audit trail reads identically to an in-app approval.
     private async Task<OrderApprovalStep> ApproveStepAndAdvanceAsync(DbConnection connection, OrderApprovalStep step, Order order, IRequestContext context, CancellationToken cancellationToken)
     {
-        var approved = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
-            "sp_OrderApprovalStep_Approve",
-            new { OrderApprovalStepToken = step.OrderApprovalStepToken, DecidedBy = context.ActorUserToken.ToString() },
-            commandType: CommandType.StoredProcedure);
+        OrderApprovalStep? approved;
 
-        if (approved is null)
-            throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
-
-        // A rectification-triggered step never participates in the Order's own submission
-        // auto-complete below — it's scoped to its own batch (TriggeringPurchaseOrderRectificationId),
-        // never the Order's full approval history, which can include unrelated, already-terminal
-        // steps from the original Submit or an earlier rectification. See
-        // .claude/PurchaseOrderRectificationModule.md.
-        if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
+        // Approving the step and (when it's the last one in its rectification batch) flipping
+        // the PurchaseOrderRectification to APPLIED must commit atomically — without a
+        // transaction, a failure between the two calls leaves every step permanently APPROVED
+        // (sp_OrderApprovalStep_Approve refuses to re-decide a non-PENDING step, so there's no
+        // way back in) while the rectification itself stays stuck at PENDING_APPROVAL forever.
+        await connection.OpenAsync(cancellationToken);
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            var rectificationSteps = (await GetApprovalStepsAsync(connection, order.OrderId))
-                .Where(s => s.TriggeringPurchaseOrderRectificationId == approved.TriggeringPurchaseOrderRectificationId)
-                .ToList();
-
-            if (rectificationSteps.Count > 0 && rectificationSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
+            try
             {
-                await connection.ExecuteAsync(
-                    "sp_PurchaseOrderRectification_SetStatus",
-                    new { PurchaseOrderRectificationId = approved.TriggeringPurchaseOrderRectificationId.Value, Status = PurchaseOrderRectificationStatusCodes.Applied },
+                approved = await connection.QueryFirstOrDefaultAsync<OrderApprovalStep>(
+                    "sp_OrderApprovalStep_Approve",
+                    new { OrderApprovalStepToken = step.OrderApprovalStepToken, DecidedBy = context.ActorUserToken.ToString() },
+                    transaction,
                     commandType: CommandType.StoredProcedure);
-            }
 
-            return approved;
+                if (approved is null)
+                    throw new ApiException(ErrorCodes.OrderApprovalStepAlreadyDecided, "This approval step was already decided.", 409);
+
+                // A rectification-triggered step never participates in the Order's own submission
+                // auto-complete below — it's scoped to its own batch (TriggeringPurchaseOrderRectificationId),
+                // never the Order's full approval history, which can include unrelated, already-terminal
+                // steps from the original Submit or an earlier rectification. See
+                // .claude/PurchaseOrderRectificationModule.md.
+                if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
+                {
+                    var rectificationSteps = (await GetApprovalStepsAsync(connection, order.OrderId, transaction))
+                        .Where(s => s.TriggeringPurchaseOrderRectificationId == approved.TriggeringPurchaseOrderRectificationId)
+                        .ToList();
+
+                    if (rectificationSteps.Count > 0 && rectificationSteps.All(s => s.Status == OrderApprovalStepStatus.Approved))
+                    {
+                        await connection.ExecuteAsync(
+                            "sp_PurchaseOrderRectification_SetStatus",
+                            new { PurchaseOrderRectificationId = approved.TriggeringPurchaseOrderRectificationId.Value, Status = PurchaseOrderRectificationStatusCodes.Applied },
+                            transaction,
+                            commandType: CommandType.StoredProcedure);
+                    }
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
         }
+
+        if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
+            return approved;
 
         // Auto-complete the submission the moment every required step for this Order is
         // APPROVED — confirmed with the user, no second manual Submit click.
@@ -1248,8 +1302,9 @@ public class OrderService(
             {
                 result.SkippedLines.Add(new CopyOrderSkippedLineDto { ArticleToken = line.ArticleToken, ArticleName = line.ArticleName, Code = ex.Code, Description = ex.Message });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                logger.LogWarning(ex, "CopyOrderAsync: unexpected error copying line for article {ArticleToken} into new order {NewOrderToken}", line.ArticleToken, newOrder.OrderToken);
                 result.SkippedLines.Add(new CopyOrderSkippedLineDto { ArticleToken = line.ArticleToken, ArticleName = line.ArticleName, Code = ErrorCodes.UnhandledError, Description = "An unexpected error occurred while copying this line." });
             }
         }
@@ -1402,8 +1457,9 @@ public class OrderService(
                 {
                     result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "ImportLinesAsync: unexpected error processing row {RowNumber} ({Identifier}) for order {OrderToken}", rowNumber, rowIdentifier, orderToken);
                     result.Errors.Add(new ImportOrderLinesRowErrorDto { RowNumber = rowNumber, Identifier = rowIdentifier, Code = ErrorCodes.UnhandledError, Description = "An unexpected error occurred while processing this row." });
                 }
             }

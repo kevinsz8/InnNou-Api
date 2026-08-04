@@ -11,12 +11,12 @@ using InnNou.Infrastructure.Models;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
-using System.Text.RegularExpressions;
 
 namespace InnNou.Infrastructure.Services;
 
-public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper, IRoleService roleService, IOrganizationService organizationService) : IUserService
+public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper, IRoleService roleService, IOrganizationService organizationService, ILogger<UserService> logger) : IUserService
 {
     private sealed class UserPageRow : User { public int TotalCount { get; set; } }
 
@@ -25,17 +25,19 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
     private const int MaxBulkImportRows = 500;
     private const int MaxExportRows = 10_000;
 
-    private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
-
-    private static bool IsPasswordStrong(string password) =>
-        password.Length >= 8 &&
-        password.Any(char.IsUpper) &&
-        password.Any(char.IsLower) &&
-        password.Any(char.IsDigit) &&
-        password.Any(c => !char.IsLetterOrDigit(c));
-
     public async Task<UserDto?> CreateUserAsync(UserDto userDto, IRequestContext context, CancellationToken cancellationToken)
     {
+        // Email format + password strength are validated at the handler entry point
+        // (CreateUserCommandHandler/EditUserCommandHandler, via UserValidation) before this method
+        // is ever reached — these checks are re-asserted here defensively since this method is a
+        // public service entry point in its own right, not because the handler is expected to miss
+        // them.
+        if (!UserValidation.IsValidEmail(userDto.Email))
+            throw new ApiException(ErrorCodes.UserInvalidEmail, "A valid email address is required.", 400);
+
+        if (!UserValidation.IsStrongPassword(userDto.Password))
+            throw new ApiException(ErrorCodes.UserWeakPassword, "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number and special character.", 400);
+
         if (userDto.OrganizationId.HasValue && userDto.SupplierId.HasValue)
             throw new ApiException(ErrorCodes.UserOrgAndSupplierConflict, "A user cannot belong to both an organization and a supplier", 400);
 
@@ -139,6 +141,12 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
 
     public async Task<UserDto?> EditUserAsync(UserDto request, IRequestContext context, CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(request.Email) && !UserValidation.IsValidEmail(request.Email))
+            throw new ApiException(ErrorCodes.UserInvalidEmail, "A valid email address is required.", 400);
+
+        if (!string.IsNullOrWhiteSpace(request.Password) && !UserValidation.IsStrongPassword(request.Password))
+            throw new ApiException(ErrorCodes.UserWeakPassword, "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number and special character.", 400);
+
         await using var connection = connectionFactory.CreateConnection();
 
         var existing = await connection.QueryFirstOrDefaultAsync<UserWithRoleResult>(
@@ -373,13 +381,13 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
                     continue;
                 }
 
-                if (!EmailRegex.IsMatch(email))
+                if (!UserValidation.IsValidEmail(email))
                 {
                     result.Errors.Add(new BulkImportRowErrorDto { RowNumber = rowNumber, Email = rowEmail, Code = ErrorCodes.UserBulkImportRowInvalid, Description = "Invalid email format." });
                     continue;
                 }
 
-                if (!IsPasswordStrong(password))
+                if (!UserValidation.IsStrongPassword(password))
                 {
                     result.Errors.Add(new BulkImportRowErrorDto { RowNumber = rowNumber, Email = rowEmail, Code = ErrorCodes.UserBulkImportWeakPassword, Description = "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number and special character." });
                     continue;
@@ -455,8 +463,9 @@ public class UserService(IDbConnectionFactory connectionFactory, IMapper mapper,
                 {
                     result.Errors.Add(new BulkImportRowErrorDto { RowNumber = rowNumber, Email = rowEmail, Code = ex.Code, Description = ex.Message });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "UserService.BulkImportUsersAsync: unexpected error processing row {RowNumber} ({Email})", rowNumber, rowEmail);
                     result.Errors.Add(new BulkImportRowErrorDto { RowNumber = rowNumber, Email = rowEmail, Code = ErrorCodes.UserBulkImportRowFailed, Description = "An unexpected error occurred while creating this user." });
                 }
             }

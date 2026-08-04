@@ -7,7 +7,7 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetSubFamilyNameTranslationsCommandHandler(ISubFamilyService subFamilyService, IMapper mapper)
+    public class SetSubFamilyNameTranslationsCommandHandler(ISubFamilyService subFamilyService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetSubFamilyNameTranslationsCommandRequest, ApiResponse<SetSubFamilyNameTranslationsCommandResponse>>
     {
         // Same supported-language set as InnNou.Shared.Localization's own
@@ -23,7 +23,7 @@ namespace InnNou.Application.Handlers
                 request.NameTranslations.Values.Any(string.IsNullOrWhiteSpace))
                 return ApiResponse<SetSubFamilyNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "NameTranslations keys must be one of en/es/ca, with non-empty values.", 400);
 
-            var result = await subFamilyService.SetNameTranslationsAsync(request.SubFamilyToken, request.NameTranslations, cancellationToken);
+            var result = await subFamilyService.SetNameTranslationsAsync(request.SubFamilyToken, request.NameTranslations, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetSubFamilyNameTranslationsCommandResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
 

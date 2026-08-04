@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class SetActiveSubFamilyCommandHandler(ISubFamilyService subFamilyService, IMapper mapper)
+    public class SetActiveSubFamilyCommandHandler(ISubFamilyService subFamilyService, IMapper mapper, IRequestContext context)
         : IRequestHandler<SetActiveSubFamilyCommandRequest, ApiResponse<SetActiveSubFamilyCommandResponse>>
     {
         public async Task<ApiResponse<SetActiveSubFamilyCommandResponse>> Handle(SetActiveSubFamilyCommandRequest request, CancellationToken cancellationToken)
         {
-            var result = await subFamilyService.SetActiveAsync(request.SubFamilyToken, request.IsActive, cancellationToken);
+            var result = await subFamilyService.SetActiveAsync(request.SubFamilyToken, request.IsActive, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SetActiveSubFamilyCommandResponse>.FailureResponse(ErrorCodes.SubFamilyNotFound, "Sub-family not found.", 404);
 

@@ -21,6 +21,12 @@ namespace InnNou.Application.Handlers
         }
         public async Task<ApiResponse<EditUserCommandResponse>> Handle(EditUserCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.Email is not null && !UserValidation.IsValidEmail(request.Email))
+                return ApiResponse<EditUserCommandResponse>.FailureResponse(ErrorCodes.UserInvalidEmail, "A valid email address is required.", 400);
+
+            if (request.Password is not null && !UserValidation.IsStrongPassword(request.Password))
+                return ApiResponse<EditUserCommandResponse>.FailureResponse(ErrorCodes.UserWeakPassword, "Password must be at least 8 characters and include an uppercase letter, lowercase letter, number and special character.", 400);
+
             var userDto = _mapper.Map<UserDto>(request);
             var updatedUser = await _userService.EditUserAsync(userDto, _context, cancellationToken);
             if (updatedUser == null)
