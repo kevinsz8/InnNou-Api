@@ -28,6 +28,7 @@ BEGIN
         im.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         mt.Code AS Type, im.Quantity,
         gr.GoodsReceiptToken, it.InventoryTransferToken, ipc.InventoryPeriodCountToken,
+        ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken,
         im.Reason, im.CreatedUtc, im.CreatedBy,
         COUNT(*) OVER() AS TotalCount
     FROM dbo.InventoryMovements im
@@ -39,6 +40,10 @@ BEGIN
     LEFT JOIN dbo.InventoryTransferLines tl         ON tl.InventoryTransferLineId = im.InventoryTransferLineId
     LEFT JOIN dbo.InventoryTransfers it              ON it.InventoryTransferId     = tl.InventoryTransferId
     LEFT JOIN dbo.InventoryPeriodCounts ipc         ON ipc.InventoryPeriodCountId = im.InventoryPeriodCountId
+    LEFT JOIN dbo.InternalOrderShipmentLines iosl   ON iosl.InternalOrderShipmentLineId = im.InternalOrderShipmentLineId
+    LEFT JOIN dbo.InternalOrderShipments ios        ON ios.InternalOrderShipmentId      = iosl.InternalOrderShipmentId
+    LEFT JOIN dbo.InternalOrderReceiptLines iorl    ON iorl.InternalOrderReceiptLineId  = im.InternalOrderReceiptLineId
+    LEFT JOIN dbo.InternalOrderReceipts ior         ON ior.InternalOrderReceiptId       = iorl.InternalOrderReceiptId
     WHERE im.WarehouseId = @WarehouseId
       AND (@ArticleId IS NULL OR im.ArticleId = @ArticleId)
     ORDER BY im.CreatedUtc DESC

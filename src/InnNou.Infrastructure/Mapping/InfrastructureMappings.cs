@@ -43,6 +43,12 @@ using ParLevelEffectiveEntity = InnNou.Infrastructure.Repositories.DbEntities.Pa
 using ParLevelBelowParRowEntity = InnNou.Infrastructure.Repositories.DbEntities.ParLevelBelowParRow;
 using InventoryTransferEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransfer;
 using InventoryTransferLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InventoryTransferLine;
+using InternalOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrder;
+using InternalOrderLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderLine;
+using InternalOrderShipmentEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderShipment;
+using InternalOrderShipmentLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderShipmentLine;
+using InternalOrderReceiptEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderReceipt;
+using InternalOrderReceiptLineEntity = InnNou.Infrastructure.Repositories.DbEntities.InternalOrderReceiptLine;
 using ConsolidatedPurchaseOrderEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrder;
 using ConsolidatedPurchaseOrderMemberEntity = InnNou.Infrastructure.Repositories.DbEntities.ConsolidatedPurchaseOrderMember;
 using OrderTemplateEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderTemplate;
@@ -916,6 +922,8 @@ namespace InnNou.Infrastructure.Mapping
                 GoodsReceiptToken = e.GoodsReceiptToken,
                 InventoryTransferToken = e.InventoryTransferToken,
                 InventoryPeriodCountToken = e.InventoryPeriodCountToken,
+                InternalOrderShipmentToken = e.InternalOrderShipmentToken,
+                InternalOrderReceiptToken = e.InternalOrderReceiptToken,
                 Reason = e.Reason,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
@@ -942,6 +950,98 @@ namespace InnNou.Infrastructure.Mapping
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
+                LineCount = e.LineCount
+            });
+
+            mapper.Register<InternalOrderLineEntity, InternalOrderLineDto>(e => new InternalOrderLineDto
+            {
+                InternalOrderLineToken = e.InternalOrderLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                SupplierSku = e.SupplierSku,
+                Quantity = e.Quantity,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                UnitPrice = e.UnitPrice,
+                CurrencyCode = e.CurrencyCode,
+                Notes = e.Notes,
+                QuantityShipped = e.QuantityShipped,
+                QuantityAccepted = e.QuantityAccepted,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InternalOrderShipmentLineEntity, InternalOrderShipmentLineDto>(e => new InternalOrderShipmentLineDto
+            {
+                InternalOrderShipmentLineToken = e.InternalOrderShipmentLineToken,
+                InternalOrderLineToken = e.InternalOrderLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityShipped = e.QuantityShipped,
+                QuantityReceived = e.QuantityReceived,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InternalOrderShipmentEntity, InternalOrderShipmentDto>(e => new InternalOrderShipmentDto
+            {
+                InternalOrderShipmentToken = e.InternalOrderShipmentToken,
+                SourceWarehouseToken = e.SourceWarehouseToken,
+                SourceWarehouseName = e.SourceWarehouseName,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InternalOrderReceiptLineEntity, InternalOrderReceiptLineDto>(e => new InternalOrderReceiptLineDto
+            {
+                InternalOrderReceiptLineToken = e.InternalOrderReceiptLineToken,
+                InternalOrderShipmentLineToken = e.InternalOrderShipmentLineToken,
+                QuantityShipped = e.QuantityShipped,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityAccepted = e.QuantityAccepted,
+                QuantityRejected = e.QuantityRejected,
+                RejectionReason = e.RejectionReason,
+                TaxCategoryCode = e.TaxCategoryCode,
+                TaxRatePercent = e.TaxRatePercent,
+                TaxableAmount = e.TaxableAmount,
+                TaxAmount = e.TaxAmount,
+                TotalAmount = e.TotalAmount,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InternalOrderReceiptEntity, InternalOrderReceiptDto>(e => new InternalOrderReceiptDto
+            {
+                InternalOrderReceiptToken = e.InternalOrderReceiptToken,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<InternalOrderEntity, InternalOrderDto>(e => new InternalOrderDto
+            {
+                InternalOrderToken = e.InternalOrderToken,
+                InternalOrderNumber = e.InternalOrderNumber,
+                RequestingOrganizationToken = e.RequestingOrganizationToken,
+                RequestingOrganizationName = e.RequestingOrganizationName,
+                SourceOrganizationToken = e.SourceOrganizationToken,
+                SourceOrganizationName = e.SourceOrganizationName,
+                DestinationWarehouseToken = e.DestinationWarehouseToken,
+                DestinationWarehouseName = e.DestinationWarehouseName,
+                Status = e.Status,
+                Notes = e.Notes,
+                CancelledUtc = e.CancelledUtc,
+                CancelledBy = e.CancelledBy,
+                CancelledReason = e.CancelledReason,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy,
                 LineCount = e.LineCount
             });
 

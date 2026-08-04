@@ -36,6 +36,12 @@ using CommonStockLevel = InnNou.Application.Responses.Common.StockLevel;
 using CommonInventoryMovement = InnNou.Application.Responses.Common.InventoryMovement;
 using CommonInventoryTransfer = InnNou.Application.Responses.Common.InventoryTransfer;
 using CommonInventoryTransferLine = InnNou.Application.Responses.Common.InventoryTransferLine;
+using CommonInternalOrder = InnNou.Application.Responses.Common.InternalOrder;
+using CommonInternalOrderLine = InnNou.Application.Responses.Common.InternalOrderLine;
+using CommonInternalOrderShipment = InnNou.Application.Responses.Common.InternalOrderShipment;
+using CommonInternalOrderShipmentLine = InnNou.Application.Responses.Common.InternalOrderShipmentLine;
+using CommonInternalOrderReceipt = InnNou.Application.Responses.Common.InternalOrderReceipt;
+using CommonInternalOrderReceiptLine = InnNou.Application.Responses.Common.InternalOrderReceiptLine;
 using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPeriod;
 using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
 using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
@@ -1389,6 +1395,8 @@ namespace InnNou.Application.Mapping
                 GoodsReceiptToken = d.GoodsReceiptToken,
                 InventoryTransferToken = d.InventoryTransferToken,
                 InventoryPeriodCountToken = d.InventoryPeriodCountToken,
+                InternalOrderShipmentToken = d.InternalOrderShipmentToken,
+                InternalOrderReceiptToken = d.InternalOrderReceiptToken,
                 Reason = d.Reason,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
@@ -1418,6 +1426,106 @@ namespace InnNou.Application.Mapping
                 CreatedBy = d.CreatedBy,
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonInventoryTransferLine>(d.Lines)
+            });
+
+            // InternalOrderLine (registered before InternalOrder since it embeds a List<CommonInternalOrderLine>)
+            mapper.Register<InternalOrderLineDto, CommonInternalOrderLine>(d => new CommonInternalOrderLine
+            {
+                InternalOrderLineToken = d.InternalOrderLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SupplierSku = d.SupplierSku,
+                Quantity = d.Quantity,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
+                Notes = d.Notes,
+                QuantityShipped = d.QuantityShipped,
+                QuantityAccepted = d.QuantityAccepted,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            // InternalOrderShipmentLine (registered before InternalOrderShipment since it embeds a List<CommonInternalOrderShipmentLine>)
+            mapper.Register<InternalOrderShipmentLineDto, CommonInternalOrderShipmentLine>(d => new CommonInternalOrderShipmentLine
+            {
+                InternalOrderShipmentLineToken = d.InternalOrderShipmentLineToken,
+                InternalOrderLineToken = d.InternalOrderLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityShipped = d.QuantityShipped,
+                QuantityReceived = d.QuantityReceived,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<InternalOrderShipmentDto, CommonInternalOrderShipment>(d => new CommonInternalOrderShipment
+            {
+                InternalOrderShipmentToken = d.InternalOrderShipmentToken,
+                SourceWarehouseToken = d.SourceWarehouseToken,
+                SourceWarehouseName = d.SourceWarehouseName,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                Lines = mapper.MapList<CommonInternalOrderShipmentLine>(d.Lines)
+            });
+
+            // InternalOrderReceiptLine (registered before InternalOrderReceipt since it embeds a List<CommonInternalOrderReceiptLine>)
+            mapper.Register<InternalOrderReceiptLineDto, CommonInternalOrderReceiptLine>(d => new CommonInternalOrderReceiptLine
+            {
+                InternalOrderReceiptLineToken = d.InternalOrderReceiptLineToken,
+                InternalOrderShipmentLineToken = d.InternalOrderShipmentLineToken,
+                QuantityShipped = d.QuantityShipped,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityAccepted = d.QuantityAccepted,
+                QuantityRejected = d.QuantityRejected,
+                RejectionReason = d.RejectionReason,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRatePercent = d.TaxRatePercent,
+                TaxableAmount = d.TaxableAmount,
+                TaxAmount = d.TaxAmount,
+                TotalAmount = d.TotalAmount,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<InternalOrderReceiptDto, CommonInternalOrderReceipt>(d => new CommonInternalOrderReceipt
+            {
+                InternalOrderReceiptToken = d.InternalOrderReceiptToken,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                Lines = mapper.MapList<CommonInternalOrderReceiptLine>(d.Lines)
+            });
+
+            mapper.Register<InternalOrderDto, CommonInternalOrder>(d => new CommonInternalOrder
+            {
+                InternalOrderToken = d.InternalOrderToken,
+                InternalOrderNumber = d.InternalOrderNumber,
+                RequestingOrganizationToken = d.RequestingOrganizationToken,
+                RequestingOrganizationName = d.RequestingOrganizationName,
+                SourceOrganizationToken = d.SourceOrganizationToken,
+                SourceOrganizationName = d.SourceOrganizationName,
+                DestinationWarehouseToken = d.DestinationWarehouseToken,
+                DestinationWarehouseName = d.DestinationWarehouseName,
+                Status = d.Status,
+                Notes = d.Notes,
+                CancelledUtc = d.CancelledUtc,
+                CancelledBy = d.CancelledBy,
+                CancelledReason = d.CancelledReason,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonInternalOrderLine>(d.Lines),
+                Shipments = mapper.MapList<CommonInternalOrderShipment>(d.Shipments),
+                Receipts = mapper.MapList<CommonInternalOrderReceipt>(d.Receipts)
             });
 
             // InventoryPeriodCountDto registered before InventoryPeriodDto since it embeds a List<CommonInventoryPeriodCount>

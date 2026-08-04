@@ -7,33 +7,40 @@ GO
    Append-only audit ledger row — never updated/deleted. @Type resolved to
    Id via the same inline-subquery pattern as every other Id-backed status/
    type column. Exactly one of @GoodsReceiptLineId/@InventoryTransferLineId/
-   @InventoryPeriodCountId is set depending on @Type/origin (RECEIPT /
-   TRANSFER_OUT+TRANSFER_IN / a period close-or-reopen ADJUSTMENT); none are
-   set for a plain manual ADJUSTMENT.
+   @InventoryPeriodCountId/@InternalOrderShipmentLineId/
+   @InternalOrderReceiptLineId is set depending on @Type/origin (RECEIPT /
+   TRANSFER_OUT+TRANSFER_IN / a period close-or-reopen ADJUSTMENT /
+   INTERNAL_ORDER_OUT / INTERNAL_ORDER_IN); none are set for a plain manual
+   ADJUSTMENT.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_InventoryMovement_Create
 (
-    @InventoryMovementToken  UNIQUEIDENTIFIER,
-    @WarehouseId             INT,
-    @ArticleId               INT,
-    @Type                    VARCHAR(20),
-    @Quantity                DECIMAL(18,8),
-    @GoodsReceiptLineId      INT           = NULL,
-    @InventoryTransferLineId INT           = NULL,
-    @InventoryPeriodCountId  INT           = NULL,
-    @Reason                  NVARCHAR(500) = NULL,
-    @CreatedBy               VARCHAR(150)
+    @InventoryMovementToken     UNIQUEIDENTIFIER,
+    @WarehouseId                INT,
+    @ArticleId                  INT,
+    @Type                       VARCHAR(20),
+    @Quantity                   DECIMAL(18,8),
+    @GoodsReceiptLineId         INT           = NULL,
+    @InventoryTransferLineId    INT           = NULL,
+    @InventoryPeriodCountId     INT           = NULL,
+    @InternalOrderShipmentLineId INT          = NULL,
+    @InternalOrderReceiptLineId  INT          = NULL,
+    @Reason                     NVARCHAR(500) = NULL,
+    @CreatedBy                  VARCHAR(150)
 )
 AS
 BEGIN
     SET NOCOUNT ON;
 
     INSERT INTO dbo.InventoryMovements
-        (InventoryMovementToken, WarehouseId, ArticleId, InventoryMovementTypeId, Quantity, GoodsReceiptLineId, InventoryTransferLineId, InventoryPeriodCountId, Reason, CreatedBy)
+        (InventoryMovementToken, WarehouseId, ArticleId, InventoryMovementTypeId, Quantity,
+         GoodsReceiptLineId, InventoryTransferLineId, InventoryPeriodCountId,
+         InternalOrderShipmentLineId, InternalOrderReceiptLineId, Reason, CreatedBy)
     VALUES
         (@InventoryMovementToken, @WarehouseId, @ArticleId,
          (SELECT InventoryMovementTypeId FROM dbo.InventoryMovementTypes WHERE Code = @Type),
-         @Quantity, @GoodsReceiptLineId, @InventoryTransferLineId, @InventoryPeriodCountId, @Reason, @CreatedBy);
+         @Quantity, @GoodsReceiptLineId, @InventoryTransferLineId, @InventoryPeriodCountId,
+         @InternalOrderShipmentLineId, @InternalOrderReceiptLineId, @Reason, @CreatedBy);
 
     SELECT
         im.InventoryMovementId, im.InventoryMovementToken,
@@ -41,6 +48,7 @@ BEGIN
         im.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         mt.Code AS Type, im.Quantity,
         gr.GoodsReceiptToken, it.InventoryTransferToken, ipc.InventoryPeriodCountToken,
+        ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken,
         im.Reason, im.CreatedUtc, im.CreatedBy
     FROM dbo.InventoryMovements im
     JOIN dbo.Warehouses w                          ON w.WarehouseId              = im.WarehouseId
@@ -51,6 +59,10 @@ BEGIN
     LEFT JOIN dbo.InventoryTransferLines tl         ON tl.InventoryTransferLineId = im.InventoryTransferLineId
     LEFT JOIN dbo.InventoryTransfers it              ON it.InventoryTransferId     = tl.InventoryTransferId
     LEFT JOIN dbo.InventoryPeriodCounts ipc         ON ipc.InventoryPeriodCountId = im.InventoryPeriodCountId
+    LEFT JOIN dbo.InternalOrderShipmentLines iosl   ON iosl.InternalOrderShipmentLineId = im.InternalOrderShipmentLineId
+    LEFT JOIN dbo.InternalOrderShipments ios        ON ios.InternalOrderShipmentId      = iosl.InternalOrderShipmentId
+    LEFT JOIN dbo.InternalOrderReceiptLines iorl    ON iorl.InternalOrderReceiptLineId  = im.InternalOrderReceiptLineId
+    LEFT JOIN dbo.InternalOrderReceipts ior         ON ior.InternalOrderReceiptId       = iorl.InternalOrderReceiptId
     WHERE im.InventoryMovementToken = @InventoryMovementToken;
 END;
 GO

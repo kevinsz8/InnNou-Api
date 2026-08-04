@@ -12,6 +12,8 @@ namespace InnNou.Domain.Dtos
         public Guid? GoodsReceiptToken { get; set; }
         public Guid? InventoryTransferToken { get; set; }
         public Guid? InventoryPeriodCountToken { get; set; }
+        public Guid? InternalOrderShipmentToken { get; set; }
+        public Guid? InternalOrderReceiptToken { get; set; }
         public string? Reason { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

@@ -374,6 +374,42 @@ namespace InnNou.Application.Common
         public const string ConsolidatedPurchaseOrderEmpty = "CONSOLIDATED_PURCHASE_ORDER_EMPTY";
         public const string ConsolidatedPurchaseOrderInvalidMember = "CONSOLIDATED_PURCHASE_ORDER_INVALID_MEMBER";
 
+        // InternalOrder (Pedidos Internos — stock moved between two different Asociado
+        // Organizations under the same Super Asociado; distinct from InventoryTransfer's own
+        // same-Organization codes above)
+        public const string InternalOrderNotFound = "INTERNAL_ORDER_NOT_FOUND";
+        public const string InternalOrderForbidden = "INTERNAL_ORDER_FORBIDDEN";
+        public const string InternalOrderSourceOrganizationNotFound = "INTERNAL_ORDER_SOURCE_ORGANIZATION_NOT_FOUND";
+        public const string InternalOrderSameOrganization = "INTERNAL_ORDER_SAME_ORGANIZATION";
+        public const string InternalOrderDifferentSuperAssociate = "INTERNAL_ORDER_DIFFERENT_SUPER_ASSOCIATE";
+        public const string InternalOrderDestinationWarehouseNotFound = "INTERNAL_ORDER_DESTINATION_WAREHOUSE_NOT_FOUND";
+        public const string InternalOrderDestinationWarehouseNotInventoriable = "INTERNAL_ORDER_DESTINATION_WAREHOUSE_NOT_INVENTORIABLE";
+        public const string InternalOrderSourceWarehouseNotFound = "INTERNAL_ORDER_SOURCE_WAREHOUSE_NOT_FOUND";
+        public const string InternalOrderEmpty = "INTERNAL_ORDER_EMPTY";
+        public const string InternalOrderDuplicateLine = "INTERNAL_ORDER_DUPLICATE_LINE";
+        public const string InternalOrderInvalidQuantity = "INTERNAL_ORDER_INVALID_QUANTITY";
+        public const string InternalOrderArticleNotFound = "INTERNAL_ORDER_ARTICLE_NOT_FOUND";
+        public const string InternalOrderPriceNotFound = "INTERNAL_ORDER_PRICE_NOT_FOUND";
+        public const string InternalOrderNotCancellable = "INTERNAL_ORDER_NOT_CANCELLABLE";
+        public const string InternalOrderNotShippable = "INTERNAL_ORDER_NOT_SHIPPABLE";
+        public const string InternalOrderShipmentEmpty = "INTERNAL_ORDER_SHIPMENT_EMPTY";
+        public const string InternalOrderShipmentSourceWarehouseMismatch = "INTERNAL_ORDER_SHIPMENT_SOURCE_WAREHOUSE_MISMATCH";
+        public const string InternalOrderShipmentWarehouseNotInventoriable = "INTERNAL_ORDER_SHIPMENT_WAREHOUSE_NOT_INVENTORIABLE";
+        public const string InternalOrderShipmentWarehouseCannotTransferOut = "INTERNAL_ORDER_SHIPMENT_WAREHOUSE_CANNOT_TRANSFER_OUT";
+        public const string InternalOrderShipmentLineNotFound = "INTERNAL_ORDER_SHIPMENT_LINE_NOT_FOUND";
+        public const string InternalOrderOverShipmentNotAllowed = "INTERNAL_ORDER_OVER_SHIPMENT_NOT_ALLOWED";
+        public const string InternalOrderInsufficientStock = "INTERNAL_ORDER_INSUFFICIENT_STOCK";
+        public const string InternalOrderNotReceivable = "INTERNAL_ORDER_NOT_RECEIVABLE";
+        public const string InternalOrderReceiptEmpty = "INTERNAL_ORDER_RECEIPT_EMPTY";
+        public const string InternalOrderReceiptWarehouseCannotReceive = "INTERNAL_ORDER_RECEIPT_WAREHOUSE_CANNOT_RECEIVE";
+        public const string InternalOrderReceiptLineNotFound = "INTERNAL_ORDER_RECEIPT_LINE_NOT_FOUND";
+        public const string InternalOrderReceiptLineEmpty = "INTERNAL_ORDER_RECEIPT_LINE_EMPTY";
+        public const string InternalOrderOverReceiptNotAllowed = "INTERNAL_ORDER_OVER_RECEIPT_NOT_ALLOWED";
+        public const string InternalOrderRejectionReasonRequired = "INTERNAL_ORDER_REJECTION_REASON_REQUIRED";
+        public const string InternalOrderReceiptWarehouseTaxJurisdictionMissing = "INTERNAL_ORDER_RECEIPT_WAREHOUSE_TAX_JURISDICTION_MISSING";
+        public const string InternalOrderReceiptArticleTaxCategoryMissing = "INTERNAL_ORDER_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING";
+        public const string InternalOrderReceiptTaxRateMissing = "INTERNAL_ORDER_RECEIPT_TAX_RATE_MISSING";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 
