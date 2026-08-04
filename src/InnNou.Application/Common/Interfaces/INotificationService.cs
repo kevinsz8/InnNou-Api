@@ -20,7 +20,7 @@ namespace InnNou.Application.Common.Interfaces
         // notification failures uniformly.
         Task NotifyAsync(Guid userToken, NotificationType type, object data, string? linkUrl, IRequestContext context, CancellationToken cancellationToken);
 
-        Task<PagedResult<NotificationDto>> GetPagedAsync(bool unreadOnly, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
+        Task<PagedResult<NotificationDto>> GetPagedAsync(bool unreadOnly, string? type, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<int> GetUnreadCountAsync(IRequestContext context, CancellationToken cancellationToken);
         Task MarkAsReadAsync(Guid notificationToken, IRequestContext context, CancellationToken cancellationToken);
         Task MarkAllAsReadAsync(IRequestContext context, CancellationToken cancellationToken);

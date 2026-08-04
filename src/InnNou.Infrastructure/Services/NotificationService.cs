@@ -64,7 +64,7 @@ public class NotificationService(IDbConnectionFactory connectionFactory, IMapper
         }
     }
 
-    public async Task<PagedResult<NotificationDto>> GetPagedAsync(bool unreadOnly, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<PagedResult<NotificationDto>> GetPagedAsync(bool unreadOnly, string? type, DateTime? fromDate, DateTime? toDate, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken)
     {
         var safePageNumber = pageNumber < 1 ? 1 : pageNumber;
         var safePageSize = pageSize < 1 ? 20 : Math.Min(pageSize, MaxPageSize);
@@ -78,7 +78,7 @@ public class NotificationService(IDbConnectionFactory connectionFactory, IMapper
 
         var rows = (await connection.QueryAsync<NotificationPageRow>(
             "sp_Notification_GetPaged",
-            new { user.UserId, UnreadOnly = unreadOnly, PageNumber = safePageNumber, PageSize = safePageSize },
+            new { user.UserId, UnreadOnly = unreadOnly, Type = type, FromDate = fromDate, ToDate = toDate, PageNumber = safePageNumber, PageSize = safePageSize },
             commandType: CommandType.StoredProcedure)).ToList();
 
         return new PagedResult<NotificationDto>

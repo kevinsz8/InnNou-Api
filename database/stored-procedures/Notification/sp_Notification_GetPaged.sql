@@ -12,7 +12,10 @@ GO
 CREATE OR ALTER PROCEDURE dbo.sp_Notification_GetPaged
 (
     @UserId       INT,
-    @UnreadOnly   BIT = 0,
+    @UnreadOnly   BIT           = 0,
+    @Type         VARCHAR(40)   = NULL,
+    @FromDate     DATE          = NULL,
+    @ToDate       DATE          = NULL,
     @PageNumber   INT,
     @PageSize     INT
 )
@@ -30,6 +33,9 @@ BEGIN
     JOIN dbo.NotificationTypes nt ON nt.NotificationTypeId = n.NotificationTypeId
     WHERE n.UserId = @UserId
       AND (@UnreadOnly = 0 OR n.IsRead = 0)
+      AND (@Type IS NULL OR nt.Code = @Type)
+      AND (@FromDate IS NULL OR n.CreatedUtc >= @FromDate)
+      AND (@ToDate IS NULL OR n.CreatedUtc < DATEADD(DAY, 1, @ToDate))
     ORDER BY n.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

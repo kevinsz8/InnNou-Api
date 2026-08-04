@@ -12,7 +12,7 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetNotificationsQueryResponse>> Handle(GetNotificationsQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await notificationService.GetPagedAsync(request.UnreadOnly, request.PageNumber, request.PageSize, context, cancellationToken);
+            var result = await notificationService.GetPagedAsync(request.UnreadOnly, request.Type, request.FromDate, request.ToDate, request.PageNumber, request.PageSize, context, cancellationToken);
 
             var totalPages = result.TotalPages;
             var response = new GetNotificationsQueryResponse
