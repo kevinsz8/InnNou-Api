@@ -901,6 +901,13 @@ public class OrderService(
             }
         }
 
+        // Committing/disposing the transaction above does NOT close the underlying connection
+        // (ADO.NET never does that implicitly) — it must be closed explicitly here so the
+        // auto-complete branch below is free to open its own transaction on the same connection
+        // via CompleteSubmissionAsync (which calls connection.OpenAsync() itself and throws
+        // InvalidOperationException if the connection is already open).
+        await connection.CloseAsync();
+
         if (approved.TriggeringPurchaseOrderRectificationId.HasValue)
             return approved;
 
