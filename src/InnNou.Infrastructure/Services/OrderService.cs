@@ -689,7 +689,13 @@ public class OrderService(
         try
         {
             var (organizationName, organizationLanguageCode) = await GetOrganizationNameAndLanguageAsync(connection, updatedOrder.OrganizationToken);
-            var buyerEmail = await GetUserEmailAsync(connection, context.ActorUserToken);
+            // The buyer to notify/email is whoever originally submitted the Order (Order.CreatedBy),
+            // never context.ActorUserToken — this method is also called from the approval
+            // auto-complete path (ApproveStepAndAdvanceAsync -> CompleteSubmissionAsync), where
+            // context belongs to the approver who just clicked Approve, not the original submitter.
+            if (!Guid.TryParse(updatedOrder.CreatedBy, out var submitterToken))
+                submitterToken = context.ActorUserToken;
+            var buyerEmail = await GetUserEmailAsync(connection, submitterToken);
             var warehouseInfo = await GetWarehouseHeaderInfoAsync(connection, updatedOrder.WarehouseToken);
 
             var fullPdfBytes = OrderConfirmationDocument.BuildFullOrderPdf(updatedOrder, organizationName, lines, warehouseInfo, organizationLanguageCode);
@@ -714,7 +720,7 @@ public class OrderService(
             }
 
             await notificationService.NotifyAsync(
-                context.ActorUserToken, NotificationType.Order_Confirmed,
+                submitterToken, NotificationType.Order_Confirmed,
                 new { organizationName, purchaseOrderCount = purchaseOrdersWithLines.Count },
                 $"/orders/{updatedOrder.OrderToken}", context, cancellationToken);
 

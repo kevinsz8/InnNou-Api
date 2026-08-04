@@ -184,6 +184,14 @@ Investigado 2026-07-28: el software de contract management 2026 (Juro, Procurify
 
 ---
 
+## 10. Framework genérico de "tipos de suscripción" para notificaciones opt-in
+
+Surgió 2026-08-05 al construir la primera suscripción opt-in real (`SupplierPriceChangeSubscriptions`, ver módulo de Notificaciones). Investigación previa (Odoo/SAP/Jira) confirmó que las notificaciones críticas necesitan un destinatario garantizado (designado o por rol), pero que un modelo de suscripción opt-in tipo Jira Watchers es apropiado como capa adicional para avisos de "quiero ver esto pero no es mi responsabilidad" — el caso de precios de proveedor es el primero de varios candidatos posibles (alertas de stock bajo por almacén específico, aperturas de inventario, etc. — ver la revisión de destinatarios en `.claude/NotificationsModule.md`).
+
+**Decisión explícita del usuario: no generalizar todavía.** `SupplierPriceChangeSubscriptions` se construye como una tabla concreta y específica, sin ningún tipo de framework de "tipos de suscripción" reusable — sería sobre-ingeniería para un solo caso de uso. Cuando aparezca una segunda categoría suscribible real (no solo hipotética), ese es el momento de evaluar extraer un patrón común (una tabla `NotificationSubscriptionTypes` + una UI genérica en `/preferences` en vez de una sección hardcodeada por tipo). Hasta entonces, cada nueva categoría se construye igual de concreta que esta.
+
+---
+
 ## Contexto relevante ya existente (no reinventar)
 
 - `Warehouse` ya modela las capabilities relevantes para todo lo de arriba (`IsInventoriable`, `CanAdjustInventory`, `CanTransferOut`, `CanReceiveTransfers`, `CanReceivePurchases`, `CanReceiveReturns`, etc.) — cualquier feature nueva debería apoyarse en estas, no crear una clasificación paralela.

@@ -20,9 +20,36 @@ public class ArticlePriceService(
     IDbConnectionFactory connectionFactory,
     IMapper mapper,
     ICurrencyService currencyService,
+    INotificationService notificationService,
     ILogger<ArticlePriceService> logger) : IArticlePriceService
 {
     private sealed class ArticlePricePageRow : ArticlePrice { public int TotalCount { get; set; } }
+
+    // Projection for sp_ArticlePrice_GetChangeNotificationInfo — internal plumbing for
+    // NotifySupplierPriceSubscribersAsync only, never exposed via the API.
+    private sealed class ArticlePriceChangeInfoRow
+    {
+        public int ArticlePriceId { get; set; }
+        public int ArticleId { get; set; }
+        public Guid ArticleToken { get; set; }
+        public string ArticleName { get; set; } = default!;
+        public int SupplierId { get; set; }
+        public Guid SupplierToken { get; set; }
+        public string SupplierName { get; set; } = default!;
+        public decimal NewPrice { get; set; }
+        public string NewCurrencyCode { get; set; } = default!;
+        public DateTime EffectiveDate { get; set; }
+        public decimal? PreviousPrice { get; set; }
+        public string? PreviousCurrencyCode { get; set; }
+    }
+
+    // Projection for sp_SupplierPriceChangeSubscription_GetSubscribers.
+    private sealed class SupplierPriceSubscriberRow
+    {
+        public int UserId { get; set; }
+        public Guid UserToken { get; set; }
+        public int? OrganizationId { get; set; }
+    }
 
     // Denormalized projection used only by ExportArticlePricesAsync — sp_ArticlePrice_GetAllForExport
     // joins in SupplierName/ArticleName/SupplierSku/OrganizationName so the export file is directly
@@ -63,7 +90,7 @@ public class ArticlePriceService(
             ? context.SupplierId.Value == supplierId
             : context.RoleLevel >= AdminRoleLevel;
 
-    public async Task<ArticlePriceDto?> CreateAsync(ArticlePriceDto dto, IRequestContext context, CancellationToken cancellationToken = default)
+    public async Task<ArticlePriceDto?> CreateAsync(ArticlePriceDto dto, IRequestContext context, CancellationToken cancellationToken = default, bool notifySubscribers = true)
     {
         if (!CanManage(context, dto.SupplierId))
             throw new ApiException(ErrorCodes.ArticlePriceSupplierForbidden, "Not allowed to set prices for this supplier's articles.", 403);
@@ -79,11 +106,11 @@ public class ArticlePriceService(
         p.Add("@Notes", dto.Notes);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
 
+        ArticlePrice? row;
         try
         {
-            var row = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
+            row = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
                 "sp_ArticlePrice_Create", p, commandType: CommandType.StoredProcedure);
-            return row is null ? null : mapper.Map<ArticlePriceDto>(row);
         }
         catch (SqlException ex) when (ex.Number is 2601 or 2627)
         {
@@ -91,6 +118,101 @@ public class ArticlePriceService(
                 ErrorCodes.ArticlePriceDuplicateEffectiveDate,
                 "A price for this article/organization/currency is already effective on this date.",
                 409);
+        }
+
+        if (row is null)
+            return null;
+
+        // Only a global list-price row (never a negotiated per-organization contract price)
+        // represents "the supplier updated a price" — see the migration's own header comment.
+        if (notifySubscribers && dto.OrganizationId is null)
+            await NotifySupplierPriceSubscribersAsync(connection, [row.ArticlePriceId], context, cancellationToken);
+
+        return mapper.Map<ArticlePriceDto>(row);
+    }
+
+    // Best-effort/non-blocking, same convention as every notification/email call site elsewhere
+    // in this codebase — a failure here must never fail an already-committed price change.
+    // Handles both a single live create (one id) and a whole BulkImportArticlePricesAsync batch
+    // (many ids) in one call: groups by Supplier (a bulk-import file can span more than one) and
+    // fires exactly ONE notification per subscriber per supplier, regardless of how many of that
+    // supplier's articles changed in this event — never one notification per row.
+    private async Task NotifySupplierPriceSubscribersAsync(IDbConnection connection, List<int> articlePriceIds, IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (articlePriceIds.Count == 0)
+            return;
+
+        try
+        {
+            var changeRows = (await connection.QueryAsync<ArticlePriceChangeInfoRow>(
+                "sp_ArticlePrice_GetChangeNotificationInfo",
+                new { ArticlePriceIds = string.Join(',', articlePriceIds) },
+                commandType: CommandType.StoredProcedure)).ToList();
+
+            foreach (var supplierGroup in changeRows.GroupBy(r => r.SupplierId))
+            {
+                var subscribers = (await connection.QueryAsync<SupplierPriceSubscriberRow>(
+                    "sp_SupplierPriceChangeSubscription_GetSubscribers",
+                    new { SupplierId = supplierGroup.Key },
+                    commandType: CommandType.StoredProcedure)).ToList();
+
+                if (subscribers.Count == 0)
+                    continue;
+
+                var changes = supplierGroup.ToList();
+                var supplierName = changes[0].SupplierName;
+                var changedArticleIdsCsv = string.Join(',', changes.Select(r => r.ArticleId).Distinct());
+
+                foreach (var subscriber in subscribers)
+                {
+                    object data = new { supplierName, changedCount = changes.Count, favoriteCount = 0 };
+
+                    if (subscriber.OrganizationId.HasValue)
+                    {
+                        var favoriteArticleIds = (await connection.QueryAsync<int>(
+                            "sp_ArticleFavorite_GetEffectiveArticleIdsForOrganization",
+                            new { OrganizationId = subscriber.OrganizationId.Value, ArticleIds = changedArticleIdsCsv },
+                            commandType: CommandType.StoredProcedure)).ToHashSet();
+
+                        var favoriteChanges = changes.Where(r => favoriteArticleIds.Contains(r.ArticleId)).ToList();
+
+                        // Only spell out a per-article delta when exactly one favorite changed —
+                        // several at once collapses to a count so DataJson (NVARCHAR(1000)) never
+                        // has to hold an unbounded list.
+                        if (favoriteChanges.Count == 1)
+                        {
+                            var f = favoriteChanges[0];
+                            decimal? percentChange = f.PreviousPrice is > 0 && f.PreviousCurrencyCode == f.NewCurrencyCode
+                                ? Math.Round((f.NewPrice - f.PreviousPrice.Value) / f.PreviousPrice.Value * 100m, 2)
+                                : null;
+
+                            data = new
+                            {
+                                supplierName,
+                                changedCount = changes.Count,
+                                favoriteCount = 1,
+                                articleName = f.ArticleName,
+                                previousPrice = f.PreviousPrice,
+                                newPrice = f.NewPrice,
+                                currencyCode = f.NewCurrencyCode,
+                                percentChange
+                            };
+                        }
+                        else if (favoriteChanges.Count > 1)
+                        {
+                            data = new { supplierName, changedCount = changes.Count, favoriteCount = favoriteChanges.Count };
+                        }
+                    }
+
+                    await notificationService.NotifyAsync(
+                        subscriber.UserToken, NotificationType.Supplier_Price_Updated, data,
+                        "/articles", context, cancellationToken);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Supplier price-change notification failed for ArticlePriceIds {ArticlePriceIds}", string.Join(',', articlePriceIds));
         }
     }
 
@@ -192,6 +314,10 @@ public class ArticlePriceService(
             var supplierCache = new Dictionary<string, Supplier?>(StringComparer.OrdinalIgnoreCase);
             var articleCache = new Dictionary<string, Article?>(StringComparer.OrdinalIgnoreCase);
             var organizationCache = new Dictionary<string, Organization?>(StringComparer.OrdinalIgnoreCase);
+            // Accumulated across the whole loop, notified ONCE at the end (see
+            // NotifySupplierPriceSubscribersAsync) instead of once per row — a full price-list
+            // refresh can be up to MaxBulkImportRows rows and must not flood subscribers.
+            var createdGlobalArticlePriceIds = new List<int>();
 
             // IMPORTANT: rows processed strictly sequentially, same convention as every other bulk
             // import in this codebase. ArticlePrices is insert-only (CLAUDE.md) — reimporting a row
@@ -387,12 +513,15 @@ public class ArticlePriceService(
                         Notes = NullIfEmpty(notes)
                     };
 
-                    var created = await CreateAsync(dto, context, cancellationToken);
+                    var created = await CreateAsync(dto, context, cancellationToken, notifySubscribers: false);
                     if (created is null)
                     {
                         result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceCreateFailed, Description = "Article price could not be created." });
                         continue;
                     }
+
+                    if (organizationId is null)
+                        createdGlobalArticlePriceIds.Add(created.ArticlePriceId);
 
                     result.SuccessCount++;
                 }
@@ -406,6 +535,8 @@ public class ArticlePriceService(
                     result.Errors.Add(new BulkImportArticlePriceRowErrorDto { RowNumber = rowNumber, SupplierSku = rowIdentifier, Code = ErrorCodes.ArticlePriceBulkImportRowFailed, Description = "An unexpected error occurred while processing this row." });
                 }
             }
+
+            await NotifySupplierPriceSubscribersAsync(connection, createdGlobalArticlePriceIds, context, cancellationToken);
 
             result.FailureCount = result.Errors.Count;
             return result;

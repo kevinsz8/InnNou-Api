@@ -59,6 +59,7 @@ using ZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.Zone;
 using SupplierDeliveryZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierDeliveryZone;
 using FamilyApprovalThresholdEntity = InnNou.Infrastructure.Repositories.DbEntities.FamilyApprovalThreshold;
 using OrderApprovalStepEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderApprovalStep;
+using SupplierPriceChangeSubscriptionEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierPriceChangeSubscription;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -598,6 +599,16 @@ namespace InnNou.Infrastructure.Mapping
                 IsInherited = e.IsInherited,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<SupplierPriceChangeSubscriptionEntity, SupplierPriceChangeSubscriptionDto>(e => new SupplierPriceChangeSubscriptionDto
+            {
+                SupplierPriceChangeSubscriptionId = e.SupplierPriceChangeSubscriptionId,
+                SupplierPriceChangeSubscriptionToken = e.SupplierPriceChangeSubscriptionToken,
+                SupplierId = e.SupplierId,
+                SupplierToken = e.SupplierToken,
+                SupplierName = e.SupplierName,
+                CreatedUtc = e.CreatedUtc
             });
 
             mapper.Register<ArticleClassificationEntity, ArticleClassificationDto>(e => new ArticleClassificationDto

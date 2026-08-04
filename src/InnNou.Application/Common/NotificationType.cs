@@ -8,7 +8,8 @@ namespace InnNou.Application.Common
         New_Purchase_Order = 2,
         Approval_Requested = 3,
         Approval_Step_Approved = 4,
-        Approval_Step_Rejected = 5
+        Approval_Step_Rejected = 5,
+        Supplier_Price_Updated = 6
     }
 
     public static class NotificationTypeCodes
@@ -18,6 +19,7 @@ namespace InnNou.Application.Common
         public const string ApprovalRequested = "APPROVAL_REQUESTED";
         public const string ApprovalStepApproved = "APPROVAL_STEP_APPROVED";
         public const string ApprovalStepRejected = "APPROVAL_STEP_REJECTED";
+        public const string SupplierPriceUpdated = "SUPPLIER_PRICE_UPDATED";
 
         public static string ToCode(NotificationType type) => type switch
         {
@@ -26,6 +28,7 @@ namespace InnNou.Application.Common
             NotificationType.Approval_Requested => ApprovalRequested,
             NotificationType.Approval_Step_Approved => ApprovalStepApproved,
             NotificationType.Approval_Step_Rejected => ApprovalStepRejected,
+            NotificationType.Supplier_Price_Updated => SupplierPriceUpdated,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 
@@ -36,6 +39,7 @@ namespace InnNou.Application.Common
             ApprovalRequested => NotificationType.Approval_Requested,
             ApprovalStepApproved => NotificationType.Approval_Step_Approved,
             ApprovalStepRejected => NotificationType.Approval_Step_Rejected,
+            SupplierPriceUpdated => NotificationType.Supplier_Price_Updated,
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
     }

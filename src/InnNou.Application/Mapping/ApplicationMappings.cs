@@ -43,6 +43,7 @@ using CommonInternalOrderShipmentLine = InnNou.Application.Responses.Common.Inte
 using CommonInternalOrderReceipt = InnNou.Application.Responses.Common.InternalOrderReceipt;
 using CommonInternalOrderReceiptLine = InnNou.Application.Responses.Common.InternalOrderReceiptLine;
 using CommonNotification = InnNou.Application.Responses.Common.Notification;
+using CommonSupplierPriceChangeSubscription = InnNou.Application.Responses.Common.SupplierPriceChangeSubscription;
 using CommonInventoryPeriod = InnNou.Application.Responses.Common.InventoryPeriod;
 using CommonInventoryPeriodCount = InnNou.Application.Responses.Common.InventoryPeriodCount;
 using CommonDashboardSummary = InnNou.Application.Responses.Common.DashboardSummary;
@@ -1413,6 +1414,14 @@ namespace InnNou.Application.Mapping
                 ReadUtc = d.ReadUtc,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<SupplierPriceChangeSubscriptionDto, CommonSupplierPriceChangeSubscription>(d => new CommonSupplierPriceChangeSubscription
+            {
+                SupplierPriceChangeSubscriptionToken = d.SupplierPriceChangeSubscriptionToken,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                CreatedUtc = d.CreatedUtc
             });
 
             // InventoryTransferLine (registered before InventoryTransfer since it embeds a List<CommonInventoryTransferLine>)

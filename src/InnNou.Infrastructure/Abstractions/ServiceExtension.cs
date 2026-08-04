@@ -77,6 +77,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<ISupplierReturnService, SupplierReturnService>();
             services.AddScoped<IInternalOrderService, InternalOrderService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<ISupplierPriceSubscriptionService, SupplierPriceSubscriptionService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();

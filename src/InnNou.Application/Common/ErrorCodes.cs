@@ -131,6 +131,9 @@ namespace InnNou.Application.Common
         public const string ArticleFavoriteNoOrganizationContext = "ARTICLE_FAVORITE_NO_ORGANIZATION_CONTEXT";
         public const string ArticleFavoriteForbidden = "ARTICLE_FAVORITE_FORBIDDEN";
 
+        // SupplierPriceChangeSubscription
+        public const string SupplierPriceSubscriptionTooManySuppliers = "SUPPLIER_PRICE_SUBSCRIPTION_TOO_MANY_SUPPLIERS";
+
         // ArticleClassification
         public const string ArticleClassificationNotFound = "ARTICLE_CLASSIFICATION_NOT_FOUND";
         public const string ArticleClassificationCreateFailed = "ARTICLE_CLASSIFICATION_CREATE_FAILED";
