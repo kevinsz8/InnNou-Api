@@ -15,6 +15,7 @@ public class TestRequestContext : IRequestContext
     public int? OrganizationId { get; set; }
     public string? OrganizationTypeCode { get; set; }
     public int? SupplierId { get; set; }
+    public int? WarehouseId { get; set; }
     public int RoleLevel { get; set; } = 100;
     public int ActorRoleLevel { get; set; } = 100;
     public int? ActorOrganizationId { get; set; }
