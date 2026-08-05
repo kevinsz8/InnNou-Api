@@ -1,8 +1,9 @@
 namespace InnNou.Application.Common
 {
     // Underlying int values must match NotificationTypes.NotificationTypeId seed rows exactly
-    // (see database/migrations/20260805_Notifications_Create.sql and
-    // 20260805_Notifications_AddBucket1Types.sql).
+    // (see database/migrations/20260805_Notifications_Create.sql,
+    // 20260805_Notifications_AddBucket1Types.sql, and
+    // 20260806_Notifications_AddRequisitionTypes.sql).
     public enum NotificationType
     {
         Order_Confirmed = 1,
@@ -18,7 +19,11 @@ namespace InnNou.Application.Common
         Internal_Order_Cancelled = 11,
         Supplier_Return_Closed = 12,
         Impersonation_Started = 13,
-        User_Role_Changed = 14
+        User_Role_Changed = 14,
+        Requisition_Approved = 15,
+        Requisition_Rejected = 16,
+        Requisition_Issued = 17,
+        Requisition_Closed_Short = 18
     }
 
     public static class NotificationTypeCodes
@@ -37,6 +42,10 @@ namespace InnNou.Application.Common
         public const string SupplierReturnClosed = "SUPPLIER_RETURN_CLOSED";
         public const string ImpersonationStarted = "IMPERSONATION_STARTED";
         public const string UserRoleChanged = "USER_ROLE_CHANGED";
+        public const string RequisitionApproved = "REQUISITION_APPROVED";
+        public const string RequisitionRejected = "REQUISITION_REJECTED";
+        public const string RequisitionIssued = "REQUISITION_ISSUED";
+        public const string RequisitionClosedShort = "REQUISITION_CLOSED_SHORT";
 
         public static string ToCode(NotificationType type) => type switch
         {
@@ -54,6 +63,10 @@ namespace InnNou.Application.Common
             NotificationType.Supplier_Return_Closed => SupplierReturnClosed,
             NotificationType.Impersonation_Started => ImpersonationStarted,
             NotificationType.User_Role_Changed => UserRoleChanged,
+            NotificationType.Requisition_Approved => RequisitionApproved,
+            NotificationType.Requisition_Rejected => RequisitionRejected,
+            NotificationType.Requisition_Issued => RequisitionIssued,
+            NotificationType.Requisition_Closed_Short => RequisitionClosedShort,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 
@@ -73,6 +86,10 @@ namespace InnNou.Application.Common
             SupplierReturnClosed => NotificationType.Supplier_Return_Closed,
             ImpersonationStarted => NotificationType.Impersonation_Started,
             UserRoleChanged => NotificationType.User_Role_Changed,
+            RequisitionApproved => NotificationType.Requisition_Approved,
+            RequisitionRejected => NotificationType.Requisition_Rejected,
+            RequisitionIssued => NotificationType.Requisition_Issued,
+            RequisitionClosedShort => NotificationType.Requisition_Closed_Short,
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
     }

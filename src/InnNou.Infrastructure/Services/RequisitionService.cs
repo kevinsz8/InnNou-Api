@@ -6,11 +6,13 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Data.Common;
 
 namespace InnNou.Infrastructure.Services;
 
-public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper mapper) : IRequisitionService
+public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper mapper, INotificationService notificationService, ILogger<RequisitionService> logger) : IRequisitionService
 {
     private sealed class RequisitionPageRow : Requisition { public int TotalCount { get; set; } }
 
@@ -70,6 +72,31 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         var lines = await connection.QueryAsync<RequisitionLine>(
             "sp_RequisitionLine_GetByRequisitionId", new { RequisitionId = requisitionId }, commandType: CommandType.StoredProcedure);
         return lines.ToList();
+    }
+
+    // Best-effort/non-blocking (same convention as every other notification call site). Recipient
+    // is resolved directly from the Requisition's own CreatedBy — unlike PurchaseOrderService's
+    // NotifyOrderBuyerAsync (which has to look up a separate Order), Requisition IS the entity the
+    // requesting Department created, so no extra round trip is needed.
+    private async Task NotifyRequisitionCreatorAsync(DbConnection connection, Requisition requisition, NotificationType type, object data, IRequestContext context, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(requisition.CreatedBy, out var creatorToken))
+            return;
+
+        try
+        {
+            // notificationService.NotifyAsync opens its own connection — closing this one first
+            // keeps at most one connection open at a time on this logical unit of work (Dapper
+            // transparently reopens it on the caller's next query). See
+            // PurchaseOrderService.NotifyOrderBuyerAsync's own comment for the full reasoning.
+            await connection.CloseAsync();
+
+            await notificationService.NotifyAsync(creatorToken, type, data, $"/requisitions/{requisition.RequisitionToken}", context, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Notification failed for Requisition {RequisitionToken}", requisition.RequisitionToken);
+        }
     }
 
     public async Task<RequisitionDto?> CreateAsync(Guid warehouseToken, Guid departmentToken, string? notes, List<CreateRequisitionLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
@@ -404,7 +431,15 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             new { RequisitionToken = requisitionToken, ApprovedBy = context.ActorUserToken.ToString() },
             commandType: CommandType.StoredProcedure);
 
-        return updated is null ? null : mapper.Map<RequisitionDto>(updated);
+        if (updated is null)
+            return null;
+
+        await NotifyRequisitionCreatorAsync(
+            connection, updated, NotificationType.Requisition_Approved,
+            new { requisitionNumber = updated.RequisitionNumber },
+            context, cancellationToken);
+
+        return mapper.Map<RequisitionDto>(updated);
     }
 
     public async Task<RequisitionDto?> RejectAsync(Guid requisitionToken, string reason, IRequestContext context, CancellationToken cancellationToken)
@@ -430,7 +465,15 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             new { RequisitionToken = requisitionToken, RejectedBy = context.ActorUserToken.ToString(), RejectedReason = reason.Trim() },
             commandType: CommandType.StoredProcedure);
 
-        return updated is null ? null : mapper.Map<RequisitionDto>(updated);
+        if (updated is null)
+            return null;
+
+        await NotifyRequisitionCreatorAsync(
+            connection, updated, NotificationType.Requisition_Rejected,
+            new { requisitionNumber = updated.RequisitionNumber, reason = updated.RejectedReason },
+            context, cancellationToken);
+
+        return mapper.Map<RequisitionDto>(updated);
     }
 
     public async Task<RequisitionDto?> CancelAsync(Guid requisitionToken, string? reason, IRequestContext context, CancellationToken cancellationToken)
@@ -479,7 +522,15 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             new { RequisitionToken = requisitionToken, ClosedShortBy = context.ActorUserToken.ToString(), ClosedShortReason = reason.Trim() },
             commandType: CommandType.StoredProcedure);
 
-        return updated is null ? null : mapper.Map<RequisitionDto>(updated);
+        if (updated is null)
+            return null;
+
+        await NotifyRequisitionCreatorAsync(
+            connection, updated, NotificationType.Requisition_Closed_Short,
+            new { requisitionNumber = updated.RequisitionNumber, reason = updated.ClosedShortReason },
+            context, cancellationToken);
+
+        return mapper.Map<RequisitionDto>(updated);
     }
 
     public async Task<RequisitionIssueDto?> CreateIssueAsync(Guid requisitionToken, string? notes, List<CreateRequisitionIssueLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
@@ -603,6 +654,24 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
                 transaction, commandType: CommandType.StoredProcedure);
 
             await transaction.CommitAsync(cancellationToken);
+
+            // NotifyRequisitionCreatorAsync below closes/reopens this connection — the committed
+            // transaction must be disposed first, or SqlClient throws "The transaction associated
+            // with the current connection has completed but has not been disposed" on that
+            // Close(), silently swallowed by the notify helper's own try/catch, leaving the pooled
+            // connection broken for whichever test/request reuses it next. See
+            // PurchaseOrderService.CreateGoodsReceiptAsync's identical comment for the full story.
+            await transaction.DisposeAsync();
+
+            var updatedRequisition = await connection.QueryFirstOrDefaultAsync<Requisition>(
+                "sp_Requisition_GetByToken", new { RequisitionToken = requisitionToken }, commandType: CommandType.StoredProcedure);
+            if (updatedRequisition is not null)
+            {
+                await NotifyRequisitionCreatorAsync(
+                    connection, updatedRequisition, NotificationType.Requisition_Issued,
+                    new { requisitionNumber = updatedRequisition.RequisitionNumber },
+                    context, cancellationToken);
+            }
 
             var dto = mapper.Map<RequisitionIssueDto>(issueHeader);
             dto.Lines = mapper.MapList<RequisitionIssueLineDto>(

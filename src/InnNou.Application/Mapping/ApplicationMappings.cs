@@ -54,6 +54,8 @@ using CommonSupplierReturn = InnNou.Application.Responses.Common.SupplierReturn;
 using CommonSupplierReturnLine = InnNou.Application.Responses.Common.SupplierReturnLine;
 using CommonEligibleReturnLine = InnNou.Application.Responses.Common.EligibleReturnLine;
 using CommonRecentActivityItem = InnNou.Application.Responses.Common.RecentActivityItem;
+using CommonDepartmentParLevel = InnNou.Application.Responses.Common.DepartmentParLevel;
+using CommonSuggestedRequisition = InnNou.Application.Responses.Common.SuggestedRequisition;
 using CommonParLevel = InnNou.Application.Responses.Common.ParLevel;
 using CommonParLevelOverride = InnNou.Application.Responses.Common.ParLevelOverride;
 using CommonParLevelEffective = InnNou.Application.Responses.Common.ParLevelEffective;
@@ -2092,6 +2094,38 @@ namespace InnNou.Application.Mapping
                 LineCount = d.LineCount,
                 Lines = mapper.MapList<CommonRequisitionLine>(d.Lines),
                 Issues = mapper.MapList<CommonRequisitionIssue>(d.Issues)
+            });
+
+            mapper.Register<DepartmentParLevelDto, CommonDepartmentParLevel>(d => new CommonDepartmentParLevel
+            {
+                DepartmentParLevelToken = d.DepartmentParLevelToken,
+                DepartmentToken = d.DepartmentToken,
+                DepartmentName = d.DepartmentName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                MinimumQuantity = d.MinimumQuantity,
+                ReorderQuantity = d.ReorderQuantity,
+                IsActive = d.IsActive,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            mapper.Register<SuggestedRequisitionDto, CommonSuggestedRequisition>(d => new CommonSuggestedRequisition
+            {
+                DepartmentParLevelToken = d.DepartmentParLevelToken,
+                DepartmentToken = d.DepartmentToken,
+                DepartmentName = d.DepartmentName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                MinimumQuantity = d.MinimumQuantity,
+                SuggestedQuantity = d.SuggestedQuantity,
+                AvgDailyConsumption = d.AvgDailyConsumption,
+                LastIssuedUtc = d.LastIssuedUtc,
+                DaysSinceLastIssued = d.DaysSinceLastIssued,
+                ExpectedCycleDays = d.ExpectedCycleDays
             });
         }
     }

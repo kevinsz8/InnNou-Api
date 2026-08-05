@@ -446,6 +446,13 @@ namespace InnNou.Application.Common
         public const string RequisitionOverIssueNotAllowed = "REQUISITION_OVER_ISSUE_NOT_ALLOWED";
         public const string RequisitionInsufficientStock = "REQUISITION_INSUFFICIENT_STOCK";
 
+        // DepartmentParLevel (Department-level reorder suggestion, feeds the Requisitions
+        // "Sugeridas" tab — see .claude/RequisitionsModule.md)
+        public const string DepartmentParLevelNotFound = "DEPARTMENT_PAR_LEVEL_NOT_FOUND";
+        public const string DepartmentParLevelForbidden = "DEPARTMENT_PAR_LEVEL_FORBIDDEN";
+        public const string DepartmentParLevelAlreadyExists = "DEPARTMENT_PAR_LEVEL_ALREADY_EXISTS";
+        public const string DepartmentParLevelInvalidQuantity = "DEPARTMENT_PAR_LEVEL_INVALID_QUANTITY";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 

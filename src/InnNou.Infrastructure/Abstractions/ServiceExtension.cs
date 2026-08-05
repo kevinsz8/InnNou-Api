@@ -80,6 +80,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<ISupplierPriceSubscriptionService, SupplierPriceSubscriptionService>();
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IRequisitionService, RequisitionService>();
+            services.AddScoped<IDepartmentParLevelService, DepartmentParLevelService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();

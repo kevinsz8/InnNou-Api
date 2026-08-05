@@ -1390,6 +1390,38 @@ namespace InnNou.Infrastructure.Mapping
                 LastUpdatedBy = e.LastUpdatedBy,
                 LineCount = e.LineCount
             });
+
+            mapper.Register<DepartmentParLevel, DepartmentParLevelDto>(e => new DepartmentParLevelDto
+            {
+                DepartmentParLevelToken = e.DepartmentParLevelToken,
+                DepartmentToken = e.DepartmentToken,
+                DepartmentName = e.DepartmentName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                MinimumQuantity = e.MinimumQuantity,
+                ReorderQuantity = e.ReorderQuantity,
+                IsActive = e.IsActive,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<SuggestedRequisitionRow, SuggestedRequisitionDto>(e => new SuggestedRequisitionDto
+            {
+                DepartmentParLevelToken = e.DepartmentParLevelToken,
+                DepartmentToken = e.DepartmentToken,
+                DepartmentName = e.DepartmentName,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                MinimumQuantity = e.MinimumQuantity,
+                SuggestedQuantity = e.SuggestedQuantity,
+                AvgDailyConsumption = e.AvgDailyConsumption,
+                LastIssuedUtc = e.LastIssuedUtc,
+                DaysSinceLastIssued = e.DaysSinceLastIssued,
+                ExpectedCycleDays = e.ExpectedCycleDays
+            });
         }
     }
 }
