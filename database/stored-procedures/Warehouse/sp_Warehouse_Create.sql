@@ -33,6 +33,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_Create
     @CanAdjustInventory            BIT,
     @CanReceiveReturns             BIT,
     @CanCountInventory             BIT,
+    @CanIssueToDepartment          BIT,
     @TrackLotNumbers               BIT,
     @TrackExpirationDates          BIT,
     @TrackSerialNumbers            BIT,
@@ -59,7 +60,7 @@ BEGIN
         WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
         AddressLine1, AddressLine2, City, State, PostalCode, Country, ZoneId, TaxJurisdictionId,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
-        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns, CanCountInventory,
+        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns, CanCountInventory, CanIssueToDepartment,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
         IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
         IsActive, IsDeleted, CreatedUtc, CreatedBy
@@ -69,7 +70,7 @@ BEGIN
         @WarehouseToken, @OrganizationId, @Name, @NormalizedName, @Code, @Description,
         @AddressLine1, @AddressLine2, @City, @State, @PostalCode, @Country, @ZoneId, @TaxJurisdictionId,
         @IsInventoriable, @CanReceivePurchases, @CanReceiveTransfers, @CanTransferOut,
-        @CanConsumeInventory, @CanProduceItems, @CanSellItems, @CanAdjustInventory, @CanReceiveReturns, @CanCountInventory,
+        @CanConsumeInventory, @CanProduceItems, @CanSellItems, @CanAdjustInventory, @CanReceiveReturns, @CanCountInventory, @CanIssueToDepartment,
         @TrackLotNumbers, @TrackExpirationDates, @TrackSerialNumbers, @RequireApproval,
         @IsDefaultReceivingWarehouse, @IsDefaultConsumptionWarehouse, @IsMainWarehouse,
         1, 0, @CreatedUtc, @CreatedBy
@@ -81,7 +82,7 @@ BEGIN
         w.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
         w.TaxJurisdictionId, tj.TaxJurisdictionToken, tj.Code AS TaxJurisdictionCode, tj.Name AS TaxJurisdictionName,
         w.IsInventoriable, w.CanReceivePurchases, w.CanReceiveTransfers, w.CanTransferOut,
-        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory,
+        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory, w.CanIssueToDepartment,
         w.TrackLotNumbers, w.TrackExpirationDates, w.TrackSerialNumbers, w.RequireApproval,
         w.IsDefaultReceivingWarehouse, w.IsDefaultConsumptionWarehouse, w.IsMainWarehouse,
         w.IsActive, w.IsDeleted, w.CreatedUtc, w.CreatedBy, w.LastUpdatedUtc, w.LastUpdatedBy, w.DeletedUtc, w.DeletedBy

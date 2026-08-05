@@ -816,6 +816,13 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
             await transaction.CommitAsync(cancellationToken);
 
+            // NotifyOrderBuyerAsync closes/reopens this connection — the committed transaction
+            // must be disposed first, or SqlClient throws "The transaction associated with the
+            // current connection has completed but has not been disposed" on that Close(), which
+            // NotifyOrderBuyerAsync's own try/catch silently swallows, leaving the pooled
+            // connection in a bad state for whichever test/request reuses it next.
+            await transaction.DisposeAsync();
+
             await NotifyOrderBuyerAsync(
                 connection, purchaseOrder, NotificationType.Purchase_Order_Rectified,
                 new { purchaseOrderNumber = purchaseOrder.PurchaseOrderNumber, reason = normalizedReason, needsApproval },
@@ -1219,6 +1226,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 transaction, commandType: CommandType.StoredProcedure);
 
             await transaction.CommitAsync(cancellationToken);
+
+            // See the identical comment in CreateRectificationAsync above — NotifyOrderBuyerAsync
+            // closes/reopens this connection, so the committed transaction must be disposed first.
+            await transaction.DisposeAsync();
 
             await NotifyOrderBuyerAsync(
                 connection, purchaseOrder, NotificationType.Goods_Receipt_Created,

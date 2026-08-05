@@ -60,6 +60,11 @@ using SupplierDeliveryZoneEntity = InnNou.Infrastructure.Repositories.DbEntities
 using FamilyApprovalThresholdEntity = InnNou.Infrastructure.Repositories.DbEntities.FamilyApprovalThreshold;
 using OrderApprovalStepEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderApprovalStep;
 using SupplierPriceChangeSubscriptionEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierPriceChangeSubscription;
+using DepartmentEntity = InnNou.Infrastructure.Repositories.DbEntities.Department;
+using RequisitionEntity = InnNou.Infrastructure.Repositories.DbEntities.Requisition;
+using RequisitionLineEntity = InnNou.Infrastructure.Repositories.DbEntities.RequisitionLine;
+using RequisitionIssueEntity = InnNou.Infrastructure.Repositories.DbEntities.RequisitionIssue;
+using RequisitionIssueLineEntity = InnNou.Infrastructure.Repositories.DbEntities.RequisitionIssueLine;
 
 namespace InnNou.Infrastructure.Mapping
 {
@@ -695,6 +700,7 @@ namespace InnNou.Infrastructure.Mapping
                 CanAdjustInventory = e.CanAdjustInventory,
                 CanReceiveReturns = e.CanReceiveReturns,
                 CanCountInventory = e.CanCountInventory,
+                CanIssueToDepartment = e.CanIssueToDepartment,
                 TrackLotNumbers = e.TrackLotNumbers,
                 TrackExpirationDates = e.TrackExpirationDates,
                 TrackSerialNumbers = e.TrackSerialNumbers,
@@ -936,6 +942,7 @@ namespace InnNou.Infrastructure.Mapping
                 InventoryPeriodCountToken = e.InventoryPeriodCountToken,
                 InternalOrderShipmentToken = e.InternalOrderShipmentToken,
                 InternalOrderReceiptToken = e.InternalOrderReceiptToken,
+                RequisitionIssueToken = e.RequisitionIssueToken,
                 Reason = e.Reason,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
@@ -1299,6 +1306,84 @@ namespace InnNou.Infrastructure.Mapping
                 OwnerFirstName = e.OwnerFirstName,
                 OwnerLastName = e.OwnerLastName,
                 OwnerEmail = e.OwnerEmail,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy,
+                LineCount = e.LineCount
+            });
+
+            mapper.Register<DepartmentEntity, DepartmentDto>(e => new DepartmentDto
+            {
+                DepartmentToken = e.DepartmentToken,
+                OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
+                Name = e.Name,
+                Code = e.Code,
+                IsActive = e.IsActive,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy,
+                LastUpdatedUtc = e.LastUpdatedUtc,
+                LastUpdatedBy = e.LastUpdatedBy
+            });
+
+            mapper.Register<RequisitionLineEntity, RequisitionLineDto>(e => new RequisitionLineDto
+            {
+                RequisitionLineToken = e.RequisitionLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityRequested = e.QuantityRequested,
+                QuantityIssued = e.QuantityIssued,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<RequisitionIssueLineEntity, RequisitionIssueLineDto>(e => new RequisitionIssueLineDto
+            {
+                RequisitionIssueLineToken = e.RequisitionIssueLineToken,
+                RequisitionLineToken = e.RequisitionLineToken,
+                ArticleToken = e.ArticleToken,
+                ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                QuantityIssued = e.QuantityIssued,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<RequisitionIssueEntity, RequisitionIssueDto>(e => new RequisitionIssueDto
+            {
+                RequisitionIssueToken = e.RequisitionIssueToken,
+                Notes = e.Notes,
+                CreatedUtc = e.CreatedUtc,
+                CreatedBy = e.CreatedBy
+            });
+
+            mapper.Register<RequisitionEntity, RequisitionDto>(e => new RequisitionDto
+            {
+                RequisitionToken = e.RequisitionToken,
+                RequisitionNumber = e.RequisitionNumber,
+                OrganizationToken = e.OrganizationToken,
+                OrganizationName = e.OrganizationName,
+                WarehouseToken = e.WarehouseToken,
+                WarehouseName = e.WarehouseName,
+                DepartmentToken = e.DepartmentToken,
+                DepartmentName = e.DepartmentName,
+                Status = RequisitionStatusCodes.ToCode(e.Status),
+                Notes = e.Notes,
+                ApprovedUtc = e.ApprovedUtc,
+                ApprovedBy = e.ApprovedBy,
+                RejectedUtc = e.RejectedUtc,
+                RejectedBy = e.RejectedBy,
+                RejectedReason = e.RejectedReason,
+                CancelledUtc = e.CancelledUtc,
+                CancelledBy = e.CancelledBy,
+                CancelledReason = e.CancelledReason,
+                ClosedShortUtc = e.ClosedShortUtc,
+                ClosedShortBy = e.ClosedShortBy,
+                ClosedShortReason = e.ClosedShortReason,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy,
                 LastUpdatedUtc = e.LastUpdatedUtc,

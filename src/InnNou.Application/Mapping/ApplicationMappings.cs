@@ -71,6 +71,11 @@ using CommonTaxCategory = InnNou.Application.Responses.Common.TaxCategory;
 using CommonTaxJurisdiction = InnNou.Application.Responses.Common.TaxJurisdiction;
 using CommonTaxRateGridRow = InnNou.Application.Responses.Common.TaxRateGridRow;
 using CommonFamilyTaxCategoryOverride = InnNou.Application.Responses.Common.FamilyTaxCategoryOverride;
+using CommonDepartment = InnNou.Application.Responses.Common.Department;
+using CommonRequisition = InnNou.Application.Responses.Common.Requisition;
+using CommonRequisitionLine = InnNou.Application.Responses.Common.RequisitionLine;
+using CommonRequisitionIssue = InnNou.Application.Responses.Common.RequisitionIssue;
+using CommonRequisitionIssueLine = InnNou.Application.Responses.Common.RequisitionIssueLine;
 using CommonSupplierInvoice = InnNou.Application.Responses.Common.SupplierInvoice;
 using CommonSupplierInvoiceLine = InnNou.Application.Responses.Common.SupplierInvoiceLine;
 using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrder;
@@ -997,6 +1002,7 @@ namespace InnNou.Application.Mapping
                 CanAdjustInventory = r.CanAdjustInventory,
                 CanReceiveReturns = r.CanReceiveReturns,
                 CanCountInventory = r.CanCountInventory,
+                CanIssueToDepartment = r.CanIssueToDepartment,
                 TrackLotNumbers = r.TrackLotNumbers,
                 TrackExpirationDates = r.TrackExpirationDates,
                 TrackSerialNumbers = r.TrackSerialNumbers,
@@ -1029,6 +1035,7 @@ namespace InnNou.Application.Mapping
                 CanAdjustInventory = r.CanAdjustInventory,
                 CanReceiveReturns = r.CanReceiveReturns,
                 CanCountInventory = r.CanCountInventory,
+                CanIssueToDepartment = r.CanIssueToDepartment,
                 TrackLotNumbers = r.TrackLotNumbers,
                 TrackExpirationDates = r.TrackExpirationDates,
                 TrackSerialNumbers = r.TrackSerialNumbers,
@@ -1069,6 +1076,7 @@ namespace InnNou.Application.Mapping
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
                 CanCountInventory = d.CanCountInventory,
+                CanIssueToDepartment = d.CanIssueToDepartment,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -1110,6 +1118,7 @@ namespace InnNou.Application.Mapping
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
                 CanCountInventory = d.CanCountInventory,
+                CanIssueToDepartment = d.CanIssueToDepartment,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -1151,6 +1160,7 @@ namespace InnNou.Application.Mapping
                 CanAdjustInventory = d.CanAdjustInventory,
                 CanReceiveReturns = d.CanReceiveReturns,
                 CanCountInventory = d.CanCountInventory,
+                CanIssueToDepartment = d.CanIssueToDepartment,
                 TrackLotNumbers = d.TrackLotNumbers,
                 TrackExpirationDates = d.TrackExpirationDates,
                 TrackSerialNumbers = d.TrackSerialNumbers,
@@ -1986,6 +1996,102 @@ namespace InnNou.Application.Mapping
                 CopiedCount = d.CopiedCount,
                 SkippedCount = d.SkippedCount,
                 SkippedLines = mapper.MapList<CopyOrderSkippedLineResponse>(d.SkippedLines)
+            });
+
+            // Department
+            mapper.Register<CreateDepartmentCommandRequest, DepartmentDto>(r => new DepartmentDto
+            {
+                OrganizationToken = r.OrganizationToken,
+                Name = r.Name,
+                Code = r.Code
+            });
+            mapper.Register<EditDepartmentCommandRequest, DepartmentDto>(r => new DepartmentDto
+            {
+                DepartmentToken = r.DepartmentToken,
+                Name = r.Name,
+                Code = r.Code
+            });
+            mapper.Register<DepartmentDto, CommonDepartment>(d => new CommonDepartment
+            {
+                DepartmentToken = d.DepartmentToken,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                Name = d.Name,
+                Code = d.Code,
+                IsActive = d.IsActive,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            // RequisitionLine (registered before Requisition since it embeds a List<CommonRequisitionLine>)
+            mapper.Register<RequisitionLineDto, CommonRequisitionLine>(d => new CommonRequisitionLine
+            {
+                RequisitionLineToken = d.RequisitionLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityRequested = d.QuantityRequested,
+                QuantityIssued = d.QuantityIssued,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            // RequisitionIssueLine (registered before RequisitionIssue since it embeds a List<CommonRequisitionIssueLine>)
+            mapper.Register<RequisitionIssueLineDto, CommonRequisitionIssueLine>(d => new CommonRequisitionIssueLine
+            {
+                RequisitionIssueLineToken = d.RequisitionIssueLineToken,
+                RequisitionLineToken = d.RequisitionLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                QuantityIssued = d.QuantityIssued,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy
+            });
+
+            mapper.Register<RequisitionIssueDto, CommonRequisitionIssue>(d => new CommonRequisitionIssue
+            {
+                RequisitionIssueToken = d.RequisitionIssueToken,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                Lines = mapper.MapList<CommonRequisitionIssueLine>(d.Lines)
+            });
+
+            mapper.Register<RequisitionDto, CommonRequisition>(d => new CommonRequisition
+            {
+                RequisitionToken = d.RequisitionToken,
+                RequisitionNumber = d.RequisitionNumber,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                WarehouseToken = d.WarehouseToken,
+                WarehouseName = d.WarehouseName,
+                DepartmentToken = d.DepartmentToken,
+                DepartmentName = d.DepartmentName,
+                Status = d.Status,
+                Notes = d.Notes,
+                ApprovedUtc = d.ApprovedUtc,
+                ApprovedBy = d.ApprovedBy,
+                RejectedUtc = d.RejectedUtc,
+                RejectedBy = d.RejectedBy,
+                RejectedReason = d.RejectedReason,
+                CancelledUtc = d.CancelledUtc,
+                CancelledBy = d.CancelledBy,
+                CancelledReason = d.CancelledReason,
+                ClosedShortUtc = d.ClosedShortUtc,
+                ClosedShortBy = d.ClosedShortBy,
+                ClosedShortReason = d.ClosedShortReason,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy,
+                LineCount = d.LineCount,
+                Lines = mapper.MapList<CommonRequisitionLine>(d.Lines),
+                Issues = mapper.MapList<CommonRequisitionIssue>(d.Issues)
             });
         }
     }

@@ -19,7 +19,7 @@ BEGIN
         w.ZoneId, z.ZoneToken, z.Code AS ZoneCode, z.Name AS ZoneName, zc.Code AS CountryCode, zc.Name AS CountryName,
         w.TaxJurisdictionId, tj.TaxJurisdictionToken, tj.Code AS TaxJurisdictionCode, tj.Name AS TaxJurisdictionName,
         w.IsInventoriable, w.CanReceivePurchases, w.CanReceiveTransfers, w.CanTransferOut,
-        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory,
+        w.CanConsumeInventory, w.CanProduceItems, w.CanSellItems, w.CanAdjustInventory, w.CanReceiveReturns, w.CanCountInventory, w.CanIssueToDepartment,
         w.TrackLotNumbers, w.TrackExpirationDates, w.TrackSerialNumbers, w.RequireApproval,
         w.IsDefaultReceivingWarehouse, w.IsDefaultConsumptionWarehouse, w.IsMainWarehouse,
         w.IsActive, w.IsDeleted, w.CreatedUtc, w.CreatedBy, w.LastUpdatedUtc, w.LastUpdatedBy, w.DeletedUtc, w.DeletedBy

@@ -33,7 +33,7 @@ BEGIN
     SELECT
         WarehouseId, WarehouseToken, OrganizationId, Name, NormalizedName, Code, Description,
         IsInventoriable, CanReceivePurchases, CanReceiveTransfers, CanTransferOut,
-        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns, CanCountInventory,
+        CanConsumeInventory, CanProduceItems, CanSellItems, CanAdjustInventory, CanReceiveReturns, CanCountInventory, CanIssueToDepartment,
         TrackLotNumbers, TrackExpirationDates, TrackSerialNumbers, RequireApproval,
         IsDefaultReceivingWarehouse, IsDefaultConsumptionWarehouse, IsMainWarehouse,
         IsActive, IsDeleted, CreatedUtc, CreatedBy, LastUpdatedUtc, LastUpdatedBy, DeletedUtc, DeletedBy

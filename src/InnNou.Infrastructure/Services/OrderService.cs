@@ -670,6 +670,13 @@ public class OrderService(
 
             await transaction.CommitAsync(cancellationToken);
 
+            // SendOrderConfirmationAsync below closes/reopens this connection repeatedly — the
+            // committed transaction must be disposed first, or SqlClient throws "The transaction
+            // associated with the current connection has completed but has not been disposed" on
+            // that Close(), silently swallowed by its own try/catch, leaving the pooled connection
+            // broken for whichever test/request reuses it next.
+            await transaction.DisposeAsync();
+
             if (updatedOrder is null)
                 return null;
 

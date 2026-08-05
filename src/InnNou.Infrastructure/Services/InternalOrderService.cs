@@ -542,6 +542,13 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
 
             await transaction.CommitAsync(cancellationToken);
 
+            // NotifyRequestingOrganizationAsync closes/reopens this connection — the committed
+            // transaction must be disposed first, or SqlClient throws "The transaction associated
+            // with the current connection has completed but has not been disposed" on that
+            // Close(), silently swallowed by the notify helper's own try/catch, leaving the pooled
+            // connection broken for whichever test/request reuses it next.
+            await transaction.DisposeAsync();
+
             await NotifyRequestingOrganizationAsync(
                 connection, header, NotificationType.Internal_Order_Shipped,
                 new { internalOrderNumber = header.InternalOrderNumber },
@@ -782,6 +789,9 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             }
 
             await transaction.CommitAsync(cancellationToken);
+
+            // See the identical comment in CreateShipmentAsync above.
+            await transaction.DisposeAsync();
 
             await NotifyRequestingOrganizationAsync(
                 connection, header, NotificationType.Internal_Order_Received,

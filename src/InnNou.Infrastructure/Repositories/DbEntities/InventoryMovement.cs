@@ -22,6 +22,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid? InventoryPeriodCountToken { get; set; }
         public Guid? InternalOrderShipmentToken { get; set; }
         public Guid? InternalOrderReceiptToken { get; set; }
+        public Guid? RequisitionIssueToken { get; set; }
         public string? Reason { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

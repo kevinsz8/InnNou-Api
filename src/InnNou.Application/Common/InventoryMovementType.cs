@@ -9,7 +9,8 @@ namespace InnNou.Application.Common
         Transfer_Out = 3,
         Transfer_In = 4,
         Internal_Order_Out = 5,
-        Internal_Order_In = 6
+        Internal_Order_In = 6,
+        Consumption = 7
     }
 
     public static class InventoryMovementTypeCodes
@@ -20,6 +21,7 @@ namespace InnNou.Application.Common
         public const string TransferIn = "TRANSFER_IN";
         public const string InternalOrderOut = "INTERNAL_ORDER_OUT";
         public const string InternalOrderIn = "INTERNAL_ORDER_IN";
+        public const string Consumption = "CONSUMPTION";
 
         public static string ToCode(InventoryMovementType type) => type switch
         {
@@ -29,6 +31,7 @@ namespace InnNou.Application.Common
             InventoryMovementType.Transfer_In => TransferIn,
             InventoryMovementType.Internal_Order_Out => InternalOrderOut,
             InventoryMovementType.Internal_Order_In => InternalOrderIn,
+            InventoryMovementType.Consumption => Consumption,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 
@@ -40,6 +43,7 @@ namespace InnNou.Application.Common
             TransferIn => InventoryMovementType.Transfer_In,
             InternalOrderOut => InventoryMovementType.Internal_Order_Out,
             InternalOrderIn => InventoryMovementType.Internal_Order_In,
+            Consumption => InventoryMovementType.Consumption,
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
     }

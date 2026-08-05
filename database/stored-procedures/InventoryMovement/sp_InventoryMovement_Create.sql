@@ -8,10 +8,10 @@ GO
    Id via the same inline-subquery pattern as every other Id-backed status/
    type column. Exactly one of @GoodsReceiptLineId/@InventoryTransferLineId/
    @InventoryPeriodCountId/@InternalOrderShipmentLineId/
-   @InternalOrderReceiptLineId is set depending on @Type/origin (RECEIPT /
-   TRANSFER_OUT+TRANSFER_IN / a period close-or-reopen ADJUSTMENT /
-   INTERNAL_ORDER_OUT / INTERNAL_ORDER_IN); none are set for a plain manual
-   ADJUSTMENT.
+   @InternalOrderReceiptLineId/@RequisitionIssueLineId is set depending on
+   @Type/origin (RECEIPT / TRANSFER_OUT+TRANSFER_IN / a period close-or-
+   reopen ADJUSTMENT / INTERNAL_ORDER_OUT / INTERNAL_ORDER_IN / CONSUMPTION);
+   none are set for a plain manual ADJUSTMENT.
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_InventoryMovement_Create
 (
@@ -25,6 +25,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryMovement_Create
     @InventoryPeriodCountId     INT           = NULL,
     @InternalOrderShipmentLineId INT          = NULL,
     @InternalOrderReceiptLineId  INT          = NULL,
+    @RequisitionIssueLineId      INT          = NULL,
     @Reason                     NVARCHAR(500) = NULL,
     @CreatedBy                  VARCHAR(150)
 )
@@ -35,12 +36,12 @@ BEGIN
     INSERT INTO dbo.InventoryMovements
         (InventoryMovementToken, WarehouseId, ArticleId, InventoryMovementTypeId, Quantity,
          GoodsReceiptLineId, InventoryTransferLineId, InventoryPeriodCountId,
-         InternalOrderShipmentLineId, InternalOrderReceiptLineId, Reason, CreatedBy)
+         InternalOrderShipmentLineId, InternalOrderReceiptLineId, RequisitionIssueLineId, Reason, CreatedBy)
     VALUES
         (@InventoryMovementToken, @WarehouseId, @ArticleId,
          (SELECT InventoryMovementTypeId FROM dbo.InventoryMovementTypes WHERE Code = @Type),
          @Quantity, @GoodsReceiptLineId, @InventoryTransferLineId, @InventoryPeriodCountId,
-         @InternalOrderShipmentLineId, @InternalOrderReceiptLineId, @Reason, @CreatedBy);
+         @InternalOrderShipmentLineId, @InternalOrderReceiptLineId, @RequisitionIssueLineId, @Reason, @CreatedBy);
 
     SELECT
         im.InventoryMovementId, im.InventoryMovementToken,
@@ -48,7 +49,7 @@ BEGIN
         im.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         mt.Code AS Type, im.Quantity,
         gr.GoodsReceiptToken, it.InventoryTransferToken, ipc.InventoryPeriodCountToken,
-        ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken,
+        ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken, reqi.RequisitionIssueToken,
         im.Reason, im.CreatedUtc, im.CreatedBy
     FROM dbo.InventoryMovements im
     JOIN dbo.Warehouses w                          ON w.WarehouseId              = im.WarehouseId
@@ -63,6 +64,8 @@ BEGIN
     LEFT JOIN dbo.InternalOrderShipments ios        ON ios.InternalOrderShipmentId      = iosl.InternalOrderShipmentId
     LEFT JOIN dbo.InternalOrderReceiptLines iorl    ON iorl.InternalOrderReceiptLineId  = im.InternalOrderReceiptLineId
     LEFT JOIN dbo.InternalOrderReceipts ior         ON ior.InternalOrderReceiptId       = iorl.InternalOrderReceiptId
+    LEFT JOIN dbo.RequisitionIssueLines reqil       ON reqil.RequisitionIssueLineId     = im.RequisitionIssueLineId
+    LEFT JOIN dbo.RequisitionIssues reqi            ON reqi.RequisitionIssueId          = reqil.RequisitionIssueId
     WHERE im.InventoryMovementToken = @InventoryMovementToken;
 END;
 GO

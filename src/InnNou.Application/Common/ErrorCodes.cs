@@ -413,6 +413,39 @@ namespace InnNou.Application.Common
         public const string InternalOrderReceiptArticleTaxCategoryMissing = "INTERNAL_ORDER_RECEIPT_ARTICLE_TAX_CATEGORY_MISSING";
         public const string InternalOrderReceiptTaxRateMissing = "INTERNAL_ORDER_RECEIPT_TAX_RATE_MISSING";
 
+        // Department (per-Organization, owner of Requisitions below)
+        public const string DepartmentForbidden = "DEPARTMENT_FORBIDDEN";
+        public const string DepartmentOutsideScope = "DEPARTMENT_OUTSIDE_SCOPE";
+        public const string DepartmentNameExists = "DEPARTMENT_NAME_EXISTS";
+        public const string DepartmentOrganizationNotFound = "DEPARTMENT_ORGANIZATION_NOT_FOUND";
+        public const string DepartmentNotFound = "DEPARTMENT_NOT_FOUND";
+
+        // Requisition (Requisiciones internas — a Department pulling stock from a Warehouse for
+        // internal use; the first "stock out for an operational reason, not a sale" flow)
+        public const string RequisitionNotFound = "REQUISITION_NOT_FOUND";
+        public const string RequisitionForbidden = "REQUISITION_FORBIDDEN";
+        public const string RequisitionWarehouseNotFound = "REQUISITION_WAREHOUSE_NOT_FOUND";
+        public const string RequisitionWarehouseCannotIssue = "REQUISITION_WAREHOUSE_CANNOT_ISSUE";
+        public const string RequisitionDepartmentNotFound = "REQUISITION_DEPARTMENT_NOT_FOUND";
+        public const string RequisitionDepartmentOrganizationMismatch = "REQUISITION_DEPARTMENT_ORGANIZATION_MISMATCH";
+        public const string RequisitionArticleNotFound = "REQUISITION_ARTICLE_NOT_FOUND";
+        public const string RequisitionEmpty = "REQUISITION_EMPTY";
+        public const string RequisitionInvalidQuantity = "REQUISITION_INVALID_QUANTITY";
+        public const string RequisitionNotEditable = "REQUISITION_NOT_EDITABLE";
+        public const string RequisitionLineNotFound = "REQUISITION_LINE_NOT_FOUND";
+        public const string RequisitionNotApprovable = "REQUISITION_NOT_APPROVABLE";
+        public const string RequisitionNotRejectable = "REQUISITION_NOT_REJECTABLE";
+        public const string RequisitionRejectReasonRequired = "REQUISITION_REJECT_REASON_REQUIRED";
+        public const string RequisitionNotCancellable = "REQUISITION_NOT_CANCELLABLE";
+        public const string RequisitionNotCloseableShort = "REQUISITION_NOT_CLOSEABLE_SHORT";
+        public const string RequisitionCloseShortReasonRequired = "REQUISITION_CLOSE_SHORT_REASON_REQUIRED";
+        public const string RequisitionNotIssuable = "REQUISITION_NOT_ISSUABLE";
+        public const string RequisitionIssueEmpty = "REQUISITION_ISSUE_EMPTY";
+        public const string RequisitionIssueLineNotFound = "REQUISITION_ISSUE_LINE_NOT_FOUND";
+        public const string RequisitionIssueDuplicateLine = "REQUISITION_ISSUE_DUPLICATE_LINE";
+        public const string RequisitionOverIssueNotAllowed = "REQUISITION_OVER_ISSUE_NOT_ALLOWED";
+        public const string RequisitionInsufficientStock = "REQUISITION_INSUFFICIENT_STOCK";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 
