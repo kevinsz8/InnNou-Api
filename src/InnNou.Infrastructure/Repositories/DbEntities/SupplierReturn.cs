@@ -15,6 +15,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         // from the already-known PurchaseOrder instead, same convention as PurchaseOrderLine's
         // own "not every SP populates every denormalized field" fields.
         public int OrganizationId { get; set; }
+        public int WarehouseId { get; set; }
         public int SupplierId { get; set; }
         public Guid SupplierToken { get; set; }
         public string? SupplierName { get; set; }

@@ -38,7 +38,8 @@ BEGIN
         u.LockedUntilUtc,
         r.RoleLevel,
         r.CanImpersonate,
-        wc.ContactName AS WarehouseContactName
+        wc.ContactName AS WarehouseContactName,
+        wc.WarehouseId
     FROM dbo.WarehouseContacts wc
     INNER JOIN dbo.Users u ON u.WarehouseContactId = wc.WarehouseContactId
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId

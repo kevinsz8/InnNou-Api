@@ -22,12 +22,15 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
     // Read visibility — no RoleLevel floor, matches PurchaseOrderService.CanReadOrganizationAsync.
     // Supplier read access was deliberately left out of scope for this feature (confirmed with
     // the user — 100% buyer-side, same rule GoodsReceipts/Rectifications already enforce).
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -41,12 +44,15 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
     // Write visibility — only a caller whose own organization is ASSOCIATE may create/close a
     // return; SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE
     // are read-only, same shape as PurchaseOrderService/OrderService's own CanManageOrganizationAsync.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -64,7 +70,7 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         var purchaseOrder = await connection.QueryFirstOrDefaultAsync<PurchaseOrder>(
             "sp_PurchaseOrder_GetByToken", new { PurchaseOrderToken = purchaseOrderToken }, commandType: CommandType.StoredProcedure);
 
-        if (purchaseOrder is null || !await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+        if (purchaseOrder is null || !await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId))
             return null;
 
         var rows = await connection.QueryAsync<EligibleReturnLine>(
@@ -83,7 +89,7 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         if (purchaseOrder is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId))
             throw new ApiException(ErrorCodes.SupplierReturnForbidden, "Cannot create a supplier return for a purchase order outside your scope.", 403);
 
         var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
@@ -174,7 +180,7 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         if (existing is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.SupplierReturnForbidden, "Cannot close a supplier return outside your scope.", 403);
 
         if (existing.Status != SupplierReturnStatus.Pending)
@@ -234,7 +240,7 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         var header = await connection.QueryFirstOrDefaultAsync<SupplierReturn>(
             "sp_SupplierReturn_GetByToken", new { SupplierReturnToken = supplierReturnToken }, commandType: CommandType.StoredProcedure);
 
-        if (header is null || !await CanReadOrganizationAsync(connection, context, header.OrganizationId))
+        if (header is null || !await CanReadOrganizationAsync(connection, context, header.OrganizationId, header.WarehouseId))
             return null;
 
         var dto = mapper.Map<SupplierReturnDto>(header);
@@ -308,6 +314,7 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         p.Add("@PurchaseOrderNumber", string.IsNullOrWhiteSpace(purchaseOrderNumber) ? null : purchaseOrderNumber.Trim());
         p.Add("@PageNumber", safePageNumber);
         p.Add("@PageSize", safePageSize);
+        p.Add("@RestrictToWarehouseId", context.WarehouseId);
 
         var rows = (await connection.QueryAsync<SupplierReturnPageRow>(
             "sp_SupplierReturn_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();

@@ -22,12 +22,15 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
     // Read visibility, no OrganizationTypeCode restriction — mirrors
     // PurchaseOrderService/OrderService.CanReadOrganizationAsync.
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -42,12 +45,15 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
     // only a caller whose own organization is ASSOCIATE may write; SuperAdmin (no organization of
     // their own, unless impersonating) and SUPER_ASSOCIATE are read-only — inventory operations
     // happen at the property level, same reasoning as Orders/Goods Receipts.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -82,7 +88,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         if (warehouse is null)
             throw new ApiException(ErrorCodes.InventoryWarehouseNotFound, "Warehouse not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot adjust inventory for a warehouse outside your scope.", 403);
 
         if (!warehouse.IsInventoriable)
@@ -183,6 +189,12 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         if (!await CanManageOrganizationAsync(connection, context, fromWarehouse.OrganizationId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot transfer inventory from a warehouse outside your scope.", 403);
+
+        // A warehouse-scoped caller must be on at least one side of the transfer (sending stock
+        // out or receiving it in) — separate from the org check above since either warehouse is a
+        // legitimate target, unlike every other write here which has exactly one warehouse to match.
+        if (!WarehouseScopeGuard.AllowsEither(context, fromWarehouse.WarehouseId, toWarehouse.WarehouseId))
+            throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot transfer inventory between warehouses outside your scope.", 403);
 
         // Cross-organization transfer is a bigger feature (SUPER_ASSOCIATE-level authorization)
         // with no driver today — deliberately out of scope, see .claude/InventoryModule.md.
@@ -343,7 +355,10 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         await using var connection = connectionFactory.CreateConnection();
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" — an explicit
+        // warehouseToken is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         int? rootOrganizationId = null;
 
         if (warehouseToken.HasValue)
@@ -351,7 +366,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
                 return new PagedResult<StockLevelDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             warehouseId = warehouse.WarehouseId;
@@ -415,7 +430,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
             "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
 
-        if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             return new PagedResult<InventoryMovementDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         int? articleId = null;
@@ -455,7 +470,10 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         await using var connection = connectionFactory.CreateConnection();
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" — an explicit
+        // warehouseToken/organizationId override is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         int? rootOrganizationId = null;
 
         if (warehouseToken.HasValue)
@@ -463,7 +481,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
                 return new PagedResult<InventoryTransferDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             warehouseId = warehouse.WarehouseId;
@@ -539,6 +557,9 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             return null;
 
         if (!await CanReadOrganizationAsync(connection, context, header.FromOrganizationId!.Value))
+            return null;
+
+        if (!WarehouseScopeGuard.AllowsEither(context, header.FromWarehouseId, header.ToWarehouseId))
             return null;
 
         var dto = mapper.Map<InventoryTransferDto>(header);

@@ -17,7 +17,12 @@ CREATE OR ALTER PROCEDURE dbo.sp_InternalOrder_GetPaged
     @PageSize                INT,
     @ContextOrganizationId   INT          = NULL,
     @DirectionFilter         VARCHAR(20)  = NULL,   -- 'REQUESTING' | 'SOURCE' | NULL (both)
-    @Status                  VARCHAR(20)  = NULL
+    @Status                  VARCHAR(20)  = NULL,
+    -- Set only for a WarehouseContact's own login (IRequestContext.WarehouseId) — restricts to
+    -- InternalOrders where that Warehouse is the destination, or has actually shipped at least
+    -- one of the source-side shipments. NULL for every other caller (unrestricted within the
+    -- organization scope above).
+    @ContextWarehouseId      INT          = NULL
 )
 AS
 BEGIN
@@ -45,6 +50,9 @@ BEGIN
            OR (@DirectionFilter = 'REQUESTING' AND io.RequestingOrganizationId = @ContextOrganizationId)
            OR (@DirectionFilter = 'SOURCE' AND io.SourceOrganizationId = @ContextOrganizationId))
       AND (@Status IS NULL OR ios.Code = @Status)
+      AND (@ContextWarehouseId IS NULL
+           OR io.DestinationWarehouseId = @ContextWarehouseId
+           OR EXISTS (SELECT 1 FROM dbo.InternalOrderShipments ios2 WHERE ios2.InternalOrderId = io.InternalOrderId AND ios2.SourceWarehouseId = @ContextWarehouseId))
     ORDER BY io.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

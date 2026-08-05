@@ -14,6 +14,12 @@ internal sealed class UserWithRoleResult
     public int RoleId { get; set; }
     public int? OrganizationId { get; set; }
     public int? SupplierId { get; set; }
+
+    // Resolved from Users.WarehouseContactId -> WarehouseContacts.WarehouseId. Set only for a
+    // WarehouseContact's own shadow/login User — scopes that identity to exactly one Warehouse
+    // (see WarehouseService.GetPagedByOrganizationTokenAsync and every write call site that now
+    // checks IRequestContext.WarehouseId).
+    public int? WarehouseId { get; set; }
     public bool IsActive { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime? LockedUntilUtc { get; set; }

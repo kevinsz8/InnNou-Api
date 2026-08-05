@@ -58,12 +58,15 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
 
     // Read visibility, no OrganizationTypeCode restriction — mirrors InventoryService's own
     // CanReadOrganizationAsync (PurchaseOrderService/OrderService's original shape).
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -79,12 +82,15 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
     // own, unless impersonating) and SUPER_ASSOCIATE are read-only — an Internal Order is always
     // acted on at the property level, one specific Asociado at a time (as either the requesting
     // or the source side), same reasoning as Orders/Inventory.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -134,7 +140,7 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
         // The requesting Organization is inferred from the destination Warehouse's own owner —
         // never a caller-supplied value — same reasoning Order/PurchaseOrder use for their own
         // WarehouseId->OrganizationId derivation.
-        if (!await CanManageOrganizationAsync(connection, context, destinationWarehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, destinationWarehouse.OrganizationId, destinationWarehouse.WarehouseId))
             throw new ApiException(ErrorCodes.InternalOrderForbidden, "Cannot request an internal order for a warehouse outside your scope.", 403);
 
         if (!destinationWarehouse.IsInventoriable)
@@ -272,11 +278,21 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (header is null)
             return null;
 
+        var shipments = (await connection.QueryAsync<InternalOrderShipment>(
+            "sp_InternalOrderShipment_GetByInternalOrderId", new { header.InternalOrderId }, commandType: CommandType.StoredProcedure)).ToList();
+
         // Either party to the InternalOrder (requesting or source) may read it — the reverse of
         // ConsolidatedPurchaseOrder's own "only the owner sees it" rule, since here both sides
-        // are real counterparties to the same document.
-        if (!await CanReadOrganizationAsync(connection, context, header.RequestingOrganizationId)
-            && !await CanReadOrganizationAsync(connection, context, header.SourceOrganizationId))
+        // are real counterparties to the same document. On the requesting side a warehouse-scoped
+        // caller must be the destination warehouse itself; on the source side (no single source
+        // warehouse lives on the header — SourceWarehouseId is chosen per-Shipment) they must own
+        // at least one of the shipments actually sent so far, or — before any shipment exists yet
+        // — the org-level check alone stands (nothing more specific to narrow against).
+        var canReadAsRequester = await CanReadOrganizationAsync(connection, context, header.RequestingOrganizationId, header.DestinationWarehouseId);
+        var canReadAsSource = await CanReadOrganizationAsync(connection, context, header.SourceOrganizationId)
+            && (shipments.Count == 0 || shipments.Any(s => WarehouseScopeGuard.Allows(context, s.SourceWarehouseId)));
+
+        if (!canReadAsRequester && !canReadAsSource)
             return null;
 
         var dto = mapper.Map<InternalOrderDto>(header);
@@ -285,9 +301,6 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
             await connection.QueryAsync<InternalOrderLine>(
                 "sp_InternalOrderLine_GetByInternalOrderId", new { header.InternalOrderId }, commandType: CommandType.StoredProcedure));
         dto.LineCount = dto.Lines.Count;
-
-        var shipments = (await connection.QueryAsync<InternalOrderShipment>(
-            "sp_InternalOrderShipment_GetByInternalOrderId", new { header.InternalOrderId }, commandType: CommandType.StoredProcedure)).ToList();
 
         foreach (var shipment in shipments)
         {
@@ -337,7 +350,8 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
                 PageSize = safePageSize,
                 ContextOrganizationId = contextOrganizationId,
                 DirectionFilter = direction,
-                Status = status
+                Status = status,
+                ContextWarehouseId = context.WarehouseId
             },
             commandType: CommandType.StoredProcedure)).ToList();
 
@@ -361,7 +375,7 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         // Only the requesting Organization may cancel its own request — the source Organization
         // fulfills, it doesn't get to withdraw someone else's request.
-        if (!await CanManageOrganizationAsync(connection, context, header.RequestingOrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, header.RequestingOrganizationId, header.DestinationWarehouseId))
             throw new ApiException(ErrorCodes.InternalOrderForbidden, "Cannot cancel an internal order outside your scope.", 403);
 
         if (header.Status != InternalOrderStatusCodes.Requested)
@@ -407,6 +421,9 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         if (sourceWarehouse.OrganizationId != header.SourceOrganizationId)
             throw new ApiException(ErrorCodes.InternalOrderShipmentSourceWarehouseMismatch, "The shipping warehouse must belong to the internal order's source organization.", 400);
+
+        if (!WarehouseScopeGuard.Allows(context, sourceWarehouse.WarehouseId))
+            throw new ApiException(ErrorCodes.InternalOrderForbidden, "Cannot ship an internal order from a warehouse outside your scope.", 403);
 
         if (!sourceWarehouse.IsInventoriable)
             throw new ApiException(ErrorCodes.InternalOrderShipmentWarehouseNotInventoriable, "The source warehouse does not track inventory.", 400);
@@ -557,7 +574,7 @@ public class InternalOrderService(IDbConnectionFactory connectionFactory, IMappe
         // has no business confirming what arrived at a warehouse it doesn't operate, same
         // access-boundary reasoning as PurchaseOrderService.CreateGoodsReceiptAsync's own
         // supplier-bypass note.
-        if (!await CanManageOrganizationAsync(connection, context, header.RequestingOrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, header.RequestingOrganizationId, header.DestinationWarehouseId))
             throw new ApiException(ErrorCodes.InternalOrderForbidden, "Cannot record a receipt for an internal order outside your scope.", 403);
 
         if (header.Status is InternalOrderStatusCodes.Requested or InternalOrderStatusCodes.Cancelled or InternalOrderStatusCodes.Received)

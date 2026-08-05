@@ -13,7 +13,7 @@ BEGIN
     SELECT
         r.SupplierReturnId, r.SupplierReturnToken,
         r.PurchaseOrderId, po.PurchaseOrderToken, po.PurchaseOrderNumber,
-        po.OrganizationId, po.SupplierId, s.SupplierToken, s.Name AS SupplierName,
+        po.OrganizationId, po.WarehouseId, po.SupplierId, s.SupplierToken, s.Name AS SupplierName,
         statuses.Code AS Status,
         resolutionTypes.Code AS ResolutionType,
         r.Notes, r.ClosedUtc, r.ClosedBy, r.CreatedUtc, r.CreatedBy

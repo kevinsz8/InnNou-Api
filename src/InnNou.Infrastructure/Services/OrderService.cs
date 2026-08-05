@@ -38,12 +38,17 @@ public class OrderService(
     // OrganizationId (e.g. a Supplier-scoped login), no access at all — never unrestricted.
     // This is read/write-neutral hierarchy access — used directly by GetByTokenAsync (reads),
     // and as the base for CanManageOrganizationAsync (writes) below.
-    private static async Task<bool> CanAccessOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    // targetWarehouseId layers WarehouseScopeGuard on top for a WarehouseContact's own login —
+    // pass null for an operation with no specific target warehouse yet.
+    private static async Task<bool> CanAccessOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -65,12 +70,19 @@ public class OrderService(
     // OrganizationTypeCode to ASSOCIATE for that session, which is what grants write access —
     // not the RoleLevel. Used to gate every write call site (Create/AddLine/EditLine/
     // DeleteLine/Submit/Cancel/Delete).
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    // targetWarehouseId layers WarehouseScopeGuard on top for a WarehouseContact's own login —
+    // pass null for CreateAsync (no existing order/warehouse to match yet), which correctly
+    // blocks a warehouse-scoped caller from creating an order for a sibling warehouse (see the
+    // CreateAsync call site — it passes the CHOSEN warehouse's id explicitly, not null).
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -234,12 +246,15 @@ public class OrderService(
             return new PagedResult<OrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
         }
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" for a warehouse-scoped
+        // caller — an explicit warehouseToken is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         if (warehouseToken.HasValue)
         {
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
-            if (warehouse is null)
+            if (warehouse is null || !WarehouseScopeGuard.Allows(context, warehouse.WarehouseId))
                 return new PagedResult<OrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
             warehouseId = warehouse.WarehouseId;
         }
@@ -281,7 +296,7 @@ public class OrderService(
         var order = await connection.QueryFirstOrDefaultAsync<Order>(
             "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
 
-        if (order is null || !await CanAccessOrganizationAsync(connection, context, order.OrganizationId))
+        if (order is null || !await CanAccessOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             return null;
 
         var dto = mapper.Map<OrderDto>(order);
@@ -306,7 +321,7 @@ public class OrderService(
         if (order is null)
             return null;
 
-        if (!await CanAccessOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanAccessOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot access an order outside your organization.", 403);
 
         if (string.IsNullOrWhiteSpace(order.PdfUrl))
@@ -326,7 +341,7 @@ public class OrderService(
         if (warehouse is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot create an order for a warehouse outside your organization.", 403);
 
         var p = new DynamicParameters();
@@ -352,7 +367,7 @@ public class OrderService(
         if (order is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
         if (order.Status != OrderStatus.Draft)
@@ -499,7 +514,7 @@ public class OrderService(
         if (order is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
         if (order.Status != OrderStatus.Draft)
@@ -527,7 +542,7 @@ public class OrderService(
         if (order is null)
             return false;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
         if (order.Status != OrderStatus.Draft)
@@ -555,7 +570,7 @@ public class OrderService(
         if (order is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot submit an order outside your organization.", 403);
 
         // Self-healing retry path: if every required approval step already ended up APPROVED
@@ -1144,6 +1159,7 @@ public class OrderService(
         public int? OrganizationId => null;
         public string? OrganizationTypeCode => null;
         public int? SupplierId => null;
+        public int? WarehouseId => null;
         public int RoleLevel => 0;
         public int ActorRoleLevel => 0;
         public int? ActorOrganizationId => null;
@@ -1341,7 +1357,7 @@ public class OrderService(
         if (order is null)
             return false;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot delete an order outside your organization.", 403);
 
         if (order.Status != OrderStatus.Draft)
@@ -1363,7 +1379,7 @@ public class OrderService(
         if (order is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot cancel an order outside your organization.", 403);
 
         // A submitter withdrawing a request stuck in PENDING_APPROVAL is a reasonable capability
@@ -1404,7 +1420,7 @@ public class OrderService(
         if (source is null)
             throw new ApiException(ErrorCodes.OrderNotFound, "Order not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, source.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, source.OrganizationId, source.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot copy an order outside your organization.", 403);
 
         if (source.Status != OrderStatus.Submitted)
@@ -1469,7 +1485,7 @@ public class OrderService(
         if (order is null)
             throw new ApiException(ErrorCodes.OrderNotFound, "Order not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
             throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
 
         if (order.Status != OrderStatus.Draft)

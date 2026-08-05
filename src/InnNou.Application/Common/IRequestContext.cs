@@ -7,6 +7,7 @@ namespace InnNou.Application.Common
         int? OrganizationId { get; }
         string? OrganizationTypeCode { get; }
         int? SupplierId { get; }
+        int? WarehouseId { get; }
         int RoleLevel { get; }
         int ActorRoleLevel { get; }
         int? ActorOrganizationId { get; }

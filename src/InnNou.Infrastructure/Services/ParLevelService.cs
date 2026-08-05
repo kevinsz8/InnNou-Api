@@ -17,12 +17,15 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
     private const int MaxPageSize = 100;
 
     // Read visibility, no OrganizationTypeCode restriction — mirrors InventoryService's own copy.
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -37,12 +40,15 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
     // is ASSOCIATE may write; SuperAdmin (no organization of their own) and SUPER_ASSOCIATE are
     // read-only — par-level configuration happens at the property level, same reasoning as
     // Orders/Goods Receipts/Inventory.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -74,7 +80,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
         if (warehouse is null)
             throw new ApiException(ErrorCodes.ParLevelWarehouseNotFound, "Warehouse not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.ParLevelForbidden, "Cannot configure par levels for a warehouse outside your scope.", 403);
 
         var article = await connection.QueryFirstOrDefaultAsync<Article>(
@@ -117,7 +123,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             throw new ApiException(ErrorCodes.ParLevelNotFound, "Par level not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.ParLevelForbidden, "Cannot edit a par level outside your scope.", 403);
 
         if (minimumQuantity < 0)
@@ -148,7 +154,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             throw new ApiException(ErrorCodes.ParLevelNotFound, "Par level not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.ParLevelForbidden, "Cannot delete a par level outside your scope.", 403);
 
         // sp_ParLevel_Delete also deletes any overrides for the same (Warehouse, Article) — an
@@ -173,7 +179,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
         if (warehouse is null)
             throw new ApiException(ErrorCodes.ParLevelWarehouseNotFound, "Warehouse not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.ParLevelForbidden, "Cannot configure par levels for a warehouse outside your scope.", 403);
 
         var article = await connection.QueryFirstOrDefaultAsync<Article>(
@@ -277,7 +283,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
         if (existing is null)
             throw new ApiException(ErrorCodes.ParLevelOverrideNotFound, "Par level override not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.ParLevelForbidden, "Cannot delete a par level override outside your scope.", 403);
 
         var deleted = await connection.QueryFirstOrDefaultAsync<bool>(
@@ -292,7 +298,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
 
         var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
             "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
-        if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             return null;
 
         var article = await connection.QueryFirstOrDefaultAsync<Article>(
@@ -328,7 +334,10 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
 
         await using var connection = connectionFactory.CreateConnection();
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" — an explicit
+        // warehouseToken is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         int? rootOrganizationId = null;
 
         if (warehouseToken.HasValue)
@@ -336,7 +345,7 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
                 return new PagedResult<BelowParRowDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             warehouseId = warehouse.WarehouseId;

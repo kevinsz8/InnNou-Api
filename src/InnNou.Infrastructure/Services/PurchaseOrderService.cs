@@ -24,12 +24,15 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
     // Read visibility, no RoleLevel floor — matches WarehouseService.CanManageReadAsync. The
     // owning Supplier branch is checked separately by callers before falling back to this.
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -43,12 +46,15 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
     // Write visibility (Cancel/Rectify) — only a caller whose own organization is ASSOCIATE may
     // write; SuperAdmin (no organization of their own, unless impersonating) and SUPER_ASSOCIATE
     // are read-only, mirrors OrderService.CanManageOrganizationAsync.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -120,7 +126,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             var order = await connection.QueryFirstOrDefaultAsync<Order>(
                 "sp_Order_GetByToken", new { OrderToken = orderToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (order is null)
+            if (order is null || !WarehouseScopeGuard.Allows(context, order.WarehouseId))
                 return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             orderId = order.OrderId;
@@ -144,13 +150,19 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 new { OrganizationToken = organizationToken.Value, RootOrganizationId = (int?)null },
                 commandType: CommandType.StoredProcedure);
 
-            if (organization is null || !await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
+            // No per-warehouse filter exists on this endpoint (unlike Orders'/Inventory's own
+            // GetPaged) — an org-wide browse can't be narrowed to just one warehouse, so a
+            // warehouse-scoped caller is only ever let through via the orderId-scoped path above.
+            if (organization is null || !await CanReadOrganizationAsync(connection, context, organization.OrganizationId) || (context.WarehouseId.HasValue && !orderId.HasValue))
                 return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             rootOrganizationId = organization.OrganizationId;
         }
         else if (context.OrganizationId.HasValue)
         {
+            if (context.WarehouseId.HasValue && !orderId.HasValue)
+                return new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
             rootOrganizationId = context.OrganizationId.Value;
         }
         else
@@ -214,7 +226,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         var canView = context.SupplierId.HasValue
             ? context.SupplierId.Value == purchaseOrder.SupplierId
-            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
+            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId);
 
         if (!canView)
             return null;
@@ -239,7 +251,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         // Deliberately no Supplier-bypass — this system is buyer-side only. A Supplier can read
         // their own PurchaseOrders/GoodsReceipts but never write to them, same as
         // CreateRectificationAsync and CreateGoodsReceiptAsync.
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot cancel a purchase order outside your scope.", 403);
 
         if (existing.Status != PurchaseOrderStatus.Sent)
@@ -272,7 +284,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         // Deliberately no Supplier-bypass, same as Cancel/Rectify/CreateGoodsReceipt — this
         // system is buyer-side only.
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot close a purchase order outside your scope.", 403);
 
         if (existing.Status != PurchaseOrderStatus.Partially_Received)
@@ -358,7 +370,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (purchaseOrder is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId))
             throw new ApiException(ErrorCodes.PurchaseOrderForbidden, "Cannot rectify a purchase order outside your scope.", 403);
 
         // A rectification is also allowed once receiving has started (not just SENT) — e.g. a
@@ -835,7 +847,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         var canView = context.SupplierId.HasValue
             ? context.SupplierId.Value == purchaseOrder.SupplierId
-            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
+            : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId);
 
         if (!canView)
             return [];
@@ -998,7 +1010,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         // buyer's own dock, performed by the buyer's staff. A supplier confirming what arrived
         // at a warehouse they don't operate would be a real access-boundary violation, not a
         // convenience.
-        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId))
             throw new ApiException(ErrorCodes.GoodsReceiptForbidden, "Cannot record a goods receipt for a purchase order outside your scope.", 403);
 
         if (purchaseOrder.Status != PurchaseOrderStatus.Sent && purchaseOrder.Status != PurchaseOrderStatus.Partially_Received)
@@ -1238,7 +1250,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         if (purchaseOrder is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId))
             throw new ApiException(ErrorCodes.GoodsReceiptForbidden, "Cannot preview tax for a purchase order outside your scope.", 403);
 
         var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
@@ -1302,7 +1314,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
             var canView = context.SupplierId.HasValue
                 ? context.SupplierId.Value == purchaseOrder.SupplierId
-                : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId);
+                : await CanReadOrganizationAsync(connection, context, purchaseOrder.OrganizationId, purchaseOrder.WarehouseId);
 
             if (!canView)
                 return new PagedResult<GoodsReceiptDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
@@ -1319,6 +1331,11 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         }
         else if (context.OrganizationId.HasValue)
         {
+            // No per-warehouse filter exists on this unscoped-browse path — a warehouse-scoped
+            // caller is only ever let through via the purchaseOrderToken-scoped branch above.
+            if (context.WarehouseId.HasValue)
+                return new PagedResult<GoodsReceiptDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
+
             rootOrganizationId = context.OrganizationId.Value;
         }
         else
@@ -1366,13 +1383,16 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         await using var connection = connectionFactory.CreateConnection();
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" — an explicit
+        // warehouseToken is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         if (warehouseToken.HasValue)
         {
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (warehouse is null)
+            if (warehouse is null || !WarehouseScopeGuard.Allows(context, warehouse.WarehouseId))
                 return new PagedResult<GoodsReceiptSummaryDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             warehouseId = warehouse.WarehouseId;

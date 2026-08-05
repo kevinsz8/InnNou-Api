@@ -21,12 +21,15 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
 
     // Copied verbatim from InventoryService — read visibility, no OrganizationTypeCode
     // restriction.
-    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanReadOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -41,12 +44,15 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
     // organization is ASSOCIATE may write; SuperAdmin (no organization of their own, unless
     // impersonating) and SUPER_ASSOCIATE are read-only — inventory counting happens at the
     // property level, same reasoning as Orders/Goods Receipts/Inventory itself.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate)
             return false;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -77,7 +83,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (warehouse is null)
             throw new ApiException(ErrorCodes.InventoryWarehouseNotFound, "Warehouse not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot open an inventory period for a warehouse outside your scope.", 403);
 
         if (!warehouse.IsInventoriable)
@@ -165,7 +171,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (period is null)
             throw new ApiException(ErrorCodes.InventoryPeriodNotFound, "Inventory period not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId, period.WarehouseId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot submit a count for an inventory period outside your scope.", 403);
 
         if (period.Status == InventoryPeriodStatus.Closed)
@@ -222,7 +228,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (period is null)
             throw new ApiException(ErrorCodes.InventoryPeriodNotFound, "Inventory period not found.", 404);
 
-        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId, period.WarehouseId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot close an inventory period outside your scope.", 403);
 
         if (period.Status == InventoryPeriodStatus.Closed)
@@ -333,7 +339,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (context.RoleLevel < AdminRoleLevel)
             throw new ApiException(ErrorCodes.InventoryPeriodReopenForbidden, "Reopening a closed inventory period requires an administrator.", 403);
 
-        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, period.OrganizationId, period.WarehouseId))
             throw new ApiException(ErrorCodes.InventoryForbidden, "Cannot reopen an inventory period outside your scope.", 403);
 
         if (period.Status != InventoryPeriodStatus.Closed)
@@ -420,7 +426,10 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
 
         await using var connection = connectionFactory.CreateConnection();
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" — an explicit
+        // warehouseToken is still validated against it below.
+        int? warehouseId = context.WarehouseId;
         int? rootOrganizationId = null;
 
         if (warehouseToken.HasValue)
@@ -428,7 +437,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId))
+            if (warehouse is null || !await CanReadOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
                 return new PagedResult<InventoryPeriodDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
             warehouseId = warehouse.WarehouseId;
@@ -471,7 +480,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         var header = await connection.QueryFirstOrDefaultAsync<InventoryPeriod>(
             "sp_InventoryPeriod_GetByToken", new { InventoryPeriodToken = periodToken }, commandType: CommandType.StoredProcedure);
 
-        if (header is null || !await CanReadOrganizationAsync(connection, context, header.OrganizationId))
+        if (header is null || !await CanReadOrganizationAsync(connection, context, header.OrganizationId, header.WarehouseId))
             return null;
 
         return await HydrateAsync(connection, header);

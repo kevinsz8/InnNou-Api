@@ -30,6 +30,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         public int? OrganizationId => null;
         public string? OrganizationTypeCode => null;
         public int? SupplierId => null;
+        public int? WarehouseId => null;
         public int RoleLevel => 0;
         public int ActorRoleLevel => 0;
         public int? ActorOrganizationId => null;
@@ -66,7 +67,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { UserId = user.UserId, LastLoginUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.OrganizationId, user.SupplierId, user.RoleLevel, organizationTypeCode: user.OrganizationTypeCode);
+        var jwt = GenerateJwtToken(user.UserToken, user.Email, user.OrganizationId, user.SupplierId, user.RoleLevel, warehouseId: user.WarehouseId, organizationTypeCode: user.OrganizationTypeCode);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -134,12 +135,13 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         var jwt = tokenData.ImpersonatedUserId.HasValue
             ? GenerateJwtToken(
                 tokenData.UserToken, tokenData.Email, tokenData.ImpersonatedOrganizationId, tokenData.ImpersonatedSupplierId, tokenData.ImpersonatedRoleLevel!.Value,
+                warehouseId: tokenData.ImpersonatedWarehouseId,
                 impersonatedUserToken: tokenData.ImpersonatedUserToken,
                 impersonatedEmail: tokenData.ImpersonatedEmail,
                 actorRoleLevel: tokenData.RoleLevel,
                 actorOrganizationId: tokenData.OrganizationId,
                 organizationTypeCode: tokenData.ImpersonatedOrganizationTypeCode)
-            : GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel, organizationTypeCode: tokenData.OrganizationTypeCode);
+            : GenerateJwtToken(tokenData.UserToken, tokenData.Email, tokenData.OrganizationId, tokenData.SupplierId, tokenData.RoleLevel, warehouseId: tokenData.WarehouseId, organizationTypeCode: tokenData.OrganizationTypeCode);
 
         return new Login
         {
@@ -199,6 +201,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         var jwt = GenerateJwtToken(
             actor.UserToken, actor.Email, target.OrganizationId, target.SupplierId, target.RoleLevel,
+            warehouseId: target.WarehouseId,
             impersonatedUserToken: target.UserToken,
             impersonatedEmail: target.Email,
             actorRoleLevel: actor.RoleLevel,
@@ -319,7 +322,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             new { ActorUserId = actor.UserId, EndedUtc = DateTime.UtcNow },
             commandType: CommandType.StoredProcedure);
 
-        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.OrganizationId, actor.SupplierId, actor.RoleLevel, organizationTypeCode: actor.OrganizationTypeCode);
+        var jwt = GenerateJwtToken(actor.UserToken, actor.Email, actor.OrganizationId, actor.SupplierId, actor.RoleLevel, warehouseId: actor.WarehouseId, organizationTypeCode: actor.OrganizationTypeCode);
 
         var (plainToken, tokenHash, tokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
@@ -345,6 +348,7 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         int? organizationId,
         int? supplierId,
         int roleLevel,
+        int? warehouseId = null,
         Guid? impersonatedUserToken = null,
         string? impersonatedEmail = null,
         int? actorRoleLevel = null,
@@ -367,6 +371,9 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
 
         if (supplierId.HasValue)
             claims.Add(new Claim("supplierId", supplierId.Value.ToString()));
+
+        if (warehouseId.HasValue)
+            claims.Add(new Claim("warehouseId", warehouseId.Value.ToString()));
 
         if (impersonatedUserToken.HasValue)
         {

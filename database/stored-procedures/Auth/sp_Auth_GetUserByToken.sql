@@ -26,11 +26,13 @@ BEGIN
         u.LockedUntilUtc,
         r.RoleLevel,
         r.CanImpersonate,
-        ot.Code AS OrganizationTypeCode
+        ot.Code AS OrganizationTypeCode,
+        wc.WarehouseId
     FROM dbo.Users u
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId
     LEFT JOIN dbo.Organizations o ON o.OrganizationId = u.OrganizationId
     LEFT JOIN dbo.OrganizationTypes ot ON ot.OrganizationTypeId = o.OrganizationTypeId
+    LEFT JOIN dbo.WarehouseContacts wc ON wc.WarehouseContactId = u.WarehouseContactId
     WHERE u.UserToken = @UserToken;
 END;
 GO

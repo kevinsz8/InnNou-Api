@@ -7,11 +7,16 @@ GO
    ============================================================= */
 CREATE OR ALTER PROCEDURE dbo.sp_Warehouse_GetPagedByOrganizationId
 (
-    @OrganizationId  INT,
-    @PageNumber      INT,
-    @PageSize        INT,
-    @SearchText      VARCHAR(200) = NULL,
-    @IncludeInactive BIT          = 0
+    @OrganizationId       INT,
+    @PageNumber           INT,
+    @PageSize             INT,
+    @SearchText           VARCHAR(200) = NULL,
+    @IncludeInactive      BIT          = 0,
+    -- Set only for a WarehouseContact's own login (IRequestContext.WarehouseId) — restricts the
+    -- result to exactly that one Warehouse, layered on top of the organization scope the caller
+    -- passed in above, same "AND on top of the scope" placement as GetUsersQueryRequest's
+    -- RoleIds/OrganizationIds filters. NULL for every other caller (unrestricted within the org).
+    @RestrictToWarehouseId INT         = NULL
 )
 AS
 BEGIN
@@ -34,6 +39,7 @@ BEGIN
         w.OrganizationId = @OrganizationId
         AND w.IsDeleted = 0
         AND (@IncludeInactive = 1 OR w.IsActive = 1)
+        AND (@RestrictToWarehouseId IS NULL OR w.WarehouseId = @RestrictToWarehouseId)
         AND
         (
             @SearchText IS NULL

@@ -15,6 +15,7 @@ internal sealed class RefreshTokenWithUserRoleResult
     public string Email { get; set; } = default!;
     public int? OrganizationId { get; set; }
     public int? SupplierId { get; set; }
+    public int? WarehouseId { get; set; }
     public int RoleLevel { get; set; }
 
     // Populated by sp_Auth_GetRefreshTokenData (joins Organizations -> OrganizationTypes off the
@@ -29,6 +30,7 @@ internal sealed class RefreshTokenWithUserRoleResult
     public string? ImpersonatedEmail { get; set; }
     public int? ImpersonatedOrganizationId { get; set; }
     public int? ImpersonatedSupplierId { get; set; }
+    public int? ImpersonatedWarehouseId { get; set; }
     public int? ImpersonatedRoleLevel { get; set; }
     public string? ImpersonatedOrganizationTypeCode { get; set; }
 }

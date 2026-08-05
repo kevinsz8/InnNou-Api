@@ -26,7 +26,11 @@ CREATE OR ALTER PROCEDURE dbo.sp_SupplierReturn_GetPaged
     @ToDate              DATE         = NULL,
     @PurchaseOrderNumber VARCHAR(20)  = NULL,
     @PageNumber          INT,
-    @PageSize            INT
+    @PageSize            INT,
+    -- Set only for a WarehouseContact's own login (IRequestContext.WarehouseId) — restricts the
+    -- result to exactly that one Warehouse's returns, layered on top of the organization scope
+    -- above. NULL for every other caller (unrestricted within the resolved organization scope).
+    @RestrictToWarehouseId INT        = NULL
 )
 AS
 BEGIN
@@ -49,7 +53,7 @@ BEGIN
     SELECT
         r.SupplierReturnId, r.SupplierReturnToken,
         r.PurchaseOrderId, po.PurchaseOrderToken, po.PurchaseOrderNumber,
-        po.OrganizationId, org.OrganizationToken, org.Name AS OrganizationName,
+        po.OrganizationId, po.WarehouseId, org.OrganizationToken, org.Name AS OrganizationName,
         po.SupplierId, s.SupplierToken, s.Name AS SupplierName,
         statuses.Code AS Status,
         resolutionTypes.Code AS ResolutionType,
@@ -70,6 +74,7 @@ BEGIN
         AND (@FromDate IS NULL OR r.CreatedUtc >= @FromDate)
         AND (@ToDateExclusive IS NULL OR r.CreatedUtc < @ToDateExclusive)
         AND (@PurchaseOrderNumber IS NULL OR LOWER(po.PurchaseOrderNumber) LIKE '%' + LOWER(@PurchaseOrderNumber) + '%')
+        AND (@RestrictToWarehouseId IS NULL OR po.WarehouseId = @RestrictToWarehouseId)
     ORDER BY r.CreatedUtc DESC
     OFFSET (@PageNumber - 1) * @PageSize ROWS
     FETCH NEXT @PageSize ROWS ONLY;

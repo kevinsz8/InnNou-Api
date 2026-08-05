@@ -11,6 +11,7 @@ namespace InnNou.Infrastructure.Services
         public int? OrganizationId { get; private set; }
         public string? OrganizationTypeCode { get; private set; }
         public int? SupplierId { get; private set; }
+        public int? WarehouseId { get; private set; }
 
         public bool IsAuthenticated { get; private set; }
         public bool IsImpersonating => ActorUserToken != EffectiveUserToken;
@@ -63,6 +64,10 @@ namespace InnNou.Infrastructure.Services
             var supplierClaim = user.FindFirst("supplierId")?.Value;
             if (!string.IsNullOrWhiteSpace(supplierClaim) && int.TryParse(supplierClaim, out var supplierId))
                 SupplierId = supplierId;
+
+            var warehouseClaim = user.FindFirst("warehouseId")?.Value;
+            if (!string.IsNullOrWhiteSpace(warehouseClaim) && int.TryParse(warehouseClaim, out var warehouseId))
+                WarehouseId = warehouseId;
 
             var roleLevelClaim = user.FindFirst("roleLevel")?.Value;
             if (!string.IsNullOrWhiteSpace(roleLevelClaim) && int.TryParse(roleLevelClaim, out var roleLevel))

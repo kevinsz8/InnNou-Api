@@ -21,12 +21,19 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
 
     // RoleLevel >= 100 manages any organization. RoleLevel >= 20 (Staff/Admin) manages only
     // within their own organization's hierarchy (root-or-descendant). Below that, no access.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    // targetWarehouseId additionally layers WarehouseScopeGuard on top for a WarehouseContact's
+    // own login — pass null for an operation with no specific target warehouse yet (Create),
+    // which a warehouse-scoped caller can never satisfy (there's nothing for their own
+    // WarehouseId to match), so they're correctly blocked from creating a sibling warehouse.
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -96,6 +103,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@PageSize", safePageSize);
         p.Add("@SearchText", string.IsNullOrWhiteSpace(searchText) ? null : searchText.Trim());
         p.Add("@IncludeInactive", includeInactive);
+        p.Add("@RestrictToWarehouseId", context.WarehouseId);
 
         var rows = (await connection.QueryAsync<WarehousePageRow>(
             "sp_Warehouse_GetPagedByOrganizationId", p, commandType: CommandType.StoredProcedure)).ToList();
@@ -117,6 +125,9 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
             "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
 
         if (warehouse is null || !await CanManageReadAsync(connection, context, warehouse.OrganizationId))
+            return null;
+
+        if (!WarehouseScopeGuard.Allows(context, warehouse.WarehouseId))
             return null;
 
         return mapper.Map<WarehouseDto>(warehouse);
@@ -202,7 +213,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         if (existing is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseOutsideScope, "Cannot edit a warehouse from another organization.", 403);
 
         var normalizedName = dto.Name.Trim().ToUpperInvariant();
@@ -267,7 +278,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         if (existing is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseOutsideScope, "Cannot change the active state of a warehouse from another organization.", 403);
 
         var p = new DynamicParameters();
@@ -292,7 +303,7 @@ public class WarehouseService(IDbConnectionFactory connectionFactory, IMapper ma
         if (existing is null)
             return false;
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseOutsideScope, "Cannot delete a warehouse from another organization.", 403);
 
         var now = DateTime.UtcNow;
