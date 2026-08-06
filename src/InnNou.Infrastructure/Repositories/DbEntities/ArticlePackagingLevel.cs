@@ -10,6 +10,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public Guid UnitOfMeasureToken { get; set; }
         public string? UnitOfMeasureCode { get; set; }
         public string? UnitOfMeasureSymbol { get; set; }
+        public string? UnitOfMeasureNameTranslations { get; set; }
         public decimal QuantityInParentUnit { get; set; }
         public bool IsDefinedUnit { get; set; }
         public DateTime CreatedUtc { get; set; }

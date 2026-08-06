@@ -571,6 +571,7 @@ namespace InnNou.Infrastructure.Mapping
                 UnitOfMeasureToken = e.UnitOfMeasureToken,
                 UnitOfMeasureCode = e.UnitOfMeasureCode,
                 UnitOfMeasureSymbol = e.UnitOfMeasureSymbol,
+                UnitOfMeasureNameTranslations = ParseNameTranslations(e.UnitOfMeasureNameTranslations),
                 QuantityInParentUnit = e.QuantityInParentUnit,
                 IsDefinedUnit = e.IsDefinedUnit
             });

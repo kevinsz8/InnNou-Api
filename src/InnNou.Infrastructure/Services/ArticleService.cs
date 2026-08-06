@@ -115,6 +115,56 @@ public class ArticleService(
         };
     }
 
+    // Reuses GetPagedAsync's own catalog visibility (supplier-scoped/organization-hierarchy/
+    // Admin-unrestricted, favorites/family/subfamily/category filters intentionally omitted here
+    // — this is a packaging report, not the catalog browse view) and the same batched
+    // sp_ArticlePackagingLevel_GetByArticleIds ExportArticlesAsync already uses, so no per-row
+    // N+1. The cumulative-quantity math is ArticleUnitConversion.GetCumulativeChain — the exact
+    // same formula every Requisition/Inventory unit-entry conversion already relies on.
+    public async Task<PagedResult<ArticlePackagingConversionDto>> GetPackagingConversionReportAsync(int pageNumber, int pageSize, string? searchText, bool includeInactive, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        var articles = await GetPagedAsync(pageNumber, pageSize, null, null, null, null, null, searchText, includeInactive, false, organizationId, context, cancellationToken);
+
+        var articleIds = articles.Items.Select(a => a.ArticleId).ToList();
+        var levelsByArticleId = new Dictionary<int, List<ArticlePackagingLevel>>();
+        if (articleIds.Count > 0)
+        {
+            await using var levelsConnection = connectionFactory.CreateConnection();
+            var levelRows = await levelsConnection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+            levelsByArticleId = levelRows.GroupBy(l => l.ArticleId).ToDictionary(g => g.Key, g => g.OrderBy(l => l.SequenceOrder).ToList());
+        }
+
+        var items = articles.Items.Select(article =>
+        {
+            var levelDtos = mapper.MapList<ArticlePackagingLevelDto>(levelsByArticleId.GetValueOrDefault(article.ArticleId, []));
+            var chain = ArticleUnitConversion.GetCumulativeChain(levelDtos);
+            return new ArticlePackagingConversionDto
+            {
+                ArticleToken = article.ArticleToken,
+                Name = article.Name,
+                PurchaseUnitCode = article.PurchaseUnitCode,
+                PurchaseUnitNameTranslations = article.PurchaseUnitNameTranslations,
+                Levels = chain.Select(s => new ArticlePackagingConversionLevelDto
+                {
+                    SequenceOrder = s.SequenceOrder,
+                    UnitCode = s.UnitOfMeasureCode,
+                    UnitNameTranslations = s.UnitOfMeasureNameTranslations,
+                    QuantityPerPurchaseUnit = s.QuantityPerPurchaseUnit,
+                    IsDefinedUnit = s.IsDefinedUnit
+                }).ToList()
+            };
+        }).ToList();
+
+        return new PagedResult<ArticlePackagingConversionDto>
+        {
+            Items = items,
+            TotalCount = articles.TotalCount,
+            PageNumber = articles.PageNumber,
+            PageSize = articles.PageSize
+        };
+    }
+
     public async Task<ArticleDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();

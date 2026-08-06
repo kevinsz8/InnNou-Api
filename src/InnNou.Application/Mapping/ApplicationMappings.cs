@@ -17,6 +17,8 @@ using CommonSubCategory = InnNou.Application.Responses.Common.SubCategory;
 using CommonOrganizationContact = InnNou.Application.Responses.Common.OrganizationContact;
 using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePackagingLevel = InnNou.Application.Responses.Common.ArticlePackagingLevel;
+using CommonArticlePackagingConversion = InnNou.Application.Responses.Common.ArticlePackagingConversion;
+using CommonArticlePackagingConversionLevel = InnNou.Application.Responses.Common.ArticlePackagingConversionLevel;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonArticleFavorite = InnNou.Application.Responses.Common.ArticleFavorite;
 using CommonArticleClassification = InnNou.Application.Responses.Common.ArticleClassification;
@@ -803,8 +805,25 @@ namespace InnNou.Application.Mapping
                 UnitOfMeasureToken = d.UnitOfMeasureToken,
                 UnitOfMeasureCode = d.UnitOfMeasureCode,
                 UnitOfMeasureSymbol = d.UnitOfMeasureSymbol,
+                UnitOfMeasureNameTranslations = d.UnitOfMeasureNameTranslations,
                 QuantityInParentUnit = d.QuantityInParentUnit,
                 IsDefinedUnit = d.IsDefinedUnit
+            });
+            mapper.Register<ArticlePackagingConversionLevelDto, CommonArticlePackagingConversionLevel>(d => new CommonArticlePackagingConversionLevel
+            {
+                SequenceOrder = d.SequenceOrder,
+                UnitCode = d.UnitCode,
+                UnitNameTranslations = d.UnitNameTranslations,
+                QuantityPerPurchaseUnit = d.QuantityPerPurchaseUnit,
+                IsDefinedUnit = d.IsDefinedUnit
+            });
+            mapper.Register<ArticlePackagingConversionDto, CommonArticlePackagingConversion>(d => new CommonArticlePackagingConversion
+            {
+                ArticleToken = d.ArticleToken,
+                Name = d.Name,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseUnitNameTranslations = d.PurchaseUnitNameTranslations,
+                Levels = mapper.MapList<CommonArticlePackagingConversionLevel>(d.Levels)
             });
             mapper.Register<BulkImportArticleRowErrorDto, BulkImportArticleRowError>(d => new BulkImportArticleRowError
             {

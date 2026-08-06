@@ -14,6 +14,7 @@ public class ArticlesEndpoints : ICarterModule
         var group = app.MapGroup("/articles").RequireAuthorization();
 
         group.MapPost("/getAll",       HandleGetAll).Produces<ApiResponse<GetArticlesQueryResponse>>(200);
+        group.MapPost("/packagingConversionReport", HandlePackagingConversionReport).Produces<ApiResponse<GetArticlePackagingConversionReportQueryResponse>>(200);
         group.MapPost("/getByToken",   HandleGetByToken).Produces<ApiResponse<GetArticleByTokenQueryResponse>>(200);
         group.MapPost("/create",       HandleCreate).Produces<ApiResponse<CreateArticleCommandResponse>>(201);
         group.MapPost("/edit",         HandleEdit).Produces<ApiResponse<EditArticleCommandResponse>>(200);
@@ -29,6 +30,12 @@ public class ArticlesEndpoints : ICarterModule
     }
 
     private static async Task<IResult> HandleGetAll([FromBody] GetArticlesQueryRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandlePackagingConversionReport([FromBody] GetArticlePackagingConversionReportQueryRequest request, ISender sender, CancellationToken ct)
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);

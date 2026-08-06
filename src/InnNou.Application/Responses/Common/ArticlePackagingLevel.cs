@@ -9,6 +9,7 @@ namespace InnNou.Application.Responses.Common
         public Guid UnitOfMeasureToken { get; set; }
         public string? UnitOfMeasureCode { get; set; }
         public string? UnitOfMeasureSymbol { get; set; }
+        public Dictionary<string, string>? UnitOfMeasureNameTranslations { get; set; }
         public decimal QuantityInParentUnit { get; set; }
         public bool IsDefinedUnit { get; set; }
     }

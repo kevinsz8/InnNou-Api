@@ -27,6 +27,7 @@ BEGIN
         uom.UnitOfMeasureToken AS UnitOfMeasureToken,
         uom.Code   AS UnitOfMeasureCode,
         uom.Symbol AS UnitOfMeasureSymbol,
+        uom.NameTranslations AS UnitOfMeasureNameTranslations,
         apl.QuantityInParentUnit,
         apl.IsDefinedUnit,
         apl.CreatedUtc,

@@ -54,5 +54,40 @@ namespace InnNou.Application.Common
 
             return null;
         }
+
+        // One step of a resolved chain, for reporting — see GetCumulativeChain.
+        public sealed class ChainStep
+        {
+            public int SequenceOrder { get; set; }
+            public int UnitOfMeasureId { get; set; }
+            public string? UnitOfMeasureCode { get; set; }
+            public Dictionary<string, string>? UnitOfMeasureNameTranslations { get; set; }
+            // "How many of this level's unit make up one Purchase Unit" — the same cumulative
+            // product ToPurchaseUnitQuantity divides by, just returned per-level instead of only
+            // for a single target unit. Used by the packaging-conversion report so a caller can
+            // see the full breakdown (e.g. "1 BOX = 24 BOTTLE = 12000 ML") without re-deriving it.
+            public decimal QuantityPerPurchaseUnit { get; set; }
+            public bool IsDefinedUnit { get; set; }
+        }
+
+        public static List<ChainStep> GetCumulativeChain(IReadOnlyList<ArticlePackagingLevelDto> packagingLevels)
+        {
+            var steps = new List<ChainStep>();
+            var cumulative = 1m;
+            foreach (var level in packagingLevels.OrderBy(l => l.SequenceOrder))
+            {
+                cumulative *= level.QuantityInParentUnit;
+                steps.Add(new ChainStep
+                {
+                    SequenceOrder = level.SequenceOrder,
+                    UnitOfMeasureId = level.UnitOfMeasureId,
+                    UnitOfMeasureCode = level.UnitOfMeasureCode,
+                    UnitOfMeasureNameTranslations = level.UnitOfMeasureNameTranslations,
+                    QuantityPerPurchaseUnit = cumulative,
+                    IsDefinedUnit = level.IsDefinedUnit
+                });
+            }
+            return steps;
+        }
     }
 }
