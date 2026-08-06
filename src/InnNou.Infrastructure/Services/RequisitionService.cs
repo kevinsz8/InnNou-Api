@@ -16,6 +16,9 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
 {
     private sealed class RequisitionPageRow : Requisition { public int TotalCount { get; set; } }
 
+    // Projection for sp_Requisition_GetPossibleApprovers.
+    private sealed class PossibleApproverRow { public int UserId { get; set; } public Guid UserToken { get; set; } }
+
     private const int StaffRoleLevel = 20;
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
@@ -132,6 +135,39 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         }
     }
 
+    // Fan-out (not a single resolvable owner, unlike every other Requisition notification) --
+    // Requisitions have no designated approver the way Orders' FamilyApprovalThresholds do, so
+    // every RoleLevel>=20 user within the Requisition's own Organization (warehouse-scope
+    // filtered) is a possible approver and gets notified. Mirrors
+    // ArticlePriceService.NotifySupplierPriceSubscribersAsync's own multi-recipient shape.
+    private async Task NotifyPossibleApproversAsync(DbConnection connection, Requisition requisition, string departmentName, IRequestContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var approvers = (await connection.QueryAsync<PossibleApproverRow>(
+                "sp_Requisition_GetPossibleApprovers",
+                new { OrganizationId = requisition.OrganizationId, WarehouseId = requisition.WarehouseId, ExcludeUserToken = context.ActorUserToken },
+                commandType: CommandType.StoredProcedure)).ToList();
+
+            foreach (var approver in approvers)
+            {
+                // notificationService.NotifyAsync opens its own connection — close this one first
+                // each time so at most one connection is ever open at once. Same reasoning as
+                // NotifyRequisitionCreatorAsync above / ArticlePriceService's own subscriber loop.
+                await connection.CloseAsync();
+
+                await notificationService.NotifyAsync(
+                    approver.UserToken, NotificationType.Requisition_Requested,
+                    new { requisitionNumber = requisition.RequisitionNumber, departmentName },
+                    $"/requisitions/{requisition.RequisitionToken}", context, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Possible-approver notification failed for Requisition {RequisitionToken}", requisition.RequisitionToken);
+        }
+    }
+
     public async Task<RequisitionDto?> CreateAsync(Guid warehouseToken, Guid departmentToken, string? notes, List<CreateRequisitionLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -181,6 +217,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
 
         var actor = context.ActorUserToken.ToString();
         Guid createdRequisitionToken;
+        Requisition header;
 
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -195,7 +232,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             headerParams.Add("@Notes", notes);
             headerParams.Add("@CreatedBy", actor);
 
-            var header = await connection.QueryFirstOrDefaultAsync<Requisition>(
+            header = await connection.QueryFirstOrDefaultAsync<Requisition>(
                 "sp_Requisition_Create", headerParams, transaction, commandType: CommandType.StoredProcedure)
                 ?? throw new InvalidOperationException("sp_Requisition_Create returned no row for a Warehouse/Department already validated above.");
 
@@ -230,6 +267,8 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         // PurchaseOrderService.NotifyOrderBuyerAsync's own explicit connection.CloseAsync().
         await transaction.DisposeAsync();
         await connection.CloseAsync();
+
+        await NotifyPossibleApproversAsync(connection, header, department.Name, context, cancellationToken);
 
         return await GetByTokenAsync(createdRequisitionToken, context, cancellationToken);
     }
@@ -531,6 +570,15 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
 
         if (!await CanManageOrganizationAsync(connection, context, existing.OrganizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.RequisitionForbidden, "Cannot approve a requisition outside your scope.", 403);
+
+        // Segregation of duties: the requester can never approve their own Requisition, regardless
+        // of RoleLevel — matches SAP's own release-strategy behavior (even a manager who creates
+        // their own PR can't release it themselves). SuperAdmin is the one deliberate exception,
+        // consistent with it already bypassing every other scope check in this codebase.
+        if (context.RoleLevel < SuperAdminRoleLevel
+            && Guid.TryParse(existing.CreatedBy, out var creatorToken)
+            && creatorToken == context.ActorUserToken)
+            throw new ApiException(ErrorCodes.RequisitionCannotApproveOwn, "You cannot approve a requisition you created yourself.", 403);
 
         if (existing.Status != RequisitionStatus.Requested)
             throw new ApiException(ErrorCodes.RequisitionNotApprovable, "Only a requisition still pending decision can be approved.", 409);

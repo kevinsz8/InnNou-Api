@@ -434,6 +434,7 @@ namespace InnNou.Application.Common
         public const string RequisitionNotEditable = "REQUISITION_NOT_EDITABLE";
         public const string RequisitionLineNotFound = "REQUISITION_LINE_NOT_FOUND";
         public const string RequisitionNotApprovable = "REQUISITION_NOT_APPROVABLE";
+        public const string RequisitionCannotApproveOwn = "REQUISITION_CANNOT_APPROVE_OWN";
         public const string RequisitionNotRejectable = "REQUISITION_NOT_REJECTABLE";
         public const string RequisitionRejectReasonRequired = "REQUISITION_REJECT_REASON_REQUIRED";
         public const string RequisitionNotCancellable = "REQUISITION_NOT_CANCELLABLE";

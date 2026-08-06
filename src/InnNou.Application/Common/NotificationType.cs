@@ -23,7 +23,8 @@ namespace InnNou.Application.Common
         Requisition_Approved = 15,
         Requisition_Rejected = 16,
         Requisition_Issued = 17,
-        Requisition_Closed_Short = 18
+        Requisition_Closed_Short = 18,
+        Requisition_Requested = 19
     }
 
     public static class NotificationTypeCodes
@@ -46,6 +47,7 @@ namespace InnNou.Application.Common
         public const string RequisitionRejected = "REQUISITION_REJECTED";
         public const string RequisitionIssued = "REQUISITION_ISSUED";
         public const string RequisitionClosedShort = "REQUISITION_CLOSED_SHORT";
+        public const string RequisitionRequested = "REQUISITION_REQUESTED";
 
         public static string ToCode(NotificationType type) => type switch
         {
@@ -67,6 +69,7 @@ namespace InnNou.Application.Common
             NotificationType.Requisition_Rejected => RequisitionRejected,
             NotificationType.Requisition_Issued => RequisitionIssued,
             NotificationType.Requisition_Closed_Short => RequisitionClosedShort,
+            NotificationType.Requisition_Requested => RequisitionRequested,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 
@@ -90,6 +93,7 @@ namespace InnNou.Application.Common
             RequisitionRejected => NotificationType.Requisition_Rejected,
             RequisitionIssued => NotificationType.Requisition_Issued,
             RequisitionClosedShort => NotificationType.Requisition_Closed_Short,
+            RequisitionRequested => NotificationType.Requisition_Requested,
             _ => throw new ArgumentOutOfRangeException(nameof(code), code, null)
         };
     }
