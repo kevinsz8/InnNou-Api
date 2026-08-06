@@ -29,7 +29,7 @@ BEGIN
     INSERT INTO dbo.GoodsReceiptLine
         (GoodsReceiptLineToken, GoodsReceiptId, PurchaseOrderLineId, ArticleId,
          QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
-         LotNumber, ExpirationDate, SerialNumber, Notes,
+         LotNumber, ExpirationDate, SerialNumber, Notes, UnitPrice, CurrencyCode,
          TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
          EnteredUnitId, AcceptedQuantityInUnit, CourtesyQuantityInUnit, RejectedQuantityInUnit,
          CreatedBy)
@@ -37,7 +37,7 @@ BEGIN
     SELECT
         GoodsReceiptLineToken, GoodsReceiptId, PurchaseOrderLineId, ArticleId,
         QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
-        LotNumber, ExpirationDate, SerialNumber, Notes,
+        LotNumber, ExpirationDate, SerialNumber, Notes, UnitPrice, CurrencyCode,
         TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
         EnteredUnitId, AcceptedQuantityInUnit, CourtesyQuantityInUnit, RejectedQuantityInUnit,
         @CreatedBy

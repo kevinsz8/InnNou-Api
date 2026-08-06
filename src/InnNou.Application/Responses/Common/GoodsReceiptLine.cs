@@ -15,6 +15,8 @@ namespace InnNou.Application.Responses.Common
         public DateTime? ExpirationDate { get; set; }
         public string? SerialNumber { get; set; }
         public string? Notes { get; set; }
+        public decimal? UnitPrice { get; set; }
+        public string? CurrencyCode { get; set; }
         public string? TaxCategoryCode { get; set; }
         public decimal? TaxRatePercent { get; set; }
         public decimal? TaxableAmount { get; set; }

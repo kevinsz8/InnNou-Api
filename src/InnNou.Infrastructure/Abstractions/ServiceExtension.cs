@@ -75,6 +75,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IParLevelService, ParLevelService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<ISupplierReturnService, SupplierReturnService>();
+            services.AddScoped<ISupplierCreditNoteService, SupplierCreditNoteService>();
             services.AddScoped<IInternalOrderService, InternalOrderService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<ISupplierPriceSubscriptionService, SupplierPriceSubscriptionService>();

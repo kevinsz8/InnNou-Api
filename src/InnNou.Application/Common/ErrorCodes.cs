@@ -329,6 +329,16 @@ namespace InnNou.Application.Common
         public const string SupplierReturnInvalidResolutionType = "SUPPLIER_RETURN_INVALID_RESOLUTION_TYPE";
         public const string SupplierReturnAlreadyClosed = "SUPPLIER_RETURN_ALREADY_CLOSED";
 
+        // Supplier Credit Notes ("notas de crédito")
+        public const string SupplierCreditNoteNotFound = "SUPPLIER_CREDIT_NOTE_NOT_FOUND";
+        public const string SupplierCreditNoteForbidden = "SUPPLIER_CREDIT_NOTE_FORBIDDEN";
+        public const string SupplierCreditNoteReturnNotFound = "SUPPLIER_CREDIT_NOTE_RETURN_NOT_FOUND";
+        public const string SupplierCreditNoteReturnNotCredited = "SUPPLIER_CREDIT_NOTE_RETURN_NOT_CREDITED";
+        public const string SupplierCreditNoteAlreadyExists = "SUPPLIER_CREDIT_NOTE_ALREADY_EXISTS";
+        public const string SupplierCreditNoteEmpty = "SUPPLIER_CREDIT_NOTE_EMPTY";
+        public const string SupplierCreditNoteLineNotEligible = "SUPPLIER_CREDIT_NOTE_LINE_NOT_ELIGIBLE";
+        public const string SupplierCreditNoteUnitPriceRequired = "SUPPLIER_CREDIT_NOTE_UNIT_PRICE_REQUIRED";
+
         // Inventory
         public const string InventoryForbidden = "INVENTORY_FORBIDDEN";
         public const string InventoryWarehouseNotFound = "INVENTORY_WAREHOUSE_NOT_FOUND";

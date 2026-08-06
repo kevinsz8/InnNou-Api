@@ -13,10 +13,11 @@ BEGIN
     SELECT
         srl.SupplierReturnLineId, srl.SupplierReturnLineToken,
         srl.SupplierReturnId,
-        srl.GoodsReceiptLineId, grl.GoodsReceiptLineToken,
+        srl.GoodsReceiptLineId, grl.GoodsReceiptLineToken, grl.GoodsReceiptId,
         grl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         grl.QuantityRejected, grl.RejectionReason,
-        srl.Notes, srl.CreatedUtc, srl.CreatedBy
+        srl.Notes, srl.CreatedUtc, srl.CreatedBy,
+        grl.UnitPrice, grl.CurrencyCode, grl.TaxCategoryId, grl.TaxRatePercent
     FROM dbo.SupplierReturnLines srl
     JOIN dbo.GoodsReceiptLine grl ON grl.GoodsReceiptLineId = srl.GoodsReceiptLineId
     JOIN dbo.Articles a ON a.ArticleId = grl.ArticleId

@@ -87,6 +87,10 @@ using CommonSupplierInvoicePurchaseOrder = InnNou.Application.Responses.Common.S
 using CommonSupplierInvoiceTaxBreakdown = InnNou.Application.Responses.Common.SupplierInvoiceTaxBreakdown;
 using CommonSupplierInvoiceMatchTolerance = InnNou.Application.Responses.Common.SupplierInvoiceMatchTolerance;
 using CommonSupplierInvoicePurchaseOrderPolicy = InnNou.Application.Responses.Common.SupplierInvoicePurchaseOrderPolicy;
+using CommonSupplierCreditNote = InnNou.Application.Responses.Common.SupplierCreditNote;
+using CommonSupplierCreditNoteLine = InnNou.Application.Responses.Common.SupplierCreditNoteLine;
+using CommonSupplierCreditNoteTaxBreakdown = InnNou.Application.Responses.Common.SupplierCreditNoteTaxBreakdown;
+using CommonSupplierCreditNoteInvoiceRef = InnNou.Application.Responses.Common.SupplierCreditNoteInvoiceRef;
 using CommonGoodsReceiptForInvoicing = InnNou.Application.Responses.Common.GoodsReceiptForInvoicing;
 using CommonGoodsReceiptSummary = InnNou.Application.Responses.Common.GoodsReceiptSummary;
 using CommonGoodsReceiptTaxPreviewLine = InnNou.Application.Responses.Common.GoodsReceiptTaxPreviewLine;
@@ -455,6 +459,62 @@ namespace InnNou.Application.Mapping
                 Lines = mapper.MapList<CommonSupplierInvoiceLine>(d.Lines),
                 PurchaseOrders = mapper.MapList<CommonSupplierInvoicePurchaseOrder>(d.PurchaseOrders),
                 TaxBreakdown = mapper.MapList<CommonSupplierInvoiceTaxBreakdown>(d.TaxBreakdown)
+            });
+
+            mapper.Register<SupplierCreditNoteLineDto, CommonSupplierCreditNoteLine>(d => new CommonSupplierCreditNoteLine
+            {
+                SupplierCreditNoteLineToken = d.SupplierCreditNoteLineToken,
+                SupplierReturnLineToken = d.SupplierReturnLineToken,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                QuantityCredited = d.QuantityCredited,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
+                TaxCategoryCode = d.TaxCategoryCode,
+                TaxRatePercent = d.TaxRatePercent,
+                TaxableAmount = d.TaxableAmount,
+                TaxAmount = d.TaxAmount,
+                TotalAmount = d.TotalAmount,
+                WasManuallyEntered = d.WasManuallyEntered
+            });
+
+            mapper.Register<SupplierCreditNoteTaxBreakdownDto, CommonSupplierCreditNoteTaxBreakdown>(d => new CommonSupplierCreditNoteTaxBreakdown
+            {
+                TaxRatePercent = d.TaxRatePercent,
+                TaxableAmount = d.TaxableAmount,
+                TaxAmount = d.TaxAmount,
+                CurrencyCode = d.CurrencyCode
+            });
+
+            mapper.Register<SupplierCreditNoteInvoiceRefDto, CommonSupplierCreditNoteInvoiceRef>(d => new CommonSupplierCreditNoteInvoiceRef
+            {
+                SupplierInvoiceToken = d.SupplierInvoiceToken,
+                InternalSequentialNumber = d.InternalSequentialNumber,
+                SupplierInvoiceNumber = d.SupplierInvoiceNumber
+            });
+
+            mapper.Register<SupplierCreditNoteDto, CommonSupplierCreditNote>(d => new CommonSupplierCreditNote
+            {
+                SupplierCreditNoteToken = d.SupplierCreditNoteToken,
+                SupplierReturnToken = d.SupplierReturnToken,
+                PurchaseOrderToken = d.PurchaseOrderToken,
+                PurchaseOrderNumber = d.PurchaseOrderNumber,
+                OrganizationToken = d.OrganizationToken,
+                OrganizationName = d.OrganizationName,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                CreditNoteNumber = d.CreditNoteNumber,
+                InternalSequentialNumber = d.InternalSequentialNumber,
+                CreditNoteDate = d.CreditNoteDate,
+                Reason = d.Reason,
+                Notes = d.Notes,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LineCount = d.LineCount,
+                TotalAmount = d.TotalAmount,
+                Lines = mapper.MapList<CommonSupplierCreditNoteLine>(d.Lines),
+                TaxBreakdown = mapper.MapList<CommonSupplierCreditNoteTaxBreakdown>(d.TaxBreakdown),
+                CorrectedInvoices = mapper.MapList<CommonSupplierCreditNoteInvoiceRef>(d.CorrectedInvoices)
             });
 
             mapper.Register<SupplierDeliveryZoneDto, CommonSupplierDeliveryZone>(d => new CommonSupplierDeliveryZone
@@ -1397,6 +1457,8 @@ namespace InnNou.Application.Mapping
                 ExpirationDate = d.ExpirationDate,
                 SerialNumber = d.SerialNumber,
                 Notes = d.Notes,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
                 TaxCategoryCode = d.TaxCategoryCode,
                 TaxRatePercent = d.TaxRatePercent,
                 TaxableAmount = d.TaxableAmount,

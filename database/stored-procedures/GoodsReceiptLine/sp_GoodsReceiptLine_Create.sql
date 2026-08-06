@@ -29,6 +29,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_GoodsReceiptLine_Create
     @ExpirationDate        DATE          = NULL,
     @SerialNumber          NVARCHAR(100) = NULL,
     @Notes                 NVARCHAR(500) = NULL,
+    @UnitPrice             DECIMAL(18,8) = NULL,
+    @CurrencyCode          VARCHAR(10)   = NULL,
     @TaxCategoryId         INT           = NULL,
     @TaxRateId             INT           = NULL,
     @TaxRatePercent        DECIMAL(11,8)  = NULL,
@@ -44,13 +46,13 @@ BEGIN
     INSERT INTO dbo.GoodsReceiptLine
         (GoodsReceiptLineToken, GoodsReceiptId, PurchaseOrderLineId, ArticleId,
          QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
-         LotNumber, ExpirationDate, SerialNumber, Notes,
+         LotNumber, ExpirationDate, SerialNumber, Notes, UnitPrice, CurrencyCode,
          TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
          CreatedBy)
     VALUES
         (@GoodsReceiptLineToken, @GoodsReceiptId, @PurchaseOrderLineId, @ArticleId,
          @QuantityAccepted, @QuantityCourtesy, @QuantityRejected, @RejectionReason,
-         @LotNumber, @ExpirationDate, @SerialNumber, @Notes,
+         @LotNumber, @ExpirationDate, @SerialNumber, @Notes, @UnitPrice, @CurrencyCode,
          @TaxCategoryId, @TaxRateId, @TaxRatePercent, @TaxableAmount, @TaxAmount, @TotalAmount,
          @CreatedBy);
 
@@ -59,7 +61,7 @@ BEGIN
         grl.PurchaseOrderLineId, pol.PurchaseOrderLineToken, pol.Quantity AS OrderedQuantity,
         grl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         grl.QuantityAccepted, grl.QuantityCourtesy, grl.QuantityRejected, grl.RejectionReason,
-        grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes,
+        grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes, grl.UnitPrice, grl.CurrencyCode,
         grl.TaxCategoryId, tc.Code AS TaxCategoryCode, grl.TaxRatePercent,
         grl.TaxableAmount, grl.TaxAmount, grl.TotalAmount,
         grl.CreatedUtc, grl.CreatedBy

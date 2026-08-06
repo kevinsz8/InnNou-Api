@@ -25,6 +25,12 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? SerialNumber { get; set; }
         public string? Notes { get; set; }
 
+        // Frozen for every received line (not just billable ones) since 2026-08-07 — see
+        // migrations/20260807_GoodsReceiptLine_AddUnitPrice.sql. NULL for lines received before
+        // that date.
+        public decimal? UnitPrice { get; set; }
+        public string? CurrencyCode { get; set; }
+
         public int? TaxCategoryId { get; set; }
         public string? TaxCategoryCode { get; set; }
         public decimal? TaxRatePercent { get; set; }

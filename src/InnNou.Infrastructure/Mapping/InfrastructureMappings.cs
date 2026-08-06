@@ -325,6 +325,59 @@ namespace InnNou.Infrastructure.Mapping
                 WarehouseNames = si.WarehouseNames
             });
 
+            mapper.Register<SupplierCreditNote, SupplierCreditNoteDto>(scn => new SupplierCreditNoteDto
+            {
+                SupplierCreditNoteToken = scn.SupplierCreditNoteToken,
+                SupplierReturnToken = scn.SupplierReturnToken,
+                PurchaseOrderToken = scn.PurchaseOrderToken,
+                PurchaseOrderNumber = scn.PurchaseOrderNumber,
+                OrganizationToken = scn.OrganizationToken,
+                OrganizationName = scn.OrganizationName,
+                SupplierToken = scn.SupplierToken,
+                SupplierName = scn.SupplierName,
+                CreditNoteNumber = scn.CreditNoteNumber,
+                InternalSequentialNumber = scn.InternalSequentialNumber,
+                CreditNoteDate = scn.CreditNoteDate,
+                Reason = scn.Reason,
+                Notes = scn.Notes,
+                CreatedUtc = scn.CreatedUtc,
+                CreatedBy = scn.CreatedBy,
+                LineCount = scn.LineCount,
+                TotalAmount = scn.TotalAmount
+            });
+
+            mapper.Register<SupplierCreditNoteLine, SupplierCreditNoteLineDto>(l => new SupplierCreditNoteLineDto
+            {
+                SupplierCreditNoteLineToken = l.SupplierCreditNoteLineToken,
+                SupplierReturnLineToken = l.SupplierReturnLineToken,
+                ArticleToken = l.ArticleToken,
+                ArticleName = l.ArticleName,
+                QuantityCredited = l.QuantityCredited,
+                UnitPrice = l.UnitPrice,
+                CurrencyCode = l.CurrencyCode,
+                TaxCategoryCode = l.TaxCategoryCode,
+                TaxRatePercent = l.TaxRatePercent,
+                TaxableAmount = l.TaxableAmount,
+                TaxAmount = l.TaxAmount,
+                TotalAmount = l.TotalAmount,
+                WasManuallyEntered = l.WasManuallyEntered
+            });
+
+            mapper.Register<SupplierCreditNoteTaxBreakdown, SupplierCreditNoteTaxBreakdownDto>(b => new SupplierCreditNoteTaxBreakdownDto
+            {
+                TaxRatePercent = b.TaxRatePercent,
+                TaxableAmount = b.TaxableAmount,
+                TaxAmount = b.TaxAmount,
+                CurrencyCode = b.CurrencyCode
+            });
+
+            mapper.Register<SupplierCreditNoteInvoiceRef, SupplierCreditNoteInvoiceRefDto>(r => new SupplierCreditNoteInvoiceRefDto
+            {
+                SupplierInvoiceToken = r.SupplierInvoiceToken,
+                InternalSequentialNumber = r.InternalSequentialNumber,
+                SupplierInvoiceNumber = r.SupplierInvoiceNumber
+            });
+
             mapper.Register<FamilyApprovalThresholdEntity, FamilyApprovalThresholdDto>(t => new FamilyApprovalThresholdDto
             {
                 FamilyApprovalThresholdId = t.FamilyApprovalThresholdId,
@@ -905,6 +958,8 @@ namespace InnNou.Infrastructure.Mapping
                 ExpirationDate = e.ExpirationDate,
                 SerialNumber = e.SerialNumber,
                 Notes = e.Notes,
+                UnitPrice = e.UnitPrice,
+                CurrencyCode = e.CurrencyCode,
                 TaxCategoryCode = e.TaxCategoryCode,
                 TaxRatePercent = e.TaxRatePercent,
                 TaxableAmount = e.TaxableAmount,

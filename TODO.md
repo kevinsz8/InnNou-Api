@@ -22,7 +22,7 @@
 
 - **Ronda de UX Pedidos/Detalle de Pedido/Inventario (2026-07-28)** — 6 mejoras puntuales pedidas tras probar el flujo: columna de Acciones (Copy+Edit) y filtro persistente en la lista de Pedidos; layout de dos columnas + filtro Familia/SubFamilia/Categoría/SubCategoría en líneas de Detalle de Pedido; mismo filtro (las 4 dimensiones, decisión explícita del usuario) en Stock/Below Par de Inventario; vista de detalle de un Período de Inventario (clic en fila + botón "View" verde explícito, agregado en una segunda vuelta para que quede más visible); reordenamiento de tabs a Períodos/Bajo Par/Stock; filtro de rango de fechas en el historial de Períodos. De paso se encontró y arregló un bug real: los hooks de filtro mandaban `familyToken: ""` al backend, que un `Guid?` no puede deserializar (400). Verificado en vivo con Playwright. Commiteado y pusheado (Api 21e7752, Web d8f91dd).
 
-**Factura** — Fase A (Impuestos) y Fase B (SupplierInvoice + 3-way matching) ya construidas — ver el punto 5 más abajo. Fase C (notas de crédito reales) sigue diferida.
+**Factura** — Fase A (Impuestos), Fase B (SupplierInvoice + 3-way matching) y Fase C (Notas de Crédito, backend) ya construidas — ver el punto 5 más abajo. Fase C todavía necesita frontend.
 
 - **Ronda de mejoras a Recepciones/Rectificaciones (2026-08-03)** — 3 cambios: (1) columna %IVA + total sin IVA por línea y total con IVA en la página de Recibir (nuevo endpoint de solo lectura `getGoodsReceiptTaxPreview`, nunca lanza error por config faltante); (2) fecha de albarán (`DeliveryNoteDate`) junto al número; (3) fix del skeleton de carga roto en 7 páginas de detalle (el spinner salía como un cuadrito flotante arriba a la izquierda en vez de cubrir la página — extraído `DetailPageSkeleton` compartido). Commiteado y pusheado (Api 491fd9f, Web c89f487).
 - **Emails en logs de actividad + Rectificaciones pueden agregar líneas nuevas (2026-08-03)** — `CreatedBy`/`LastUpdatedBy` de Order ahora resuelven también el email del actor (sigue siendo el actor real, nunca el usuario suplantado — decisión confirmada con el usuario, ver `.claude/PurchaseOrderRectificationModule.md`'s ficha de auditoría). Rectificaciones ahora permiten agregar una línea de un artículo que nunca estuvo en la PO original (mismo proveedor obligatorio) — ver `.claude/PurchaseOrderRectificationModule.md`, sección "Adding a new line". Verificado en vivo (aplicación inmediata + rechazo de artículo duplicado). Commiteado y pusheado (Api f457906, Web cd2d92f).
@@ -105,7 +105,7 @@ Requeriría entidades nuevas (`Recipe`/`RecipeIngredient` referenciando `Article
 
 ## 5. Facturación / Contabilidad — 3-way matching PO↔Recepción↔Factura
 
-Adaco lo destaca explícitamente como feature. InnNou tiene Pedido+Albarán pero ningún concepto de Factura/Accounting todavía — "Facturas" en el menú lateral sigue siendo solo una etiqueta placeholder, sin servicio/tabla/endpoint detrás. Plan de 3 fases confirmado con el usuario: **Fase A (modelo de Impuestos/IVA) → Fase B (SupplierInvoice + 3-way matching con tolerancias) → Fase C (notas de crédito reales conectando Devoluciones con Facturas, diferida hasta cerrar A+B)**.
+Adaco lo destaca explícitamente como feature. InnNou tiene Pedido+Albarán pero ningún concepto de Factura/Accounting todavía — "Facturas" en el menú lateral sigue siendo solo una etiqueta placeholder, sin servicio/tabla/endpoint detrás. Plan de 3 fases confirmado con el usuario: **Fase A (modelo de Impuestos/IVA) → Fase B (SupplierInvoice + 3-way matching con tolerancias) → Fase C (notas de crédito reales conectando Devoluciones con Facturas)** — las 3 construidas, ver detalle de cada una más abajo.
 
 ### Fase A: Modelo de Impuestos/IVA — CONSTRUIDO 2026-07-30
 
@@ -165,9 +165,17 @@ Autorización deliberadamente más alta que Recepciones: Admin+ (`RoleLevel >= 8
 
 **Commiteado y pusheado**: build inicial 2026-07-31 (Api 69e72c3, Web bfb0dcf); evolución completa hasta acá también commiteada y pusheada (ver hashes por punto arriba).
 
-### Fase C: Notas de crédito reales conectando Devoluciones con Facturas — diferida
+### Fase C: Notas de crédito reales conectando Devoluciones con Facturas — CONSTRUIDO (backend) 2026-08-07
 
-El usuario confirmó explícitamente cerrar A+B primero ("Después — primero cerremos A+B").
+Investigado a fondo antes de construir, a pedido explícito del usuario ("es core y delicada, no podemos dejarlo mal") — RD 1619/2012 (arts. 6/15), Ley 37/1992 art. 80, SAP MIRO Credit Memo (con la nota de soporte KB 2519546 confirmando serie de numeración separada), Odoo vendor credit notes. Hallazgo propio de InnNou que definió el diseño: la Factura solo factura `QuantityAccepted`, así que lo devuelto normalmente **nunca llegó a estar en una factura** — a diferencia de SAP/Odoo, acá la nota de crédito no suele "revertir" una factura, sino documentar el crédito prometido, referenciando una Factura solo cuando esa Recepción específica ya estaba facturada (auto-detectado, nunca elegido a mano).
+
+**Arreglo de base requerido primero** (mismo día): `GoodsReceiptLine` solo congelaba `TaxableAmount`/`TaxAmount` sobre `QuantityAccepted`, y una línea 100% rechazada no congelaba nada — sin precio ni IVA de dónde calcular un crédito. Se agregaron `UnitPrice`/`CurrencyCode` congelados para toda línea recibida (no solo la facturable), verificado en vivo antes y después sin regresión (20/20 tests, línea histórica pre-fix sigue leyéndose bien con `null`).
+
+**Diseño**: nace siempre de una `SupplierReturn` cerrada `CREDITED` (nunca standalone), una nota de crédito por devolución (no repetible/parcial en V1), serie propia `NC-{Año}-{5 dígitos}` (mismo patrón atómico que `SupplierInvoiceNumberCounters`), desglose de IVA propio calculado (sin el mecanismo de tolerancia/discrepancia de Factura, porque acá no hay un segundo documento externo con qué comparar), autorización Admin+ (mismo nivel que Factura). Precio por línea con override opcional (default: el `UnitPrice` ya congelado; requerido a mano solo si la línea es de antes del fix).
+
+Verificado en vivo por curl, dos casos: rechazo parcial (6 aceptado/4 rechazado, €14,50, IVA 10% → €58,00 base/€5,80 IVA/€63,80 total, exacto) y rechazo 100% (3/3 rechazado → €43,50/€4,35/€47,85, exacto) — numeración secuencial correcta en ambos (NC-2026-00001, NC-2026-00002), `correctedInvoices` vacío en ambos (correcto, nada facturado). Se encontró y corrigió un bug real durante la verificación: la SP de creación no traía `purchaseOrderToken`/`purchaseOrderNumber` en su propia respuesta (le faltaba el JOIN que las SPs de lectura sí tenían). 20/20 tests de integración. Ver `.claude/SupplierCreditNoteModule.md`.
+
+**Pendiente**: frontend completo (no hay página/hook/i18n todavía), notificación al crear, y adjunto del documento físico (mismo patrón que `SupplierInvoice`'s `AttachmentUrl`, deliberadamente no clonado en esta pasada).
 
 ---
 

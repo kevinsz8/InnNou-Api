@@ -17,6 +17,12 @@ namespace InnNou.Domain.Dtos
         public string? SerialNumber { get; set; }
         public string? Notes { get; set; }
 
+        // Frozen for every received line (not just billable ones) since 2026-08-07 — see
+        // .claude/ArticleUnitConversionModule.md's "Price comparison report" section. Null for
+        // lines received before that date.
+        public decimal? UnitPrice { get; set; }
+        public string? CurrencyCode { get; set; }
+
         // Computed and frozen at receipt time (PurchaseOrderService.CreateGoodsReceiptAsync) —
         // null for lines received before the Tax module existed. See .claude/GoodsReceiptsModule.md.
         public string? TaxCategoryCode { get; set; }

@@ -19,7 +19,7 @@ BEGIN
         grl.PurchaseOrderLineId, pol.PurchaseOrderLineToken, pol.Quantity AS OrderedQuantity,
         grl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         grl.QuantityAccepted, grl.QuantityCourtesy, grl.QuantityRejected, grl.RejectionReason,
-        grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes,
+        grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes, grl.UnitPrice, grl.CurrencyCode,
         grl.TaxCategoryId, tc.Code AS TaxCategoryCode, grl.TaxRatePercent,
         grl.TaxableAmount, grl.TaxAmount, grl.TotalAmount,
         pol.PurchaseUnitId, puom.Code AS PurchaseUnitCode,
