@@ -19,6 +19,7 @@ using CommonArticle = InnNou.Application.Responses.Common.Article;
 using CommonArticlePackagingLevel = InnNou.Application.Responses.Common.ArticlePackagingLevel;
 using CommonArticlePackagingConversion = InnNou.Application.Responses.Common.ArticlePackagingConversion;
 using CommonArticlePackagingConversionLevel = InnNou.Application.Responses.Common.ArticlePackagingConversionLevel;
+using CommonArticlePriceComparison = InnNou.Application.Responses.Common.ArticlePriceComparison;
 using CommonArticlePrice = InnNou.Application.Responses.Common.ArticlePrice;
 using CommonArticleFavorite = InnNou.Application.Responses.Common.ArticleFavorite;
 using CommonArticleClassification = InnNou.Application.Responses.Common.ArticleClassification;
@@ -827,6 +828,25 @@ namespace InnNou.Application.Mapping
                 PurchaseUnitCode = d.PurchaseUnitCode,
                 PurchaseUnitNameTranslations = d.PurchaseUnitNameTranslations,
                 Levels = mapper.MapList<CommonArticlePackagingConversionLevel>(d.Levels)
+            });
+            mapper.Register<ArticlePriceComparisonDto, CommonArticlePriceComparison>(d => new CommonArticlePriceComparison
+            {
+                ArticleToken = d.ArticleToken,
+                Name = d.Name,
+                SupplierName = d.SupplierName,
+                PurchaseUnitCode = d.PurchaseUnitCode,
+                PurchaseUnitNameTranslations = d.PurchaseUnitNameTranslations,
+                Price = d.Price,
+                CurrencyCode = d.CurrencyCode,
+                DefinedUnitCode = d.DefinedUnitCode,
+                DefinedUnitNameTranslations = d.DefinedUnitNameTranslations,
+                DefinedUnitQuantityPerPurchaseUnit = d.DefinedUnitQuantityPerPurchaseUnit,
+                PricePerDefinedUnit = d.PricePerDefinedUnit,
+                NormalizedUnitCode = d.NormalizedUnitCode,
+                NormalizedUnitNameTranslations = d.NormalizedUnitNameTranslations,
+                PricePerNormalizedUnit = d.PricePerNormalizedUnit,
+                IsComparable = d.IsComparable,
+                IsCheapest = d.IsCheapest
             });
             mapper.Register<BulkImportArticleRowErrorDto, BulkImportArticleRowError>(d => new BulkImportArticleRowError
             {

@@ -22,6 +22,8 @@ public class ArticleService(
     IFamilyService familyService,
     ISubFamilyService subFamilyService,
     IUnitOfMeasureService unitOfMeasureService,
+    IArticlePriceService articlePriceService,
+    IUnitConversionRateService unitConversionRateService,
     ILogger<ArticleService> logger) : IArticleService
 {
     private sealed class ArticlePageRow : Article { public int TotalCount { get; set; } }
@@ -163,6 +165,124 @@ public class ArticleService(
             PageNumber = articles.PageNumber,
             PageSize = articles.PageSize
         };
+    }
+
+    // "Candidates worth comparing," never "these ARE the same product" -- grouping is by
+    // Category/SubCategory (the classification a human already assigned), price is normalized to
+    // one canonical unit per UnitType so a buyer can see cost-per-kilogram/-liter/etc. across
+    // suppliers regardless of pack size, and IsCheapest only ever ranks within a
+    // (UnitType, CurrencyCode) group -- this codebase has zero FX conversion anywhere, so two
+    // different currencies are never blended into one ranking. See CLAUDE.md's "Article price
+    // comparison" section for the research behind this shape (why Barcode/GTIN matching alone
+    // can't cover cross-pack-size comparisons, and why a fuzzy auto-match would risk false
+    // equivalences a human hasn't confirmed).
+    public async Task<List<ArticlePriceComparisonDto>> GetPriceComparisonReportAsync(int categoryId, int? subCategoryId, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        var articles = await GetPagedAsync(1, MaxPageSize, null, null, null, categoryId, subCategoryId, null, false, false, organizationId, context, cancellationToken);
+        if (articles.Items.Count == 0)
+            return [];
+
+        var articleIds = articles.Items.Select(a => a.ArticleId).ToList();
+
+        await using var levelsConnection = connectionFactory.CreateConnection();
+        var levelRows = await levelsConnection.QueryAsync<ArticlePackagingLevel>(
+            "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+        var levelsByArticleId = levelRows.GroupBy(l => l.ArticleId).ToDictionary(g => g.Key, g => mapper.MapList<ArticlePackagingLevelDto>(g.OrderBy(l => l.SequenceOrder).ToList()));
+
+        var pricingOrganizationId = organizationId ?? context.OrganizationId;
+        var pricesByArticleId = pricingOrganizationId.HasValue
+            ? await articlePriceService.GetCurrentBatchAsync(articleIds, pricingOrganizationId.Value, DateTime.UtcNow.Date, cancellationToken)
+            : [];
+
+        var unitsOfMeasure = (await unitOfMeasureService.GetPagedAsync(1, 100, null, false, cancellationToken)).Items;
+        var unitTypeByUnitId = unitsOfMeasure.ToDictionary(u => u.UnitOfMeasureId, u => u.UnitTypeId);
+        var unitById = unitsOfMeasure.ToDictionary(u => u.UnitOfMeasureId);
+        var conversionFactors = (await unitConversionRateService.GetPagedAsync(1, 100, null, false, cancellationToken))
+            .Items.ToDictionary(r => (r.FromUnitOfMeasureId, r.ToUnitOfMeasureId), r => r.Factor);
+        // Real "unit pricing" regulations (and every price-comparison precedent researched) always
+        // express weight/volume unit price per KILOGRAM/LITER, never per GRAM/MILLILITER -- picking
+        // whichever article happens to come first would otherwise sometimes normalize into a tiny
+        // unit and round a real price down to a useless "€0.00". Resolved from the whole catalog,
+        // not just units the compared Articles happen to use directly, so even a single-article
+        // WEIGHT/VOLUME group (nothing else to prefer among) still normalizes into a readable unit
+        // whenever a conversion rate to it exists.
+        string[] preferredUnitCodes = ["KILOGRAM", "LITER"];
+        var preferredUnitIdByUnitTypeId = unitsOfMeasure
+            .Where(u => preferredUnitCodes.Contains(u.Code))
+            .GroupBy(u => u.UnitTypeId)
+            .ToDictionary(g => g.Key, g => g.First().UnitOfMeasureId);
+
+        var resolved = articles.Items.Select(article =>
+        {
+            var levels = levelsByArticleId.GetValueOrDefault(article.ArticleId, []);
+            var definedStep = ArticleUnitConversion.GetDefinedUnitStep(levels);
+            pricesByArticleId.TryGetValue(article.ArticleId, out var priceInfo);
+
+            decimal? pricePerDefinedUnit = definedStep is not null && priceInfo.Price > 0
+                ? priceInfo.Price / definedStep.QuantityPerPurchaseUnit
+                : null;
+
+            return new
+            {
+                Dto = new ArticlePriceComparisonDto
+                {
+                    ArticleToken = article.ArticleToken,
+                    Name = article.Name,
+                    SupplierName = article.SupplierName,
+                    PurchaseUnitCode = article.PurchaseUnitCode,
+                    PurchaseUnitNameTranslations = article.PurchaseUnitNameTranslations,
+                    Price = priceInfo.Price > 0 ? priceInfo.Price : null,
+                    CurrencyCode = priceInfo.CurrencyCode,
+                    DefinedUnitCode = definedStep?.UnitOfMeasureCode,
+                    DefinedUnitNameTranslations = definedStep?.UnitOfMeasureNameTranslations,
+                    DefinedUnitQuantityPerPurchaseUnit = definedStep?.QuantityPerPurchaseUnit,
+                    PricePerDefinedUnit = pricePerDefinedUnit
+                },
+                DefinedUnitId = definedStep?.UnitOfMeasureId,
+                UnitTypeId = definedStep is not null ? unitTypeByUnitId.GetValueOrDefault(definedStep.UnitOfMeasureId) : (int?)null
+            };
+        }).ToList();
+
+        foreach (var group in resolved.Where(r => r.Dto.PricePerDefinedUnit.HasValue && r.UnitTypeId.HasValue).GroupBy(r => r.UnitTypeId!.Value))
+        {
+            // Prefer the catalog-wide KILOGRAM/LITER for this UnitType (even if no group member
+            // uses it directly) whenever every member can actually convert into it; otherwise fall
+            // back to whichever unit the group's own members already use (first by UnitOfMeasureId,
+            // for a deterministic result), same as before this catalog-wide preference existed.
+            var memberUnitIds = group.Select(r => r.DefinedUnitId!.Value).Distinct().ToList();
+            var fallbackUnitId = memberUnitIds.OrderBy(id => id).First();
+            var canonicalUnitId = preferredUnitIdByUnitTypeId.TryGetValue(group.Key, out var preferredId)
+                && memberUnitIds.All(id => id == preferredId || conversionFactors.ContainsKey((id, preferredId)))
+                ? preferredId
+                : fallbackUnitId;
+            var canonicalUnit = unitById[canonicalUnitId];
+
+            foreach (var item in group)
+            {
+                if (item.DefinedUnitId == canonicalUnitId)
+                {
+                    item.Dto.NormalizedUnitCode = item.Dto.DefinedUnitCode;
+                    item.Dto.NormalizedUnitNameTranslations = item.Dto.DefinedUnitNameTranslations;
+                    item.Dto.PricePerNormalizedUnit = item.Dto.PricePerDefinedUnit;
+                    item.Dto.IsComparable = true;
+                }
+                else if (conversionFactors.TryGetValue((item.DefinedUnitId!.Value, canonicalUnitId), out var factor) && factor > 0)
+                {
+                    item.Dto.NormalizedUnitCode = canonicalUnit.Code;
+                    item.Dto.NormalizedUnitNameTranslations = canonicalUnit.NameTranslations;
+                    item.Dto.PricePerNormalizedUnit = item.Dto.PricePerDefinedUnit!.Value / factor;
+                    item.Dto.IsComparable = true;
+                }
+            }
+
+            foreach (var currencyGroup in group.Where(r => r.Dto.IsComparable).GroupBy(r => r.Dto.CurrencyCode))
+            {
+                var cheapest = currencyGroup.OrderBy(r => r.Dto.PricePerNormalizedUnit).First();
+                cheapest.Dto.IsCheapest = true;
+            }
+        }
+
+        return resolved.Select(r => r.Dto).ToList();
     }
 
     public async Task<ArticleDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)

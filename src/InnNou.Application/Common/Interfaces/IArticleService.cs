@@ -8,6 +8,7 @@ namespace InnNou.Application.Common.Interfaces
     {
         Task<PagedResult<ArticleDto>> GetPagedAsync(int pageNumber, int pageSize, int? supplierId, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, string? searchText, bool includeInactive, bool favoritesOnly, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default);
         Task<PagedResult<ArticlePackagingConversionDto>> GetPackagingConversionReportAsync(int pageNumber, int pageSize, string? searchText, bool includeInactive, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default);
+        Task<List<ArticlePriceComparisonDto>> GetPriceComparisonReportAsync(int categoryId, int? subCategoryId, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default);
         Task<bool> ExistsBySupplierSkuAsync(int supplierId, string supplierSku, Guid? excludeToken, CancellationToken cancellationToken = default);
         Task<ArticleDto?> CreateAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default);

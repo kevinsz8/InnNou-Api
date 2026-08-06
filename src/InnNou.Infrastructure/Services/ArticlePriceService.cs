@@ -224,6 +224,27 @@ public class ArticlePriceService(
         }
     }
 
+    private sealed class ArticlePriceBatchRow
+    {
+        public int ArticleId { get; set; }
+        public decimal Price { get; set; }
+        public string CurrencyCode { get; set; } = default!;
+    }
+
+    public async Task<Dictionary<int, (decimal Price, string CurrencyCode)>> GetCurrentBatchAsync(List<int> articleIds, int organizationId, DateTime asOfDate, CancellationToken cancellationToken = default)
+    {
+        if (articleIds.Count == 0)
+            return [];
+
+        await using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<ArticlePriceBatchRow>(
+            "sp_ArticlePrice_GetCurrentBatch",
+            new { ArticleIds = string.Join(',', articleIds), OrganizationId = organizationId, AsOfDate = asOfDate },
+            commandType: CommandType.StoredProcedure);
+
+        return rows.ToDictionary(r => r.ArticleId, r => (r.Price, r.CurrencyCode));
+    }
+
     public async Task<ArticlePriceDto?> GetCurrentAsync(int articleId, int supplierId, int? requestedOrganizationId, string? currencyCode, DateTime asOfDate, IRequestContext context, CancellationToken cancellationToken = default)
     {
         // Everyone may read a current price; a regular org-scoped caller always resolves it for
