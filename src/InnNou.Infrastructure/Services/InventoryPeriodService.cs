@@ -276,11 +276,19 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (period.Status == InventoryPeriodStatus.Closed)
             throw new ApiException(ErrorCodes.InventoryPeriodAlreadyClosed, "This inventory period is already closed.", 409);
 
-        if (period.Status != InventoryPeriodStatus.Pre_Closed)
-            throw new ApiException(ErrorCodes.InventoryPeriodIncomplete, "Every article must be counted before this inventory period can be closed.", 409);
+        if (period.Status == InventoryPeriodStatus.Open)
+            throw new ApiException(ErrorCodes.InventoryPeriodIncomplete, "At least one article must be counted before this inventory period can be closed.", 409);
 
+        // Partial close (SAP-style): a period can be closed from IN_PROGRESS, not only
+        // PRE_CLOSED. Only counted lines get a variance computed and an ADJUSTMENT posted —
+        // uncounted lines are left untouched (SystemQuantityAtClose/VarianceQuantity stay NULL,
+        // a permanent, queryable "never verified this cycle" fact) and simply reappear, freshly
+        // seeded, the next time this warehouse's period is opened. No separate "resume" mechanic
+        // is needed for them — the next Open already re-seeds every current StockLevel row.
         var lines = (await connection.QueryAsync<InventoryPeriodCount>(
-            "sp_InventoryPeriodCount_GetByPeriodId", new { period.InventoryPeriodId }, commandType: CommandType.StoredProcedure)).ToList();
+            "sp_InventoryPeriodCount_GetByPeriodId", new { period.InventoryPeriodId }, commandType: CommandType.StoredProcedure))
+            .Where(l => l.CountedQuantity.HasValue)
+            .ToList();
 
         // Batched — one round trip for every StockLevel in the warehouse (same SP OpenAsync
         // already uses) instead of one sp_StockLevel_GetByWarehouseAndArticle call per counted
@@ -306,7 +314,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
                 // period opened or when counting started, so a receipt/adjustment/transfer that
                 // legitimately happened mid-count is reflected honestly in the variance.
                 var systemQuantity = currentStockByArticle.GetValueOrDefault(line.ArticleId, 0m);
-                var countedQuantity = line.CountedQuantity!.Value; // every line is counted by construction of PRE_CLOSED
+                var countedQuantity = line.CountedQuantity!.Value; // guaranteed by the .Where(HasValue) filter above
                 var variance = countedQuantity - systemQuantity;
 
                 var varianceParams = new DynamicParameters();
@@ -433,9 +441,15 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
                 await connection.ExecuteAsync("sp_InventoryPeriodCount_UpdateVariance", varianceParams, transaction, commandType: CommandType.StoredProcedure);
             }
 
+            // Recompute rather than assume PRE_CLOSED — the period may have been closed early
+            // (partial close, some lines never counted), and reopening it must land back on
+            // whatever status honestly reflects that, same completeness check SubmitCountAsync uses.
+            var allCounted = lines.Count > 0 && lines.All(l => l.CountedQuantity.HasValue);
+            var reopenTargetStatus = allCounted ? InventoryPeriodStatusCodes.PreClosed : InventoryPeriodStatusCodes.InProgress;
+
             var statusParams = new DynamicParameters();
             statusParams.Add("@InventoryPeriodToken", periodToken);
-            statusParams.Add("@Status", InventoryPeriodStatusCodes.PreClosed);
+            statusParams.Add("@Status", reopenTargetStatus);
             statusParams.Add("@ActorBy", actor);
             statusParams.Add("@ReopenedUtc", DateTime.UtcNow);
             statusParams.Add("@ReopenedBy", actor);
