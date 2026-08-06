@@ -32,6 +32,22 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public decimal? TaxAmount { get; set; }
         public decimal? TotalAmount { get; set; }
 
+        // The line's own PurchaseOrderLine.PurchaseUnitId/Code, denormalized purely so the
+        // canonical Accepted/Courtesy/Rejected quantities have a unit label to display when no
+        // EnteredUnitId was captured — same reasoning as InventoryMovement's own PurchaseUnitCode.
+        public int PurchaseUnitId { get; set; }
+        public string? PurchaseUnitCode { get; set; }
+
+        // Shared across Accepted/Courtesy/Rejected — a receiver counts all three from the same
+        // opened container in the same unit. NULL means every quantity below was entered directly
+        // in the Purchase Unit. See migrations/20260806_GoodsReceiptLine_UnitConversion.sql.
+        public int? EnteredUnitId { get; set; }
+        public string? EnteredUnitCode { get; set; }
+        public string? EnteredUnitNameTranslations { get; set; }
+        public decimal? AcceptedQuantityInUnit { get; set; }
+        public decimal? CourtesyQuantityInUnit { get; set; }
+        public decimal? RejectedQuantityInUnit { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

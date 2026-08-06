@@ -13,6 +13,10 @@ namespace InnNou.Application.Responses.Common
         public string? RequestedUnitCode { get; set; }
         public decimal? RequestedQuantity { get; set; }
 
+        public string? DefinedUnitCode { get; set; }
+        public Dictionary<string, string>? DefinedUnitNameTranslations { get; set; }
+        public decimal? DefinedUnitQuantity { get; set; }
+
         public string? Notes { get; set; }
 
         public DateTime CreatedUtc { get; set; }

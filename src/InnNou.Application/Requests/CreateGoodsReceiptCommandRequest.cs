@@ -10,6 +10,7 @@ namespace InnNou.Application.Requests
         public decimal QuantityAccepted { get; set; }
         public decimal QuantityCourtesy { get; set; }
         public decimal QuantityRejected { get; set; }
+        public Guid? UnitToken { get; set; }
         public string? RejectionReason { get; set; }
         public string? LotNumber { get; set; }
         public DateTime? ExpirationDate { get; set; }

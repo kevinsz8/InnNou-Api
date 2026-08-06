@@ -907,6 +907,12 @@ namespace InnNou.Infrastructure.Mapping
                 TaxableAmount = e.TaxableAmount,
                 TaxAmount = e.TaxAmount,
                 TotalAmount = e.TotalAmount,
+                PurchaseUnitCode = e.PurchaseUnitCode,
+                EnteredUnitCode = e.EnteredUnitCode,
+                EnteredUnitNameTranslations = ParseNameTranslations(e.EnteredUnitNameTranslations),
+                AcceptedQuantityInUnit = e.AcceptedQuantityInUnit,
+                CourtesyQuantityInUnit = e.CourtesyQuantityInUnit,
+                RejectedQuantityInUnit = e.RejectedQuantityInUnit,
                 CreatedUtc = e.CreatedUtc,
                 CreatedBy = e.CreatedBy
             });
@@ -938,6 +944,7 @@ namespace InnNou.Infrastructure.Mapping
                 WarehouseName = e.WarehouseName,
                 ArticleToken = e.ArticleToken,
                 ArticleName = e.ArticleName,
+                PurchaseUnitCode = e.PurchaseUnitCode,
                 Type = InventoryMovementTypeCodes.ToCode(e.Type),
                 Quantity = e.Quantity,
                 EnteredUnitCode = e.EnteredUnitCode,

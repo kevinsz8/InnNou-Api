@@ -20,6 +20,17 @@ namespace InnNou.Application.Responses.Common
         public decimal? TaxableAmount { get; set; }
         public decimal? TaxAmount { get; set; }
         public decimal? TotalAmount { get; set; }
+        public string? PurchaseUnitCode { get; set; }
+        public string? EnteredUnitCode { get; set; }
+        public Dictionary<string, string>? EnteredUnitNameTranslations { get; set; }
+        public decimal? AcceptedQuantityInUnit { get; set; }
+        public decimal? CourtesyQuantityInUnit { get; set; }
+        public decimal? RejectedQuantityInUnit { get; set; }
+        public string? DefinedUnitCode { get; set; }
+        public Dictionary<string, string>? DefinedUnitNameTranslations { get; set; }
+        public decimal? AcceptedDefinedUnitQuantity { get; set; }
+        public decimal? CourtesyDefinedUnitQuantity { get; set; }
+        public decimal? RejectedDefinedUnitQuantity { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

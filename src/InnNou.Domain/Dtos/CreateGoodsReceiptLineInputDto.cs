@@ -11,6 +11,12 @@ namespace InnNou.Domain.Dtos
         public decimal QuantityAccepted { get; set; }
         public decimal QuantityCourtesy { get; set; }
         public decimal QuantityRejected { get; set; }
+
+        // Shared unit for all 3 quantities above — null means they're already denominated in the
+        // article's own PurchaseUnitId (default, backward compatible). See
+        // migrations/20260806_GoodsReceiptLine_UnitConversion.sql.
+        public Guid? UnitToken { get; set; }
+
         public string? RejectionReason { get; set; }
         public string? LotNumber { get; set; }
         public DateTime? ExpirationDate { get; set; }

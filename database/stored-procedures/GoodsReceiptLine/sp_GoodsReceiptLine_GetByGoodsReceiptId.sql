@@ -22,11 +22,16 @@ BEGIN
         grl.LotNumber, grl.ExpirationDate, grl.SerialNumber, grl.Notes,
         grl.TaxCategoryId, tc.Code AS TaxCategoryCode, grl.TaxRatePercent,
         grl.TaxableAmount, grl.TaxAmount, grl.TotalAmount,
+        pol.PurchaseUnitId, puom.Code AS PurchaseUnitCode,
+        grl.EnteredUnitId, euom.Code AS EnteredUnitCode, euom.NameTranslations AS EnteredUnitNameTranslations,
+        grl.AcceptedQuantityInUnit, grl.CourtesyQuantityInUnit, grl.RejectedQuantityInUnit,
         grl.CreatedUtc, grl.CreatedBy
     FROM dbo.GoodsReceiptLine grl
     JOIN dbo.PurchaseOrderLine pol ON pol.PurchaseOrderLineId = grl.PurchaseOrderLineId
     JOIN dbo.Articles a            ON a.ArticleId             = grl.ArticleId
     LEFT JOIN dbo.TaxCategories tc  ON tc.TaxCategoryId        = grl.TaxCategoryId
+    JOIN dbo.UnitsOfMeasure puom    ON puom.UnitOfMeasureId    = pol.PurchaseUnitId
+    LEFT JOIN dbo.UnitsOfMeasure euom ON euom.UnitOfMeasureId  = grl.EnteredUnitId
     WHERE grl.GoodsReceiptId = @GoodsReceiptId
     ORDER BY grl.GoodsReceiptLineId;
 END;

@@ -37,6 +37,7 @@ namespace InnNou.Application.Handlers
                 QuantityAccepted = l.QuantityAccepted,
                 QuantityCourtesy = l.QuantityCourtesy,
                 QuantityRejected = l.QuantityRejected,
+                UnitToken = l.UnitToken,
                 RejectionReason = l.RejectionReason,
                 LotNumber = l.LotNumber,
                 ExpirationDate = l.ExpirationDate,

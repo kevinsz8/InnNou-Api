@@ -31,6 +31,7 @@ BEGIN
          QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
          LotNumber, ExpirationDate, SerialNumber, Notes,
          TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
+         EnteredUnitId, AcceptedQuantityInUnit, CourtesyQuantityInUnit, RejectedQuantityInUnit,
          CreatedBy)
     OUTPUT INSERTED.GoodsReceiptLineToken, INSERTED.GoodsReceiptLineId INTO @Inserted
     SELECT
@@ -38,6 +39,7 @@ BEGIN
         QuantityAccepted, QuantityCourtesy, QuantityRejected, RejectionReason,
         LotNumber, ExpirationDate, SerialNumber, Notes,
         TaxCategoryId, TaxRateId, TaxRatePercent, TaxableAmount, TaxAmount, TotalAmount,
+        EnteredUnitId, AcceptedQuantityInUnit, CourtesyQuantityInUnit, RejectedQuantityInUnit,
         @CreatedBy
     FROM @Lines;
 

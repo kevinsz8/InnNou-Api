@@ -89,5 +89,66 @@ namespace InnNou.Application.Common
             }
             return steps;
         }
+
+        // The chain's own "Unidad Definida" — the last level (highest SequenceOrder), the one
+        // real fixed-quantity unit every article always has exactly one of. Used as a universal
+        // secondary reference for any quantity display: regardless of which unit a Requisition/
+        // Inventory quantity was actually entered in, "how much is that in the article's most
+        // atomic unit" is always a meaningful thing to show alongside it. Returns null only if
+        // packagingLevels is empty, which shouldn't happen for any saved Article (every article
+        // requires at least one level) but callers should handle defensively.
+        public static ChainStep? GetDefinedUnitStep(IReadOnlyList<ArticlePackagingLevelDto> packagingLevels)
+            => GetCumulativeChain(packagingLevels).OrderByDescending(s => s.SequenceOrder).FirstOrDefault();
+
+        // Converts a quantity denominated in fromUnitId to toUnitId terms, where both units must
+        // each be either this article's own Purchase Unit or a level in its packaging chain (the
+        // same "requestable unit" set GetRequestableUnitIds returns) — returns null otherwise,
+        // same validation stance as ToPurchaseUnitQuantity. Works by routing through the Purchase
+        // Unit as a common denominator: every unit's own cumulative product (GetCumulativeChain)
+        // already expresses "how many of this unit make up one Purchase Unit," so converting
+        // between any two arbitrary units A and B is just fromQuantity / cumulativeA * cumulativeB
+        // — no different from the existing purchase-unit-only conversion, just generalized to a
+        // target other than the Purchase Unit itself.
+        public static decimal? ConvertQuantity(
+            int purchaseUnitId,
+            IReadOnlyList<ArticlePackagingLevelDto> packagingLevels,
+            int fromUnitId,
+            decimal fromQuantity,
+            int toUnitId)
+        {
+            if (fromUnitId == toUnitId)
+                return fromQuantity;
+
+            var cumulativeByUnit = new Dictionary<int, decimal> { [purchaseUnitId] = 1m };
+            foreach (var step in GetCumulativeChain(packagingLevels))
+                cumulativeByUnit[step.UnitOfMeasureId] = step.QuantityPerPurchaseUnit;
+
+            if (!cumulativeByUnit.TryGetValue(fromUnitId, out var fromCumulative) ||
+                !cumulativeByUnit.TryGetValue(toUnitId, out var toCumulative))
+                return null;
+
+            return fromQuantity / fromCumulative * toCumulative;
+        }
+
+        // A ready-to-display secondary reference for any already-resolved quantity+unit — used
+        // by every read path that shows a line's own "effective" quantity (its raw entered pair
+        // if one was captured, else the canonical Purchase-Unit-normalized value) and wants to
+        // also surface "how much is that in the article's most atomic (Unidad Definida) unit."
+        // Returns null when there's nothing useful to add — either the chain has no levels, or
+        // the effective unit already IS the defined unit (showing "= the same number" would be
+        // redundant, not informative).
+        public static (string? Code, Dictionary<string, string>? NameTranslations, decimal Quantity)? GetDefinedUnitEquivalent(
+            int purchaseUnitId,
+            IReadOnlyList<ArticlePackagingLevelDto> packagingLevels,
+            int effectiveUnitId,
+            decimal effectiveQuantity)
+        {
+            var definedStep = GetDefinedUnitStep(packagingLevels);
+            if (definedStep is null || definedStep.UnitOfMeasureId == effectiveUnitId)
+                return null;
+
+            var converted = ConvertQuantity(purchaseUnitId, packagingLevels, effectiveUnitId, effectiveQuantity, definedStep.UnitOfMeasureId);
+            return converted is null ? null : (definedStep.UnitOfMeasureCode, definedStep.UnitOfMeasureNameTranslations, converted.Value);
+        }
     }
 }

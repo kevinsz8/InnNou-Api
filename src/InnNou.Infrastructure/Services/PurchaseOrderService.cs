@@ -880,11 +880,109 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         public required PurchaseOrderLine Line { get; init; }
         public required CreateGoodsReceiptLineInputDto Input { get; init; }
 
+        // Resolved (PurchaseUnitId-normalized) quantities — these, not Input.QuantityXxx, are
+        // what over-receipt capping, tax, stock deltas, and PO-status recompute must use, so a
+        // receipt entered in an alternate unit (see ResolveGoodsReceiptQuantitiesAsync) behaves
+        // identically to one entered directly in the Purchase Unit.
+        public required decimal QuantityAccepted { get; init; }
+        public required decimal QuantityCourtesy { get; init; }
+        public required decimal QuantityRejected { get; init; }
+
+        // Raw as-entered mirror — null unless a non-Purchase-Unit UnitToken was supplied. See
+        // migrations/20260806_GoodsReceiptLine_UnitConversion.sql.
+        public int? EnteredUnitId { get; init; }
+        public decimal? AcceptedQuantityInUnit { get; init; }
+        public decimal? CourtesyQuantityInUnit { get; init; }
+        public decimal? RejectedQuantityInUnit { get; init; }
+
         // Generated at validation time (before the transaction opens) rather than inside the
         // batch-insert helper, so the same token can be used both to build the
         // GoodsReceiptLineTableType row and, after sp_GoodsReceiptLine_CreateBatch returns, to
         // look up this line's generated GoodsReceiptLineId for the InventoryMovement batch below.
         public Guid GoodsReceiptLineToken { get; } = Guid.NewGuid();
+    }
+
+    private readonly record struct ResolvedGoodsReceiptQuantities(
+        decimal Accepted, decimal Courtesy, decimal Rejected,
+        int? EnteredUnitId, decimal? AcceptedInUnit, decimal? CourtesyInUnit, decimal? RejectedInUnit);
+
+    // Resolves the 3 raw as-entered quantities (all sharing one unit — a receiver counts
+    // Accepted/Courtesy/Rejected from the same opened container in the same unit) to
+    // PurchaseUnitId-normalized terms. unitToken null (or equal to the Purchase Unit itself) is
+    // the default/backward-compatible path — no conversion, no raw mirror stored. Same
+    // "resolve once per line, throw ArticleUnitNotValidForArticle on an out-of-chain unit" shape
+    // as RequisitionService.ResolveArticleQuantityAsync, generalized to 3 quantities so the
+    // packaging chain is only fetched once per line instead of 3 times.
+    private static async Task<ResolvedGoodsReceiptQuantities> ResolveGoodsReceiptQuantitiesAsync(
+        IDbConnection connection, IMapper mapper, int articleId, int purchaseUnitId, string articleName,
+        Guid? unitToken, decimal accepted, decimal courtesy, decimal rejected)
+    {
+        if (unitToken is null)
+            return new ResolvedGoodsReceiptQuantities(accepted, courtesy, rejected, null, null, null, null);
+
+        var unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+            "sp_UnitOfMeasure_GetByToken", new { UnitOfMeasureToken = unitToken.Value }, commandType: CommandType.StoredProcedure);
+        if (unit is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"Unit of measure not found for '{articleName}'.", 404);
+
+        if (unit.UnitOfMeasureId == purchaseUnitId)
+            return new ResolvedGoodsReceiptQuantities(accepted, courtesy, rejected, null, null, null, null);
+
+        var levels = mapper.MapList<ArticlePackagingLevelDto>(
+            await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = articleId }, commandType: CommandType.StoredProcedure));
+
+        decimal Normalize(decimal quantity)
+        {
+            var normalized = ArticleUnitConversion.ToPurchaseUnitQuantity(purchaseUnitId, levels, unit.UnitOfMeasureId, quantity);
+            if (normalized is null)
+                throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"'{unit.Code}' is not a valid unit for '{articleName}'.", 400);
+            return normalized.Value;
+        }
+
+        return new ResolvedGoodsReceiptQuantities(
+            Normalize(accepted), Normalize(courtesy), Normalize(rejected),
+            unit.UnitOfMeasureId, accepted, courtesy, rejected);
+    }
+
+    // Batched "how much is that in the article's own Unidad Definida" secondary reference for a
+    // receipt's own lines — same anti-N+1 shape as RequisitionService.GetByTokenAsync/
+    // InventoryService's own read paths. Computed per quantity (Accepted/Courtesy/Rejected can
+    // differ even though they share one EnteredUnitId) — see GoodsReceiptLineDto for the field
+    // shape. entities/dtos must be the same list, same order (mapper.MapList preserves order).
+    private static async Task PopulateGoodsReceiptDefinedUnitHintsAsync(
+        IDbConnection connection, IMapper mapper, List<GoodsReceiptLine> entities, List<GoodsReceiptLineDto> dtos)
+    {
+        if (entities.Count == 0)
+            return;
+
+        var articleIds = entities.Select(e => e.ArticleId).Distinct().ToList();
+        var levelRows = await connection.QueryAsync<ArticlePackagingLevel>(
+            "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+        var levelsByArticleId = levelRows.GroupBy(l => l.ArticleId)
+            .ToDictionary(g => g.Key, g => mapper.MapList<ArticlePackagingLevelDto>(g.ToList()));
+
+        for (var i = 0; i < entities.Count; i++)
+        {
+            var entity = entities[i];
+            var dto = dtos[i];
+            var levels = levelsByArticleId.GetValueOrDefault(entity.ArticleId, []);
+            var effectiveUnitId = entity.EnteredUnitId ?? entity.PurchaseUnitId;
+
+            var acceptedEquivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, entity.AcceptedQuantityInUnit ?? entity.QuantityAccepted);
+            var courtesyEquivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, entity.CourtesyQuantityInUnit ?? entity.QuantityCourtesy);
+            var rejectedEquivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, entity.RejectedQuantityInUnit ?? entity.QuantityRejected);
+
+            var any = acceptedEquivalent ?? courtesyEquivalent ?? rejectedEquivalent;
+            if (any is not null)
+            {
+                dto.DefinedUnitCode = any.Value.Code;
+                dto.DefinedUnitNameTranslations = any.Value.NameTranslations;
+            }
+            dto.AcceptedDefinedUnitQuantity = acceptedEquivalent?.Quantity;
+            dto.CourtesyDefinedUnitQuantity = courtesyEquivalent?.Quantity;
+            dto.RejectedDefinedUnitQuantity = rejectedEquivalent?.Quantity;
+        }
     }
 
     private sealed class GoodsReceiptLineIdMapping
@@ -917,6 +1015,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         table.Columns.Add("TaxableAmount", typeof(decimal));
         table.Columns.Add("TaxAmount", typeof(decimal));
         table.Columns.Add("TotalAmount", typeof(decimal));
+        table.Columns.Add("EnteredUnitId", typeof(int));
+        table.Columns.Add("AcceptedQuantityInUnit", typeof(decimal));
+        table.Columns.Add("CourtesyQuantityInUnit", typeof(decimal));
+        table.Columns.Add("RejectedQuantityInUnit", typeof(decimal));
 
         foreach (var validated in validatedLines)
         {
@@ -926,9 +1028,9 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 goodsReceiptId,
                 validated.Line.PurchaseOrderLineId,
                 validated.Line.ArticleId,
-                validated.Input.QuantityAccepted,
-                validated.Input.QuantityCourtesy,
-                validated.Input.QuantityRejected,
+                validated.QuantityAccepted,
+                validated.QuantityCourtesy,
+                validated.QuantityRejected,
                 (object?)validated.Input.RejectionReason ?? DBNull.Value,
                 (object?)validated.Input.LotNumber ?? DBNull.Value,
                 (object?)validated.Input.ExpirationDate ?? DBNull.Value,
@@ -939,7 +1041,11 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 (object?)tax?.TaxRatePercent ?? DBNull.Value,
                 (object?)tax?.TaxableAmount ?? DBNull.Value,
                 (object?)tax?.TaxAmount ?? DBNull.Value,
-                (object?)tax?.TotalAmount ?? DBNull.Value);
+                (object?)tax?.TotalAmount ?? DBNull.Value,
+                (object?)validated.EnteredUnitId ?? DBNull.Value,
+                (object?)validated.AcceptedQuantityInUnit ?? DBNull.Value,
+                (object?)validated.CourtesyQuantityInUnit ?? DBNull.Value,
+                (object?)validated.RejectedQuantityInUnit ?? DBNull.Value);
         }
 
         return table;
@@ -1056,29 +1162,49 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             if (line.IsCancelled)
                 throw new ApiException(ErrorCodes.GoodsReceiptLineAlreadyCancelled, $"The line for article '{line.ArticleName}' was cancelled by a rectification and cannot receive goods.", 409);
 
-            if (input.QuantityAccepted < 0 || input.QuantityCourtesy < 0 || input.QuantityRejected < 0)
+            // Resolved to PurchaseUnitId terms up front — every check/computation below (over-
+            // receipt cap, tax, stock deltas, PO-status recompute) must use these, not the raw
+            // Input.QuantityXxx values, so a receipt entered in an alternate unit behaves
+            // identically to one entered directly in the Purchase Unit. See
+            // migrations/20260806_GoodsReceiptLine_UnitConversion.sql.
+            var resolved = await ResolveGoodsReceiptQuantitiesAsync(
+                connection, mapper, line.ArticleId, line.PurchaseUnitId, line.ArticleName ?? line.ArticleToken.ToString(),
+                input.UnitToken, input.QuantityAccepted, input.QuantityCourtesy, input.QuantityRejected);
+
+            if (resolved.Accepted < 0 || resolved.Courtesy < 0 || resolved.Rejected < 0)
                 throw new ApiException(ErrorCodes.GoodsReceiptLineEmpty, $"Quantities for article '{line.ArticleName}' cannot be negative.", 400);
 
-            if (input.QuantityAccepted + input.QuantityCourtesy + input.QuantityRejected <= 0)
+            if (resolved.Accepted + resolved.Courtesy + resolved.Rejected <= 0)
                 throw new ApiException(ErrorCodes.GoodsReceiptLineEmpty, $"At least one quantity must be greater than zero for article '{line.ArticleName}'.", 400);
 
             var remaining = line.Quantity - alreadyAccepted.GetValueOrDefault(line.PurchaseOrderLineId);
-            if (input.QuantityAccepted > remaining)
-                throw new ApiException(ErrorCodes.GoodsReceiptOverReceiptNotAllowed, $"Cannot accept {input.QuantityAccepted} for article '{line.ArticleName}' — only {remaining} remains to receive. Any supplier surplus must be recorded as Courtesy or Rejected.", 400);
+            if (resolved.Accepted > remaining)
+                throw new ApiException(ErrorCodes.GoodsReceiptOverReceiptNotAllowed, $"Cannot accept {resolved.Accepted} for article '{line.ArticleName}' — only {remaining} remains to receive. Any supplier surplus must be recorded as Courtesy or Rejected.", 400);
 
-            if (input.QuantityAccepted > 0 && warehouse.TrackLotNumbers && string.IsNullOrWhiteSpace(input.LotNumber))
+            if (resolved.Accepted > 0 && warehouse.TrackLotNumbers && string.IsNullOrWhiteSpace(input.LotNumber))
                 throw new ApiException(ErrorCodes.GoodsReceiptLotNumberRequired, $"A lot number is required for article '{line.ArticleName}' at this warehouse.", 400);
 
-            if (input.QuantityAccepted > 0 && warehouse.TrackExpirationDates && !input.ExpirationDate.HasValue)
+            if (resolved.Accepted > 0 && warehouse.TrackExpirationDates && !input.ExpirationDate.HasValue)
                 throw new ApiException(ErrorCodes.GoodsReceiptExpirationDateRequired, $"An expiration date is required for article '{line.ArticleName}' at this warehouse.", 400);
 
-            if (input.QuantityAccepted > 0 && warehouse.TrackSerialNumbers && string.IsNullOrWhiteSpace(input.SerialNumber))
+            if (resolved.Accepted > 0 && warehouse.TrackSerialNumbers && string.IsNullOrWhiteSpace(input.SerialNumber))
                 throw new ApiException(ErrorCodes.GoodsReceiptSerialNumberRequired, $"A serial number is required for article '{line.ArticleName}' at this warehouse.", 400);
 
-            if (input.QuantityRejected > 0 && string.IsNullOrWhiteSpace(input.RejectionReason))
+            if (resolved.Rejected > 0 && string.IsNullOrWhiteSpace(input.RejectionReason))
                 throw new ApiException(ErrorCodes.GoodsReceiptRejectionReasonRequired, $"A rejection reason is required for article '{line.ArticleName}'.", 400);
 
-            validatedLines.Add(new ValidatedGoodsReceiptLine { Line = line, Input = input });
+            validatedLines.Add(new ValidatedGoodsReceiptLine
+            {
+                Line = line,
+                Input = input,
+                QuantityAccepted = resolved.Accepted,
+                QuantityCourtesy = resolved.Courtesy,
+                QuantityRejected = resolved.Rejected,
+                EnteredUnitId = resolved.EnteredUnitId,
+                AcceptedQuantityInUnit = resolved.AcceptedInUnit,
+                CourtesyQuantityInUnit = resolved.CourtesyInUnit,
+                RejectedQuantityInUnit = resolved.RejectedInUnit
+            });
         }
 
         // Tax is computed only against the billable quantity (QuantityAccepted) — Courtesy is a
@@ -1087,7 +1213,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         // entirely, matching the same "nothing formally accepted yet" reasoning the PO-status
         // recompute below already uses. See .claude/GoodsReceiptsModule.md's tax section.
         var taxByLineId = new Dictionary<int, GoodsReceiptLineTax>();
-        var billableLines = validatedLines.Where(v => v.Input.QuantityAccepted > 0).ToList();
+        var billableLines = validatedLines.Where(v => v.QuantityAccepted > 0).ToList();
         if (billableLines.Count > 0)
         {
             if (!warehouse.TaxJurisdictionId.HasValue)
@@ -1112,7 +1238,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 if (!rates.TryGetValue(effective.TaxCategoryId.Value, out var rate))
                     throw new ApiException(ErrorCodes.GoodsReceiptTaxRateMissing, $"No tax rate is configured for category '{effective.TaxCategoryCode}' in this warehouse's tax jurisdiction.", 400);
 
-                var taxableAmount = validated.Input.QuantityAccepted * validated.Line.UnitPrice;
+                var taxableAmount = validated.QuantityAccepted * validated.Line.UnitPrice;
                 var taxAmount = Math.Round(taxableAmount * rate.RatePercent / 100m, 8);
 
                 taxByLineId[validated.Line.PurchaseOrderLineId] = new GoodsReceiptLineTax
@@ -1127,7 +1253,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             }
         }
 
-        var acceptedByLineId = validatedLines.ToDictionary(v => v.Line.PurchaseOrderLineId, v => v.Input.QuantityAccepted);
+        var acceptedByLineId = validatedLines.ToDictionary(v => v.Line.PurchaseOrderLineId, v => v.QuantityAccepted);
         var everyLineFullyAccepted = effectiveLines
             .Where(l => !l.IsCancelled)
             .All(l => alreadyAccepted.GetValueOrDefault(l.PurchaseOrderLineId) + acceptedByLineId.GetValueOrDefault(l.PurchaseOrderLineId) >= l.Quantity);
@@ -1193,7 +1319,7 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             if (warehouse.IsInventoriable)
             {
                 var stockedLines = validatedLines
-                    .Select(v => (Validated: v, StockDelta: v.Input.QuantityAccepted + v.Input.QuantityCourtesy))
+                    .Select(v => (Validated: v, StockDelta: v.QuantityAccepted + v.QuantityCourtesy))
                     .Where(x => x.StockDelta > 0)
                     .ToList();
 
@@ -1237,9 +1363,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
                 context, cancellationToken);
 
             var dto = mapper.Map<GoodsReceiptDto>(header);
-            dto.Lines = mapper.MapList<GoodsReceiptLineDto>(
-                await connection.QueryAsync<GoodsReceiptLine>(
-                    "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { header.GoodsReceiptId }, commandType: CommandType.StoredProcedure));
+            var createdLineEntities = (await connection.QueryAsync<GoodsReceiptLine>(
+                "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { header.GoodsReceiptId }, commandType: CommandType.StoredProcedure)).ToList();
+            dto.Lines = mapper.MapList<GoodsReceiptLineDto>(createdLineEntities);
+            await PopulateGoodsReceiptDefinedUnitHintsAsync(connection, mapper, createdLineEntities, dto.Lines);
             dto.LineCount = dto.Lines.Count;
 
             return dto;
@@ -1373,9 +1500,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
         foreach (var item in items)
         {
             var goodsReceipt = rows.First(r => r.GoodsReceiptToken == item.GoodsReceiptToken);
-            item.Lines = mapper.MapList<GoodsReceiptLineDto>(
-                await connection.QueryAsync<GoodsReceiptLine>(
-                    "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { goodsReceipt.GoodsReceiptId }, commandType: CommandType.StoredProcedure));
+            var lineEntities = (await connection.QueryAsync<GoodsReceiptLine>(
+                "sp_GoodsReceiptLine_GetByGoodsReceiptId", new { goodsReceipt.GoodsReceiptId }, commandType: CommandType.StoredProcedure)).ToList();
+            item.Lines = mapper.MapList<GoodsReceiptLineDto>(lineEntities);
+            await PopulateGoodsReceiptDefinedUnitHintsAsync(connection, mapper, lineEntities, item.Lines);
         }
 
         return new PagedResult<GoodsReceiptDto>

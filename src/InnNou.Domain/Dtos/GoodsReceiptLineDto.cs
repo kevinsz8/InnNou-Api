@@ -25,6 +25,28 @@ namespace InnNou.Domain.Dtos
         public decimal? TaxAmount { get; set; }
         public decimal? TotalAmount { get; set; }
 
+        public string? PurchaseUnitCode { get; set; }
+
+        // Shared across the 3 quantities below — see GoodsReceiptLine (Infrastructure entity) for
+        // the "one unit per line" reasoning.
+        public string? EnteredUnitCode { get; set; }
+        public Dictionary<string, string>? EnteredUnitNameTranslations { get; set; }
+        public decimal? AcceptedQuantityInUnit { get; set; }
+        public decimal? CourtesyQuantityInUnit { get; set; }
+        public decimal? RejectedQuantityInUnit { get; set; }
+
+        // Secondary "how much is that in the article's own Unidad Definida" reference — computed
+        // per-quantity (batched, see PurchaseOrderService.CreateGoodsReceiptAsync/GetGoodsReceiptsAsync)
+        // since Accepted/Courtesy/Rejected can differ even though they share one EnteredUnitId.
+        // Code/NameTranslations are shared (same article, same Unidad Definida); each null when
+        // there's nothing useful to add for that particular quantity (see ArticleUnitConversion.
+        // GetDefinedUnitEquivalent).
+        public string? DefinedUnitCode { get; set; }
+        public Dictionary<string, string>? DefinedUnitNameTranslations { get; set; }
+        public decimal? AcceptedDefinedUnitQuantity { get; set; }
+        public decimal? CourtesyDefinedUnitQuantity { get; set; }
+        public decimal? RejectedDefinedUnitQuantity { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
     }

@@ -357,18 +357,74 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             return null;
 
         var dto = mapper.Map<RequisitionDto>(requisition);
-        dto.Lines = mapper.MapList<RequisitionLineDto>(await GetLinesAsync(connection, requisition.RequisitionId));
-        dto.LineCount = dto.Lines.Count;
+        var lineEntities = await GetLinesAsync(connection, requisition.RequisitionId);
+        var lineDtos = mapper.MapList<RequisitionLineDto>(lineEntities);
+        dto.Lines = lineDtos;
+        dto.LineCount = lineDtos.Count;
 
         var issues = (await connection.QueryAsync<RequisitionIssue>(
             "sp_RequisitionIssue_GetByRequisitionId", new { requisition.RequisitionId }, commandType: CommandType.StoredProcedure)).ToList();
 
+        var issueLineEntitiesByIssue = new List<(RequisitionIssue Issue, List<RequisitionIssueLine> Lines)>();
         foreach (var issue in issues)
         {
+            var issueLineEntities = (await connection.QueryAsync<RequisitionIssueLine>(
+                "sp_RequisitionIssueLine_GetByRequisitionIssueId", new { issue.RequisitionIssueId }, commandType: CommandType.StoredProcedure)).ToList();
+            issueLineEntitiesByIssue.Add((issue, issueLineEntities));
+        }
+
+        // Batched across both line types in one round trip — same anti-N+1 shape as
+        // ExportArticlesAsync/GetPackagingConversionReportAsync — so the "how much is that in
+        // the article's own Unidad Definida" secondary reference (ArticleUnitConversion.
+        // GetDefinedUnitEquivalent) costs nothing extra per line.
+        var allArticleIds = lineEntities.Select(l => l.ArticleId)
+            .Concat(issueLineEntitiesByIssue.SelectMany(x => x.Lines.Select(l => l.ArticleId)))
+            .Distinct().ToList();
+        var levelsByArticleId = new Dictionary<int, List<ArticlePackagingLevelDto>>();
+        if (allArticleIds.Count > 0)
+        {
+            var levelRows = await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', allArticleIds) }, commandType: CommandType.StoredProcedure);
+            levelsByArticleId = levelRows.GroupBy(l => l.ArticleId)
+                .ToDictionary(g => g.Key, g => mapper.MapList<ArticlePackagingLevelDto>(g.ToList()));
+        }
+
+        for (var i = 0; i < lineEntities.Count; i++)
+        {
+            var entity = lineEntities[i];
+            var levels = levelsByArticleId.GetValueOrDefault(entity.ArticleId, []);
+            var effectiveUnitId = entity.RequestedUnitId ?? entity.PurchaseUnitId;
+            var effectiveQuantity = entity.RequestedQuantity ?? entity.QuantityRequested;
+            var equivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, effectiveQuantity);
+            if (equivalent is not null)
+            {
+                lineDtos[i].DefinedUnitCode = equivalent.Value.Code;
+                lineDtos[i].DefinedUnitNameTranslations = equivalent.Value.NameTranslations;
+                lineDtos[i].DefinedUnitQuantity = equivalent.Value.Quantity;
+            }
+        }
+
+        foreach (var (issue, issueLineEntities) in issueLineEntitiesByIssue)
+        {
             var issueDto = mapper.Map<RequisitionIssueDto>(issue);
-            issueDto.Lines = mapper.MapList<RequisitionIssueLineDto>(
-                await connection.QueryAsync<RequisitionIssueLine>(
-                    "sp_RequisitionIssueLine_GetByRequisitionIssueId", new { issue.RequisitionIssueId }, commandType: CommandType.StoredProcedure));
+            var issueLineDtos = mapper.MapList<RequisitionIssueLineDto>(issueLineEntities);
+
+            for (var i = 0; i < issueLineEntities.Count; i++)
+            {
+                var entity = issueLineEntities[i];
+                var levels = levelsByArticleId.GetValueOrDefault(entity.ArticleId, []);
+                var effectiveUnitId = entity.IssuedUnitId ?? entity.PurchaseUnitId;
+                var effectiveQuantity = entity.IssuedQuantity ?? entity.QuantityIssued;
+                var equivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, effectiveQuantity);
+                if (equivalent is not null)
+                {
+                    issueLineDtos[i].DefinedUnitCode = equivalent.Value.Code;
+                    issueLineDtos[i].DefinedUnitNameTranslations = equivalent.Value.NameTranslations;
+                    issueLineDtos[i].DefinedUnitQuantity = equivalent.Value.Quantity;
+                }
+            }
+
+            issueDto.Lines = issueLineDtos;
             dto.Issues.Add(issueDto);
         }
 

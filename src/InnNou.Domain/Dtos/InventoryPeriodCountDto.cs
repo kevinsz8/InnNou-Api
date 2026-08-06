@@ -18,6 +18,10 @@ namespace InnNou.Domain.Dtos
         public string? CountedUnitCode { get; set; }
         public decimal? CountedQuantityInUnit { get; set; }
 
+        public string? DefinedUnitCode { get; set; }
+        public Dictionary<string, string>? DefinedUnitNameTranslations { get; set; }
+        public decimal? DefinedUnitQuantity { get; set; }
+
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }

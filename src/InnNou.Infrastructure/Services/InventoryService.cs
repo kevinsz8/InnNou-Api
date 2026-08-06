@@ -500,10 +500,40 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
         var rows = (await connection.QueryAsync<InventoryMovementPageRow>(
             "sp_InventoryMovement_GetPaged", p, commandType: CommandType.StoredProcedure)).ToList();
+        var dtos = mapper.MapList<InventoryMovementDto>(rows);
+
+        // Same batched anti-N+1 "Unidad Definida" secondary reference as
+        // RequisitionService.GetByTokenAsync/InventoryService.GetTransferByTokenAsync — see
+        // ArticleUnitConversion.GetDefinedUnitEquivalent. A single-article history view (the
+        // MovementHistoryModal case) only ever needs one article's levels; the unfiltered,
+        // whole-warehouse case still stays to one round trip via the distinct-ArticleIds batch.
+        var articleIds = rows.Select(r => r.ArticleId).Distinct().ToList();
+        if (articleIds.Count > 0)
+        {
+            var levelRows = await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+            var levelsByArticleId = levelRows.GroupBy(l => l.ArticleId)
+                .ToDictionary(g => g.Key, g => mapper.MapList<ArticlePackagingLevelDto>(g.ToList()));
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var entity = rows[i];
+                var levels = levelsByArticleId.GetValueOrDefault(entity.ArticleId, []);
+                var effectiveUnitId = entity.EnteredUnitId ?? entity.PurchaseUnitId;
+                var effectiveQuantity = entity.EnteredQuantity ?? entity.Quantity;
+                var equivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, effectiveQuantity);
+                if (equivalent is not null)
+                {
+                    dtos[i].DefinedUnitCode = equivalent.Value.Code;
+                    dtos[i].DefinedUnitNameTranslations = equivalent.Value.NameTranslations;
+                    dtos[i].DefinedUnitQuantity = equivalent.Value.Quantity;
+                }
+            }
+        }
 
         return new PagedResult<InventoryMovementDto>
         {
-            Items = mapper.MapList<InventoryMovementDto>(rows),
+            Items = dtos,
             TotalCount = rows.FirstOrDefault()?.TotalCount ?? 0,
             PageNumber = safePageNumber,
             PageSize = safePageSize
@@ -610,10 +640,38 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             return null;
 
         var dto = mapper.Map<InventoryTransferDto>(header);
-        dto.Lines = mapper.MapList<InventoryTransferLineDto>(
-            await connection.QueryAsync<InventoryTransferLine>(
-                "sp_InventoryTransferLine_GetByTransferId", new { header.InventoryTransferId }, commandType: CommandType.StoredProcedure));
-        dto.LineCount = dto.Lines.Count;
+        var lineEntities = (await connection.QueryAsync<InventoryTransferLine>(
+            "sp_InventoryTransferLine_GetByTransferId", new { header.InventoryTransferId }, commandType: CommandType.StoredProcedure)).ToList();
+        var lineDtos = mapper.MapList<InventoryTransferLineDto>(lineEntities);
+
+        // Same batched anti-N+1 "Unidad Definida" secondary reference as
+        // RequisitionService.GetByTokenAsync — see ArticleUnitConversion.GetDefinedUnitEquivalent.
+        var articleIds = lineEntities.Select(l => l.ArticleId).Distinct().ToList();
+        if (articleIds.Count > 0)
+        {
+            var levelRows = await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleIds", new { ArticleIds = string.Join(',', articleIds) }, commandType: CommandType.StoredProcedure);
+            var levelsByArticleId = levelRows.GroupBy(l => l.ArticleId)
+                .ToDictionary(g => g.Key, g => mapper.MapList<ArticlePackagingLevelDto>(g.ToList()));
+
+            for (var i = 0; i < lineEntities.Count; i++)
+            {
+                var entity = lineEntities[i];
+                var levels = levelsByArticleId.GetValueOrDefault(entity.ArticleId, []);
+                var effectiveUnitId = entity.TransferredUnitId ?? entity.PurchaseUnitId;
+                var effectiveQuantity = entity.TransferredQuantity ?? entity.Quantity;
+                var equivalent = ArticleUnitConversion.GetDefinedUnitEquivalent(entity.PurchaseUnitId, levels, effectiveUnitId, effectiveQuantity);
+                if (equivalent is not null)
+                {
+                    lineDtos[i].DefinedUnitCode = equivalent.Value.Code;
+                    lineDtos[i].DefinedUnitNameTranslations = equivalent.Value.NameTranslations;
+                    lineDtos[i].DefinedUnitQuantity = equivalent.Value.Quantity;
+                }
+            }
+        }
+
+        dto.Lines = lineDtos;
+        dto.LineCount = lineDtos.Count;
 
         return dto;
     }

@@ -9,6 +9,9 @@ namespace InnNou.Domain.Dtos
         public decimal Quantity { get; set; }
         public string? TransferredUnitCode { get; set; }
         public decimal? TransferredQuantity { get; set; }
+        public string? DefinedUnitCode { get; set; }
+        public Dictionary<string, string>? DefinedUnitNameTranslations { get; set; }
+        public decimal? DefinedUnitQuantity { get; set; }
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }

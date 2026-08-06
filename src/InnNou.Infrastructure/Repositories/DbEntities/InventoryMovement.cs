@@ -12,6 +12,8 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public int ArticleId { get; set; }
         public Guid ArticleToken { get; set; }
         public string? ArticleName { get; set; }
+        public int PurchaseUnitId { get; set; }
+        public string? PurchaseUnitCode { get; set; }
         public InventoryMovementType Type { get; set; }
 
         // Signed: + increase, - decrease.
