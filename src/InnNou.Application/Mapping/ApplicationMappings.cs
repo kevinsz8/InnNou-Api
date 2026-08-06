@@ -796,7 +796,10 @@ namespace InnNou.Application.Mapping
                 ClassificationOrganizationName = d.ClassificationOrganizationName,
                 TaxCategoryToken = d.TaxCategoryToken,
                 TaxCategoryCode = d.TaxCategoryCode,
-                EffectiveTaxCategoryCode = d.EffectiveTaxCategoryCode
+                EffectiveTaxCategoryCode = d.EffectiveTaxCategoryCode,
+                DefaultReceivingUnitToken = d.DefaultReceivingUnitToken,
+                DefaultReceivingUnitCode = d.DefaultReceivingUnitCode,
+                DefaultReceivingUnitNameTranslations = d.DefaultReceivingUnitNameTranslations
             });
             mapper.Register<ArticlePackagingLevelDto, CommonArticlePackagingLevel>(d => new CommonArticlePackagingLevel
             {

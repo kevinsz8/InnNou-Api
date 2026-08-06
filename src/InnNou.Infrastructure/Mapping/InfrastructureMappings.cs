@@ -560,7 +560,10 @@ namespace InnNou.Infrastructure.Mapping
                 TaxCategoryId = e.TaxCategoryId,
                 TaxCategoryToken = e.TaxCategoryToken,
                 TaxCategoryCode = e.TaxCategoryCode,
-                EffectiveTaxCategoryCode = e.EffectiveTaxCategoryCode
+                EffectiveTaxCategoryCode = e.EffectiveTaxCategoryCode,
+                DefaultReceivingUnitToken = e.DefaultReceivingUnitToken,
+                DefaultReceivingUnitCode = e.DefaultReceivingUnitCode,
+                DefaultReceivingUnitNameTranslations = ParseNameTranslations(e.DefaultReceivingUnitNameTranslations)
             });
 
             mapper.Register<ArticlePackagingLevelEntity, ArticlePackagingLevelDto>(e => new ArticlePackagingLevelDto

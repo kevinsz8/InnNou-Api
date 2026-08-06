@@ -226,6 +226,7 @@ public class ArticleService(
 
         await using var connection = connectionFactory.CreateConnection();
         var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, dto.TaxCategoryToken);
+        var defaultReceivingUnitId = await ResolveDefaultReceivingUnitIdAsync(connection, dto.DefaultReceivingUnitToken, dto.PurchaseUnitId, dto.PackagingLevels);
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
@@ -244,6 +245,7 @@ public class ArticleService(
             p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
             p.Add("@LeadTimeDays", dto.LeadTimeDays);
             p.Add("@TaxCategoryId", taxCategoryId);
+            p.Add("@DefaultReceivingUnitId", defaultReceivingUnitId);
             p.Add("@CreatedBy", context.ActorUserToken.ToString());
             var row = await connection.QueryFirstOrDefaultAsync<Article>(
                 "sp_Article_Create", p, transaction, commandType: CommandType.StoredProcedure);
@@ -323,6 +325,7 @@ public class ArticleService(
                 409);
 
         var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, dto.TaxCategoryToken);
+        var defaultReceivingUnitId = await ResolveDefaultReceivingUnitIdAsync(connection, dto.DefaultReceivingUnitToken, dto.PurchaseUnitId, existingLevels);
 
         var p = new DynamicParameters();
         p.Add("@ArticleToken", dto.ArticleToken);
@@ -337,6 +340,7 @@ public class ArticleService(
         p.Add("@MinimumOrderQty", dto.MinimumOrderQty);
         p.Add("@LeadTimeDays", dto.LeadTimeDays);
         p.Add("@TaxCategoryId", taxCategoryId);
+        p.Add("@DefaultReceivingUnitId", defaultReceivingUnitId);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
         var row = await connection.QueryFirstOrDefaultAsync<Article>(
             "sp_Article_Update", p, commandType: CommandType.StoredProcedure);
@@ -362,6 +366,31 @@ public class ArticleService(
             throw new ApiException(ErrorCodes.TaxCategoryNotFound, "Tax category not found.", 404);
 
         return category.TaxCategoryId;
+    }
+
+    // Null token means "no override" — Goods Receipts default to the Purchase Unit, same as
+    // today. A non-null token must resolve to one of THIS article's own valid units (the
+    // Purchase Unit itself or a level in its packaging chain) — same universe
+    // ArticleUnitConversion.GetRequestableUnitIds already defines for every other write path
+    // that accepts a unit token (Requisitions/Inventory/Goods Receipts). Researched against
+    // SAP/Oracle/Odoo before building (see migrations/20260806_Articles_
+    // AddDefaultReceivingUnit.sql): this is a pre-fill default only, never a lock — the receiver
+    // can still pick any other valid unit for a specific receipt.
+    private async Task<int?> ResolveDefaultReceivingUnitIdAsync(IDbConnection connection, Guid? unitToken, int purchaseUnitId, List<ArticlePackagingLevelDto> packagingLevels)
+    {
+        if (!unitToken.HasValue)
+            return null;
+
+        var unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+            "sp_UnitOfMeasure_GetByToken", new { UnitOfMeasureToken = unitToken.Value }, commandType: CommandType.StoredProcedure);
+        if (unit is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, "Unit of measure not found.", 404);
+
+        var validUnitIds = ArticleUnitConversion.GetRequestableUnitIds(purchaseUnitId, packagingLevels);
+        if (!validUnitIds.Contains(unit.UnitOfMeasureId))
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"'{unit.Code}' is not a valid unit for this article.", 400);
+
+        return unit.UnitOfMeasureId;
     }
 
     public async Task<ArticleDto?> SupersedeAsync(Guid oldArticleToken, ArticleDto newArticleData, IRequestContext context, CancellationToken cancellationToken = default)

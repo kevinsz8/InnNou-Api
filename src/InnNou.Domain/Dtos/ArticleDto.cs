@@ -71,5 +71,15 @@ namespace InnNou.Domain.Dtos
         public Guid? TaxCategoryToken { get; set; }
         public string? TaxCategoryCode { get; set; }
         public string? EffectiveTaxCategoryCode { get; set; }
+
+        // Optional pre-fill default for ReceiveGoodsPage's own unit picker — write-in bridge
+        // (resolved to DefaultReceivingUnitId inside ArticleService.CreateAsync/EditAsync,
+        // validated against ArticleUnitConversion.GetRequestableUnitIds) AND denormalized
+        // read-only display value, same dual-purpose shape as TaxCategoryToken above. Never a
+        // lock — the receiver can still pick any other valid unit for a specific receipt. Null
+        // means "default to PurchaseUnitId".
+        public Guid? DefaultReceivingUnitToken { get; set; }
+        public string? DefaultReceivingUnitCode { get; set; }
+        public Dictionary<string, string>? DefaultReceivingUnitNameTranslations { get; set; }
     }
 }

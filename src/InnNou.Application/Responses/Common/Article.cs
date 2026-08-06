@@ -40,5 +40,8 @@ namespace InnNou.Application.Responses.Common
         public Guid? TaxCategoryToken { get; set; }
         public string? TaxCategoryCode { get; set; }
         public string? EffectiveTaxCategoryCode { get; set; }
+        public Guid? DefaultReceivingUnitToken { get; set; }
+        public string? DefaultReceivingUnitCode { get; set; }
+        public Dictionary<string, string>? DefaultReceivingUnitNameTranslations { get; set; }
     }
 }

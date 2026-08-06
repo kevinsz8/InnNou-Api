@@ -19,5 +19,6 @@ namespace InnNou.Application.Requests
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
         public Guid? TaxCategoryToken { get; set; }
+        public Guid? DefaultReceivingUnitToken { get; set; }
     }
 }

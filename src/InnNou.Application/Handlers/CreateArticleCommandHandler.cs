@@ -66,7 +66,8 @@ namespace InnNou.Application.Handlers
                 PackagingLevels = levelsResult.Levels,
                 MinimumOrderQty = request.MinimumOrderQty,
                 LeadTimeDays = request.LeadTimeDays,
-                TaxCategoryToken = request.TaxCategoryToken
+                TaxCategoryToken = request.TaxCategoryToken,
+                DefaultReceivingUnitToken = request.DefaultReceivingUnitToken
             };
 
             var result = await articleService.CreateAsync(dto, context, cancellationToken);

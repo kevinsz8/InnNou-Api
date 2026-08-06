@@ -12,6 +12,7 @@ CREATE OR ALTER PROCEDURE sp_Article_Create
     @MinimumOrderQty  DECIMAL(18,8)  = NULL,
     @LeadTimeDays     INT            = NULL,
     @TaxCategoryId    INT            = NULL,
+    @DefaultReceivingUnitId INT      = NULL,
     @CreatedBy        VARCHAR(150)
 AS
 BEGIN
@@ -22,14 +23,14 @@ BEGIN
          SupplierSku, Barcode, Brand,
          FamilyId, SubFamilyId,
          PurchaseUnitId,
-         MinimumOrderQty, LeadTimeDays, TaxCategoryId,
+         MinimumOrderQty, LeadTimeDays, TaxCategoryId, DefaultReceivingUnitId,
          CreatedBy)
     VALUES
         (@ArticleToken, @SupplierId, @Name, UPPER(@Name), @Description,
          @SupplierSku, @Barcode, @Brand,
          @FamilyId, @SubFamilyId,
          @PurchaseUnitId,
-         @MinimumOrderQty, @LeadTimeDays, @TaxCategoryId,
+         @MinimumOrderQty, @LeadTimeDays, @TaxCategoryId, @DefaultReceivingUnitId,
          @CreatedBy);
 
     SELECT
@@ -43,6 +44,8 @@ BEGIN
         a.TaxCategoryId, tc.TaxCategoryToken AS TaxCategoryToken, tc.Code AS TaxCategoryCode,
         COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId) AS EffectiveTaxCategoryId,
         etc.Code AS EffectiveTaxCategoryCode,
+        a.DefaultReceivingUnitId, dru.UnitOfMeasureToken AS DefaultReceivingUnitToken,
+        dru.Code AS DefaultReceivingUnitCode, dru.NameTranslations AS DefaultReceivingUnitNameTranslations,
         a.IsActive, a.IsDeleted,
         a.ReplacedByArticleId, r.ArticleToken AS ReplacedByArticleToken
     FROM   Articles        a
@@ -53,5 +56,6 @@ BEGIN
     LEFT JOIN Articles     r  ON r.ArticleId         = a.ReplacedByArticleId
     LEFT JOIN TaxCategories tc  ON tc.TaxCategoryId  = a.TaxCategoryId
     LEFT JOIN TaxCategories etc ON etc.TaxCategoryId = COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId)
+    LEFT JOIN UnitsOfMeasure dru ON dru.UnitOfMeasureId = a.DefaultReceivingUnitId
     WHERE  a.ArticleToken = @ArticleToken;
 END;

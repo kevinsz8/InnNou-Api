@@ -53,6 +53,15 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? TaxCategoryCode { get; set; }
         public int? EffectiveTaxCategoryId { get; set; }
         public string? EffectiveTaxCategoryCode { get; set; }
+
+        // Pure pre-fill convenience for Goods Receipts' own unit picker — never a lock, the
+        // receiver can always pick a different valid unit for a specific receipt. Null means
+        // "default to PurchaseUnitId" (today's behavior). See
+        // migrations/20260806_Articles_AddDefaultReceivingUnit.sql.
+        public int? DefaultReceivingUnitId { get; set; }
+        public Guid? DefaultReceivingUnitToken { get; set; }
+        public string? DefaultReceivingUnitCode { get; set; }
+        public string? DefaultReceivingUnitNameTranslations { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
         public DateTime? LastUpdatedUtc { get; set; }
