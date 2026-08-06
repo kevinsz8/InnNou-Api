@@ -16,6 +16,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? PurchaseUnitCode { get; set; }
 
         public decimal QuantityIssued { get; set; }
+
+        // NULL means "entered directly in PurchaseUnitId" — see ArticleUnitConversion. When set,
+        // these record what the user actually typed for accurate re-display; QuantityIssued
+        // above always stays the PurchaseUnitId-normalized value every other consumer expects.
+        public int? IssuedUnitId { get; set; }
+        public string? IssuedUnitCode { get; set; }
+        public decimal? IssuedQuantity { get; set; }
+
         public string? Notes { get; set; }
 
         public DateTime CreatedUtc { get; set; }

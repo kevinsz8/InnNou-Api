@@ -8,6 +8,10 @@ namespace InnNou.Domain.Dtos
     {
         public Guid RequisitionLineToken { get; set; }
         public decimal QuantityIssued { get; set; }
+        // Denominated in UnitToken when provided (see ArticleUnitConversion), or in the
+        // article's PurchaseUnitId directly when UnitToken is null — the over-issue guard above
+        // always compares against the PurchaseUnitId-normalized value, never the raw entry.
+        public Guid? UnitToken { get; set; }
         public string? Notes { get; set; }
     }
 }

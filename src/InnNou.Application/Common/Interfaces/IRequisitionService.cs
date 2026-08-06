@@ -12,8 +12,8 @@ namespace InnNou.Application.Common.Interfaces
     public interface IRequisitionService
     {
         Task<RequisitionDto?> CreateAsync(Guid warehouseToken, Guid departmentToken, string? notes, List<CreateRequisitionLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
-        Task<RequisitionLineDto?> AddLineAsync(Guid requisitionToken, Guid articleToken, decimal quantityRequested, string? notes, IRequestContext context, CancellationToken cancellationToken);
-        Task<RequisitionLineDto?> EditLineAsync(Guid requisitionLineToken, decimal quantityRequested, string? notes, IRequestContext context, CancellationToken cancellationToken);
+        Task<RequisitionLineDto?> AddLineAsync(Guid requisitionToken, Guid articleToken, decimal quantityRequested, Guid? unitToken, string? notes, IRequestContext context, CancellationToken cancellationToken);
+        Task<RequisitionLineDto?> EditLineAsync(Guid requisitionLineToken, decimal quantityRequested, Guid? unitToken, string? notes, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteLineAsync(Guid requisitionLineToken, IRequestContext context, CancellationToken cancellationToken);
 
         Task<RequisitionDto?> GetByTokenAsync(Guid requisitionToken, IRequestContext context, CancellationToken cancellationToken);

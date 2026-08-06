@@ -15,6 +15,13 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
 
         public decimal QuantityRequested { get; set; }
 
+        // NULL means "entered directly in PurchaseUnitId" — see ArticleUnitConversion. When set,
+        // these record what the user actually typed for accurate re-display; QuantityRequested
+        // above always stays the PurchaseUnitId-normalized value every other consumer expects.
+        public int? RequestedUnitId { get; set; }
+        public string? RequestedUnitCode { get; set; }
+        public decimal? RequestedQuantity { get; set; }
+
         // Only populated by sp_RequisitionLine_GetByRequisitionId — the cumulative sum across
         // every RequisitionIssueLine ever posted against this line. Zero for a freshly created
         // line, and for the plain sp_RequisitionLine_Create/Edit/GetByToken results (which don't

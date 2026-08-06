@@ -26,6 +26,7 @@ namespace InnNou.Application.Handlers
             {
                 RequisitionLineToken = l.RequisitionLineToken,
                 QuantityIssued = l.QuantityIssued,
+                UnitToken = l.UnitToken,
                 Notes = l.Notes
             }).ToList();
 

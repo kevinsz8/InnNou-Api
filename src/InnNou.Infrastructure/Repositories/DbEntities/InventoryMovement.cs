@@ -17,6 +17,14 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         // Signed: + increase, - decrease.
         public decimal Quantity { get; set; }
 
+        // NULL means "entered directly in the article's PurchaseUnitId" — see
+        // ArticleUnitConversion. When set (Adjustments/Transfers entered in a different unit, or
+        // copied forward from a Requisition issue's own entered unit), EnteredQuantity carries
+        // the same sign convention as Quantity above (signed, matching increase/decrease).
+        public int? EnteredUnitId { get; set; }
+        public string? EnteredUnitCode { get; set; }
+        public decimal? EnteredQuantity { get; set; }
+
         public Guid? GoodsReceiptToken { get; set; }
         public Guid? InventoryTransferToken { get; set; }
         public Guid? InventoryPeriodCountToken { get; set; }

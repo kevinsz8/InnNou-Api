@@ -74,6 +74,39 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         return lines.ToList();
     }
 
+    private readonly record struct ResolvedArticleQuantity(decimal Normalized, int? UnitId, decimal? RawQuantity);
+
+    // Resolves a quantity entered against enteredUnitId (or directly against the article's own
+    // PurchaseUnitId when unitToken is null) to a PurchaseUnitId-normalized value, per
+    // ArticleUnitConversion. Used by every Requisition write path that accepts a quantity
+    // (Create/AddLine/EditLine/CreateIssue) — see .claude/RequisitionsModule.md's "unit-aware
+    // quantities" section for the full design.
+    private static async Task<ResolvedArticleQuantity> ResolveArticleQuantityAsync(
+        IDbConnection connection, IDbTransaction? transaction, IMapper mapper,
+        int articleId, int purchaseUnitId, string articleName, Guid? unitToken, decimal enteredQuantity)
+    {
+        if (unitToken is null)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+            "sp_UnitOfMeasure_GetByToken", new { UnitOfMeasureToken = unitToken.Value }, transaction, commandType: CommandType.StoredProcedure);
+        if (unit is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"Unit of measure not found for '{articleName}'.", 404);
+
+        if (unit.UnitOfMeasureId == purchaseUnitId)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var levels = mapper.MapList<ArticlePackagingLevelDto>(
+            await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = articleId }, transaction, commandType: CommandType.StoredProcedure));
+
+        var normalized = ArticleUnitConversion.ToPurchaseUnitQuantity(purchaseUnitId, levels, unit.UnitOfMeasureId, enteredQuantity);
+        if (normalized is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"'{unit.Code}' is not a valid unit for '{articleName}'.", 400);
+
+        return new ResolvedArticleQuantity(normalized.Value, unit.UnitOfMeasureId, enteredQuantity);
+    }
+
     // Best-effort/non-blocking (same convention as every other notification call site). Recipient
     // is resolved directly from the Requisition's own CreatedBy — unlike PurchaseOrderService's
     // NotifyOrderBuyerAsync (which has to look up a separate Order), Requisition IS the entity the
@@ -125,7 +158,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.RequisitionEmpty, "At least one line must be requested.", 400);
 
-        var validatedLines = new List<(Article Article, decimal Quantity, string? Notes)>();
+        var validatedLines = new List<(Article Article, ResolvedArticleQuantity Quantity, string? Notes)>();
         var seenArticleIds = new HashSet<int>();
         foreach (var input in lines)
         {
@@ -140,7 +173,10 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             if (!seenArticleIds.Add(article.ArticleId))
                 throw new ApiException(ErrorCodes.RequisitionInvalidQuantity, $"Article '{article.Name}' was submitted more than once.", 400);
 
-            validatedLines.Add((article, input.QuantityRequested, input.Notes));
+            var resolvedQuantity = await ResolveArticleQuantityAsync(
+                connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, input.UnitToken, input.QuantityRequested);
+
+            validatedLines.Add((article, resolvedQuantity, input.Notes));
         }
 
         var actor = context.ActorUserToken.ToString();
@@ -171,7 +207,9 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
                 lineParams.Add("@RequisitionLineToken", Guid.NewGuid());
                 lineParams.Add("@RequisitionId", header.RequisitionId);
                 lineParams.Add("@ArticleId", article.ArticleId);
-                lineParams.Add("@QuantityRequested", quantity);
+                lineParams.Add("@QuantityRequested", quantity.Normalized);
+                lineParams.Add("@RequestedUnitId", quantity.UnitId);
+                lineParams.Add("@RequestedQuantity", quantity.RawQuantity);
                 lineParams.Add("@Notes", lineNotes);
                 lineParams.Add("@CreatedBy", actor);
 
@@ -196,7 +234,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         return await GetByTokenAsync(createdRequisitionToken, context, cancellationToken);
     }
 
-    public async Task<RequisitionLineDto?> AddLineAsync(Guid requisitionToken, Guid articleToken, decimal quantityRequested, string? notes, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<RequisitionLineDto?> AddLineAsync(Guid requisitionToken, Guid articleToken, decimal quantityRequested, Guid? unitToken, string? notes, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -219,11 +257,16 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         if (article is null)
             throw new ApiException(ErrorCodes.RequisitionArticleNotFound, "Article not found.", 404);
 
+        var resolvedQuantity = await ResolveArticleQuantityAsync(
+            connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, unitToken, quantityRequested);
+
         var p = new DynamicParameters();
         p.Add("@RequisitionLineToken", Guid.NewGuid());
         p.Add("@RequisitionId", requisition.RequisitionId);
         p.Add("@ArticleId", article.ArticleId);
-        p.Add("@QuantityRequested", quantityRequested);
+        p.Add("@QuantityRequested", resolvedQuantity.Normalized);
+        p.Add("@RequestedUnitId", resolvedQuantity.UnitId);
+        p.Add("@RequestedQuantity", resolvedQuantity.RawQuantity);
         p.Add("@Notes", notes);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
 
@@ -233,7 +276,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         return line is null ? null : mapper.Map<RequisitionLineDto>(line);
     }
 
-    public async Task<RequisitionLineDto?> EditLineAsync(Guid requisitionLineToken, decimal quantityRequested, string? notes, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<RequisitionLineDto?> EditLineAsync(Guid requisitionLineToken, decimal quantityRequested, Guid? unitToken, string? notes, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -256,9 +299,19 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         if (quantityRequested <= 0)
             throw new ApiException(ErrorCodes.RequisitionInvalidQuantity, "Requested quantity must be greater than zero.", 400);
 
+        var article = await connection.QueryFirstOrDefaultAsync<Article>(
+            "sp_Article_GetByToken", new { ArticleToken = existingLine.ArticleToken }, commandType: CommandType.StoredProcedure);
+        if (article is null)
+            throw new ApiException(ErrorCodes.RequisitionArticleNotFound, "Article not found.", 404);
+
+        var resolvedQuantity = await ResolveArticleQuantityAsync(
+            connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, unitToken, quantityRequested);
+
         var p = new DynamicParameters();
         p.Add("@RequisitionLineToken", requisitionLineToken);
-        p.Add("@QuantityRequested", quantityRequested);
+        p.Add("@QuantityRequested", resolvedQuantity.Normalized);
+        p.Add("@RequestedUnitId", resolvedQuantity.UnitId);
+        p.Add("@RequestedQuantity", resolvedQuantity.RawQuantity);
         p.Add("@Notes", notes);
 
         var updated = await connection.QueryFirstOrDefaultAsync<RequisitionLine>(
@@ -563,7 +616,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             "sp_StockLevel_GetAllByWarehouseId", new { warehouse.WarehouseId }, commandType: CommandType.StoredProcedure))
             .ToDictionary(s => s.ArticleId, s => s.QuantityOnHand);
 
-        var validatedLines = new List<(RequisitionLine Line, decimal Quantity, string? Notes)>();
+        var validatedLines = new List<(RequisitionLine Line, ResolvedArticleQuantity Quantity, string? Notes)>();
         var seenLineIds = new HashSet<int>();
 
         foreach (var input in lines)
@@ -577,19 +630,22 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
             if (input.QuantityIssued <= 0)
                 throw new ApiException(ErrorCodes.RequisitionInvalidQuantity, $"Issued quantity for '{line.ArticleName}' must be greater than zero.", 400);
 
+            var resolvedQuantity = await ResolveArticleQuantityAsync(
+                connection, null, mapper, line.ArticleId, line.PurchaseUnitId, line.ArticleName ?? line.ArticleToken.ToString(), input.UnitToken, input.QuantityIssued);
+
             var remaining = line.QuantityRequested - line.QuantityIssued;
-            if (input.QuantityIssued > remaining)
-                throw new ApiException(ErrorCodes.RequisitionOverIssueNotAllowed, $"Cannot issue {input.QuantityIssued} of '{line.ArticleName}' — only {remaining} still outstanding on this requisition.", 400);
+            if (resolvedQuantity.Normalized > remaining)
+                throw new ApiException(ErrorCodes.RequisitionOverIssueNotAllowed, $"Cannot issue {resolvedQuantity.Normalized} of '{line.ArticleName}' — only {remaining} still outstanding on this requisition.", 400);
 
             var currentStock = stockByArticle.GetValueOrDefault(line.ArticleId, 0m);
-            if (currentStock - input.QuantityIssued < 0)
-                throw new ApiException(ErrorCodes.RequisitionInsufficientStock, $"Cannot issue {input.QuantityIssued} of '{line.ArticleName}' — only {currentStock} available at this warehouse.", 400);
+            if (currentStock - resolvedQuantity.Normalized < 0)
+                throw new ApiException(ErrorCodes.RequisitionInsufficientStock, $"Cannot issue {resolvedQuantity.Normalized} of '{line.ArticleName}' — only {currentStock} available at this warehouse.", 400);
 
             // Two lines could reference the same Article — keep the running balance consistent
             // across the whole batch, same reasoning InventoryService.CreateTransferAsync applies.
-            stockByArticle[line.ArticleId] = currentStock - input.QuantityIssued;
+            stockByArticle[line.ArticleId] = currentStock - resolvedQuantity.Normalized;
 
-            validatedLines.Add((line, input.QuantityIssued, input.Notes));
+            validatedLines.Add((line, resolvedQuantity, input.Notes));
         }
 
         var actor = context.ActorUserToken.ToString();
@@ -615,7 +671,9 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
                 issueLineParams.Add("@RequisitionIssueLineToken", Guid.NewGuid());
                 issueLineParams.Add("@RequisitionIssueId", issueHeader.RequisitionIssueId);
                 issueLineParams.Add("@RequisitionLineId", line.RequisitionLineId);
-                issueLineParams.Add("@QuantityIssued", quantity);
+                issueLineParams.Add("@QuantityIssued", quantity.Normalized);
+                issueLineParams.Add("@IssuedUnitId", quantity.UnitId);
+                issueLineParams.Add("@IssuedQuantity", quantity.RawQuantity);
                 issueLineParams.Add("@Notes", lineNotes);
                 issueLineParams.Add("@CreatedBy", actor);
 
@@ -625,7 +683,7 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
 
                 await connection.ExecuteAsync(
                     "sp_StockLevel_ApplyDelta",
-                    new { warehouse.WarehouseId, line.ArticleId, Delta = -quantity, ActorBy = actor },
+                    new { warehouse.WarehouseId, line.ArticleId, Delta = -quantity.Normalized, ActorBy = actor },
                     transaction, commandType: CommandType.StoredProcedure);
 
                 var movementParams = new DynamicParameters();
@@ -633,14 +691,19 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
                 movementParams.Add("@WarehouseId", warehouse.WarehouseId);
                 movementParams.Add("@ArticleId", line.ArticleId);
                 movementParams.Add("@Type", InventoryMovementTypeCodes.Consumption);
-                movementParams.Add("@Quantity", -quantity);
+                movementParams.Add("@Quantity", -quantity.Normalized);
+                // Copies the issue line's own entered unit/quantity forward for full audit-trail
+                // fidelity — the sign is flipped to match Quantity's own negative-for-consumption
+                // convention (RawQuantity itself is always positive, what the user actually typed).
+                movementParams.Add("@EnteredUnitId", quantity.UnitId);
+                movementParams.Add("@EnteredQuantity", quantity.RawQuantity.HasValue ? -quantity.RawQuantity.Value : (decimal?)null);
                 movementParams.Add("@RequisitionIssueLineId", issueLine.RequisitionIssueLineId);
                 movementParams.Add("@CreatedBy", actor);
 
                 await connection.ExecuteAsync("sp_InventoryMovement_Create", movementParams, transaction, commandType: CommandType.StoredProcedure);
             }
 
-            var issuedByLineId = validatedLines.ToDictionary(v => v.Line.RequisitionLineId, v => v.Quantity);
+            var issuedByLineId = validatedLines.ToDictionary(v => v.Line.RequisitionLineId, v => v.Quantity.Normalized);
             var everyLineFullyIssued = requisitionLines.Values
                 .All(l => l.QuantityIssued + issuedByLineId.GetValueOrDefault(l.RequisitionLineId) >= l.QuantityRequested);
 

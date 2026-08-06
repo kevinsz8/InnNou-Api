@@ -24,7 +24,7 @@ namespace InnNou.Application.Handlers
             if (string.IsNullOrWhiteSpace(request.Reason))
                 return ApiResponse<CreateInventoryAdjustmentCommandResponse>.FailureResponse(ErrorCodes.InventoryInvalidAdjustment, "A reason is required for an inventory adjustment.", 400);
 
-            var result = await inventoryService.CreateAdjustmentAsync(request.WarehouseToken, request.ArticleToken, request.DeltaQuantity, request.Reason, context, cancellationToken);
+            var result = await inventoryService.CreateAdjustmentAsync(request.WarehouseToken, request.ArticleToken, request.DeltaQuantity, request.UnitToken, request.Reason, context, cancellationToken);
             if (result is null)
                 return ApiResponse<CreateInventoryAdjustmentCommandResponse>.FailureResponse(ErrorCodes.InventoryWarehouseNotFound, "Warehouse not found.", 404);
 

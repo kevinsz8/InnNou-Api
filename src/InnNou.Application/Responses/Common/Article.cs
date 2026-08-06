@@ -17,6 +17,7 @@ namespace InnNou.Application.Responses.Common
         public int? SubFamilyId { get; set; }
         public string? SubFamilyCode { get; set; }
         public Dictionary<string, string>? SubFamilyNameTranslations { get; set; }
+        public Guid PurchaseUnitToken { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
         public Dictionary<string, string>? PurchaseUnitNameTranslations { get; set; }

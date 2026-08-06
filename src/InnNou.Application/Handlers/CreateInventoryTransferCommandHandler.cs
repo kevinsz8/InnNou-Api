@@ -26,6 +26,7 @@ namespace InnNou.Application.Handlers
             {
                 ArticleToken = l.ArticleToken,
                 Quantity = l.Quantity,
+                UnitToken = l.UnitToken,
                 Notes = l.Notes
             }).ToList();
 

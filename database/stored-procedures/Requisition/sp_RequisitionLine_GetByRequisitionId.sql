@@ -21,11 +21,13 @@ BEGIN
         rl.RequisitionLineId, rl.RequisitionLineToken, rl.RequisitionId, r.RequisitionToken,
         rl.ArticleId, a.ArticleToken, a.Name AS ArticleName, a.PurchaseUnitId, u.Code AS PurchaseUnitCode,
         rl.QuantityRequested, ISNULL(iss.QuantityIssued, 0) AS QuantityIssued,
+        rl.RequestedUnitId, ru.Code AS RequestedUnitCode, rl.RequestedQuantity,
         rl.Notes, rl.CreatedUtc, rl.CreatedBy
     FROM dbo.RequisitionLines rl
     JOIN dbo.Requisitions r ON r.RequisitionId = rl.RequisitionId
     JOIN dbo.Articles a ON a.ArticleId = rl.ArticleId
     JOIN dbo.UnitsOfMeasure u ON u.UnitOfMeasureId = a.PurchaseUnitId
+    LEFT JOIN dbo.UnitsOfMeasure ru ON ru.UnitOfMeasureId = rl.RequestedUnitId
     OUTER APPLY
     (
         SELECT SUM(ril.QuantityIssued) AS QuantityIssued

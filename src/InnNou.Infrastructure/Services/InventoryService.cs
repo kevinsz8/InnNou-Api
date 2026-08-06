@@ -78,7 +78,39 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             throw new ApiException(ErrorCodes.InventoryWarehouseCountInProgress, $"{warehouseLabel} has an inventory count in progress — adjustments and transfers are blocked until it closes.", 409);
     }
 
-    public async Task<StockLevelDto?> CreateAdjustmentAsync(Guid warehouseToken, Guid articleToken, decimal deltaQuantity, string reason, IRequestContext context, CancellationToken cancellationToken)
+    private readonly record struct ResolvedArticleQuantity(decimal Normalized, int? UnitId, decimal? RawQuantity);
+
+    // Resolves a quantity entered against enteredUnitId (or directly against the article's own
+    // PurchaseUnitId when unitToken is null) to a PurchaseUnitId-normalized value, per
+    // ArticleUnitConversion. Same helper shape as RequisitionService's own copy — see
+    // .claude/RequisitionsModule.md's "unit-aware quantities" section for the full design.
+    private static async Task<ResolvedArticleQuantity> ResolveArticleQuantityAsync(
+        IDbConnection connection, IDbTransaction? transaction, IMapper mapper,
+        int articleId, int purchaseUnitId, string articleName, Guid? unitToken, decimal enteredQuantity)
+    {
+        if (unitToken is null)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+            "sp_UnitOfMeasure_GetByToken", new { UnitOfMeasureToken = unitToken.Value }, transaction, commandType: CommandType.StoredProcedure);
+        if (unit is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"Unit of measure not found for '{articleName}'.", 404);
+
+        if (unit.UnitOfMeasureId == purchaseUnitId)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var levels = mapper.MapList<ArticlePackagingLevelDto>(
+            await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = articleId }, transaction, commandType: CommandType.StoredProcedure));
+
+        var normalized = ArticleUnitConversion.ToPurchaseUnitQuantity(purchaseUnitId, levels, unit.UnitOfMeasureId, enteredQuantity);
+        if (normalized is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"'{unit.Code}' is not a valid unit for '{articleName}'.", 400);
+
+        return new ResolvedArticleQuantity(normalized.Value, unit.UnitOfMeasureId, enteredQuantity);
+    }
+
+    public async Task<StockLevelDto?> CreateAdjustmentAsync(Guid warehouseToken, Guid articleToken, decimal deltaQuantity, Guid? unitToken, string reason, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -111,11 +143,15 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         if (article is null)
             throw new ApiException(ErrorCodes.InventoryArticleNotFound, "Article not found.", 404);
 
+        var resolvedQuantity = await ResolveArticleQuantityAsync(
+            connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, unitToken, deltaQuantity);
+        var normalizedDelta = resolvedQuantity.Normalized;
+
         var existing = await connection.QueryFirstOrDefaultAsync<StockLevel>(
             "sp_StockLevel_GetByWarehouseAndArticle", new { warehouse.WarehouseId, article.ArticleId }, commandType: CommandType.StoredProcedure);
 
         var currentQuantity = existing?.QuantityOnHand ?? 0m;
-        var newQuantity = currentQuantity + deltaQuantity;
+        var newQuantity = currentQuantity + normalizedDelta;
         if (newQuantity < 0)
             throw new ApiException(ErrorCodes.InventoryNegativeStockNotAllowed, $"This adjustment would leave on-hand quantity at {newQuantity} for '{article.Name}' — cannot go negative.", 400);
 
@@ -130,7 +166,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
         {
             var updated = await connection.QueryFirstOrDefaultAsync<StockLevel>(
                 "sp_StockLevel_ApplyDelta",
-                new { warehouse.WarehouseId, article.ArticleId, Delta = deltaQuantity, ActorBy = actor },
+                new { warehouse.WarehouseId, article.ArticleId, Delta = normalizedDelta, ActorBy = actor },
                 transaction, commandType: CommandType.StoredProcedure);
 
             if (updated is null)
@@ -144,9 +180,11 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             movementParams.Add("@WarehouseId", warehouse.WarehouseId);
             movementParams.Add("@ArticleId", article.ArticleId);
             movementParams.Add("@Type", InventoryMovementTypeCodes.Adjustment);
-            movementParams.Add("@Quantity", deltaQuantity);
+            movementParams.Add("@Quantity", normalizedDelta);
             movementParams.Add("@GoodsReceiptLineId", (int?)null);
             movementParams.Add("@InventoryTransferLineId", (int?)null);
+            movementParams.Add("@EnteredUnitId", resolvedQuantity.UnitId);
+            movementParams.Add("@EnteredQuantity", resolvedQuantity.RawQuantity);
             movementParams.Add("@Reason", reason);
             movementParams.Add("@CreatedBy", actor);
 
@@ -166,7 +204,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
     private sealed class ValidatedTransferLine
     {
         public required Article Article { get; init; }
-        public required decimal Quantity { get; init; }
+        public required ResolvedArticleQuantity Quantity { get; init; }
         public string? Notes { get; init; }
     }
 
@@ -244,11 +282,14 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
             if (!requestedArticleIds.Add(article.ArticleId))
                 throw new ApiException(ErrorCodes.InventoryInvalidAdjustment, $"Article '{article.Name}' was submitted more than once.", 400);
 
-            var currentQuantity = stockByArticle.GetValueOrDefault(article.ArticleId, 0m);
-            if (currentQuantity - input.Quantity < 0)
-                throw new ApiException(ErrorCodes.InventoryNegativeStockNotAllowed, $"Cannot transfer {input.Quantity} of '{article.Name}' — only {currentQuantity} available at the source warehouse.", 400);
+            var resolvedQuantity = await ResolveArticleQuantityAsync(
+                connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, input.UnitToken, input.Quantity);
 
-            validatedLines.Add(new ValidatedTransferLine { Article = article, Quantity = input.Quantity, Notes = input.Notes });
+            var currentQuantity = stockByArticle.GetValueOrDefault(article.ArticleId, 0m);
+            if (currentQuantity - resolvedQuantity.Normalized < 0)
+                throw new ApiException(ErrorCodes.InventoryNegativeStockNotAllowed, $"Cannot transfer {resolvedQuantity.Normalized} of '{article.Name}' — only {currentQuantity} available at the source warehouse.", 400);
+
+            validatedLines.Add(new ValidatedTransferLine { Article = article, Quantity = resolvedQuantity, Notes = input.Notes });
         }
 
         var actor = context.ActorUserToken.ToString();
@@ -283,7 +324,9 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
                 lineParams.Add("@InventoryTransferLineToken", Guid.NewGuid());
                 lineParams.Add("@InventoryTransferId", header.InventoryTransferId);
                 lineParams.Add("@ArticleId", validated.Article.ArticleId);
-                lineParams.Add("@Quantity", validated.Quantity);
+                lineParams.Add("@Quantity", validated.Quantity.Normalized);
+                lineParams.Add("@TransferredUnitId", validated.Quantity.UnitId);
+                lineParams.Add("@TransferredQuantity", validated.Quantity.RawQuantity);
                 lineParams.Add("@Notes", validated.Notes);
                 lineParams.Add("@CreatedBy", actor);
 
@@ -298,7 +341,7 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
 
                 await connection.ExecuteAsync(
                     "sp_StockLevel_ApplyDelta",
-                    new { fromWarehouse.WarehouseId, validated.Article.ArticleId, Delta = -validated.Quantity, ActorBy = actor },
+                    new { fromWarehouse.WarehouseId, validated.Article.ArticleId, Delta = -validated.Quantity.Normalized, ActorBy = actor },
                     transaction, commandType: CommandType.StoredProcedure);
 
                 var outMovementParams = new DynamicParameters();
@@ -306,16 +349,18 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
                 outMovementParams.Add("@WarehouseId", fromWarehouse.WarehouseId);
                 outMovementParams.Add("@ArticleId", validated.Article.ArticleId);
                 outMovementParams.Add("@Type", InventoryMovementTypeCodes.TransferOut);
-                outMovementParams.Add("@Quantity", -validated.Quantity);
+                outMovementParams.Add("@Quantity", -validated.Quantity.Normalized);
                 outMovementParams.Add("@GoodsReceiptLineId", (int?)null);
                 outMovementParams.Add("@InventoryTransferLineId", line.InventoryTransferLineId);
+                outMovementParams.Add("@EnteredUnitId", validated.Quantity.UnitId);
+                outMovementParams.Add("@EnteredQuantity", validated.Quantity.RawQuantity.HasValue ? -validated.Quantity.RawQuantity.Value : (decimal?)null);
                 outMovementParams.Add("@Reason", (string?)null);
                 outMovementParams.Add("@CreatedBy", actor);
                 await connection.ExecuteAsync("sp_InventoryMovement_Create", outMovementParams, transaction, commandType: CommandType.StoredProcedure);
 
                 await connection.ExecuteAsync(
                     "sp_StockLevel_ApplyDelta",
-                    new { toWarehouse.WarehouseId, validated.Article.ArticleId, Delta = validated.Quantity, ActorBy = actor },
+                    new { toWarehouse.WarehouseId, validated.Article.ArticleId, Delta = validated.Quantity.Normalized, ActorBy = actor },
                     transaction, commandType: CommandType.StoredProcedure);
 
                 var inMovementParams = new DynamicParameters();
@@ -323,9 +368,11 @@ public class InventoryService(IDbConnectionFactory connectionFactory, IMapper ma
                 inMovementParams.Add("@WarehouseId", toWarehouse.WarehouseId);
                 inMovementParams.Add("@ArticleId", validated.Article.ArticleId);
                 inMovementParams.Add("@Type", InventoryMovementTypeCodes.TransferIn);
-                inMovementParams.Add("@Quantity", validated.Quantity);
+                inMovementParams.Add("@Quantity", validated.Quantity.Normalized);
                 inMovementParams.Add("@GoodsReceiptLineId", (int?)null);
                 inMovementParams.Add("@InventoryTransferLineId", line.InventoryTransferLineId);
+                inMovementParams.Add("@EnteredUnitId", validated.Quantity.UnitId);
+                inMovementParams.Add("@EnteredQuantity", validated.Quantity.RawQuantity);
                 inMovementParams.Add("@Reason", (string?)null);
                 inMovementParams.Add("@CreatedBy", actor);
                 await connection.ExecuteAsync("sp_InventoryMovement_Create", inMovementParams, transaction, commandType: CommandType.StoredProcedure);

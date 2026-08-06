@@ -453,6 +453,10 @@ namespace InnNou.Application.Common
         public const string DepartmentParLevelAlreadyExists = "DEPARTMENT_PAR_LEVEL_ALREADY_EXISTS";
         public const string DepartmentParLevelInvalidQuantity = "DEPARTMENT_PAR_LEVEL_INVALID_QUANTITY";
 
+        // Unit-aware quantities (Requisitions + Inventory Adjustments/Transfers/Period Counts —
+        // see InnNou.Application.Common.ArticleUnitConversion and .claude/RequisitionsModule.md)
+        public const string ArticleUnitNotValidForArticle = "ARTICLE_UNIT_NOT_VALID_FOR_ARTICLE";
+
         // Role
         public const string RoleNotFound = "ROLE_NOT_FOUND";
 

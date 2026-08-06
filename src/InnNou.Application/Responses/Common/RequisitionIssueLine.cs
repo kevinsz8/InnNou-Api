@@ -9,6 +9,10 @@ namespace InnNou.Application.Responses.Common
         public string? PurchaseUnitCode { get; set; }
 
         public decimal QuantityIssued { get; set; }
+
+        public string? IssuedUnitCode { get; set; }
+        public decimal? IssuedQuantity { get; set; }
+
         public string? Notes { get; set; }
 
         public DateTime CreatedUtc { get; set; }

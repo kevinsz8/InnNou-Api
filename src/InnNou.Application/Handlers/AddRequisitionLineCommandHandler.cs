@@ -18,7 +18,7 @@ namespace InnNou.Application.Handlers
             if (request.QuantityRequested <= 0)
                 return ApiResponse<AddRequisitionLineCommandResponse>.FailureResponse(ErrorCodes.RequisitionInvalidQuantity, "Requested quantity must be greater than zero.", 400);
 
-            var result = await requisitionService.AddLineAsync(request.RequisitionToken, request.ArticleToken, request.QuantityRequested, request.Notes, context, cancellationToken);
+            var result = await requisitionService.AddLineAsync(request.RequisitionToken, request.ArticleToken, request.QuantityRequested, request.UnitToken, request.Notes, context, cancellationToken);
             if (result is null)
                 return ApiResponse<AddRequisitionLineCommandResponse>.FailureResponse(ErrorCodes.RequisitionNotFound, "Requisition not found.", 404);
 

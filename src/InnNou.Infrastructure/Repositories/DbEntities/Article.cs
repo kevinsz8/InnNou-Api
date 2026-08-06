@@ -25,6 +25,7 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string? SubFamilyCode { get; set; }
         public string? SubFamilyNameTranslations { get; set; }
         public int PurchaseUnitId { get; set; }
+        public Guid PurchaseUnitToken { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
         public string? PurchaseUnitNameTranslations { get; set; }

@@ -11,7 +11,7 @@ namespace InnNou.Application.Common.Interfaces
     // orthogonal domain and gets its own service. See .claude/InventoryModule.md.
     public interface IInventoryService
     {
-        Task<StockLevelDto?> CreateAdjustmentAsync(Guid warehouseToken, Guid articleToken, decimal deltaQuantity, string reason, IRequestContext context, CancellationToken cancellationToken);
+        Task<StockLevelDto?> CreateAdjustmentAsync(Guid warehouseToken, Guid articleToken, decimal deltaQuantity, Guid? unitToken, string reason, IRequestContext context, CancellationToken cancellationToken);
         Task<InventoryTransferDto?> CreateTransferAsync(Guid fromWarehouseToken, Guid toWarehouseToken, string? notes, List<CreateInventoryTransferLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<StockLevelDto>> GetStockLevelsAsync(Guid? warehouseToken, Guid? articleToken, string? searchText, int? familyId, int? subFamilyId, int? categoryId, int? subCategoryId, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<InventoryMovementDto>> GetMovementsAsync(Guid warehouseToken, Guid? articleToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);

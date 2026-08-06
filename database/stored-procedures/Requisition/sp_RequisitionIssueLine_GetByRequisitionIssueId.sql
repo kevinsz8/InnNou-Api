@@ -18,12 +18,14 @@ BEGIN
         ril.RequisitionIssueId, ri.RequisitionIssueToken,
         ril.RequisitionLineId, rl.RequisitionLineToken, rl.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         a.PurchaseUnitId, u.Code AS PurchaseUnitCode,
-        ril.QuantityIssued, ril.Notes, ril.CreatedUtc, ril.CreatedBy
+        ril.QuantityIssued, ril.IssuedUnitId, iu.Code AS IssuedUnitCode, ril.IssuedQuantity,
+        ril.Notes, ril.CreatedUtc, ril.CreatedBy
     FROM dbo.RequisitionIssueLines ril
     JOIN dbo.RequisitionIssues ri ON ri.RequisitionIssueId = ril.RequisitionIssueId
     JOIN dbo.RequisitionLines rl  ON rl.RequisitionLineId   = ril.RequisitionLineId
     JOIN dbo.Articles a           ON a.ArticleId             = rl.ArticleId
     JOIN dbo.UnitsOfMeasure u     ON u.UnitOfMeasureId        = a.PurchaseUnitId
+    LEFT JOIN dbo.UnitsOfMeasure iu ON iu.UnitOfMeasureId = ril.IssuedUnitId
     WHERE ril.RequisitionIssueId = @RequisitionIssueId
     ORDER BY ril.RequisitionIssueLineId;
 END;

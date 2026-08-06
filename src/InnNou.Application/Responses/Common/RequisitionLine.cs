@@ -10,6 +10,9 @@ namespace InnNou.Application.Responses.Common
         public decimal QuantityRequested { get; set; }
         public decimal QuantityIssued { get; set; }
 
+        public string? RequestedUnitCode { get; set; }
+        public decimal? RequestedQuantity { get; set; }
+
         public string? Notes { get; set; }
 
         public DateTime CreatedUtc { get; set; }

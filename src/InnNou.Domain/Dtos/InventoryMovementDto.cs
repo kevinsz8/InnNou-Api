@@ -9,6 +9,8 @@ namespace InnNou.Domain.Dtos
         public string? ArticleName { get; set; }
         public string Type { get; set; } = default!;
         public decimal Quantity { get; set; }
+        public string? EnteredUnitCode { get; set; }
+        public decimal? EnteredQuantity { get; set; }
         public Guid? GoodsReceiptToken { get; set; }
         public Guid? InventoryTransferToken { get; set; }
         public Guid? InventoryPeriodCountToken { get; set; }

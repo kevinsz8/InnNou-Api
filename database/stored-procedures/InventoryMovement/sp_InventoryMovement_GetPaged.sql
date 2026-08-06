@@ -27,6 +27,7 @@ BEGIN
         im.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         im.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         mt.Code AS Type, im.Quantity,
+        im.EnteredUnitId, eu.Code AS EnteredUnitCode, im.EnteredQuantity,
         gr.GoodsReceiptToken, it.InventoryTransferToken, ipc.InventoryPeriodCountToken,
         ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken,
         im.Reason, im.CreatedUtc, im.CreatedBy,
@@ -35,6 +36,7 @@ BEGIN
     JOIN dbo.Warehouses w                          ON w.WarehouseId              = im.WarehouseId
     JOIN dbo.Articles a                            ON a.ArticleId                = im.ArticleId
     JOIN dbo.InventoryMovementTypes mt              ON mt.InventoryMovementTypeId = im.InventoryMovementTypeId
+    LEFT JOIN dbo.UnitsOfMeasure eu                 ON eu.UnitOfMeasureId         = im.EnteredUnitId
     LEFT JOIN dbo.GoodsReceiptLine grl              ON grl.GoodsReceiptLineId     = im.GoodsReceiptLineId
     LEFT JOIN dbo.GoodsReceipt gr                   ON gr.GoodsReceiptId          = grl.GoodsReceiptId
     LEFT JOIN dbo.InventoryTransferLines tl         ON tl.InventoryTransferLineId = im.InventoryTransferLineId

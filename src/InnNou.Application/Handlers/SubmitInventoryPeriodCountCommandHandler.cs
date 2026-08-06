@@ -21,7 +21,7 @@ namespace InnNou.Application.Handlers
             if (request.CountedQuantity < 0)
                 return ApiResponse<SubmitInventoryPeriodCountCommandResponse>.FailureResponse(ErrorCodes.InventoryPeriodInvalidCount, "Counted quantity cannot be negative.", 400);
 
-            var result = await inventoryPeriodService.SubmitCountAsync(request.InventoryPeriodToken, request.ArticleToken, request.CountedQuantity, context, cancellationToken);
+            var result = await inventoryPeriodService.SubmitCountAsync(request.InventoryPeriodToken, request.ArticleToken, request.CountedQuantity, request.UnitToken, context, cancellationToken);
             if (result is null)
                 return ApiResponse<SubmitInventoryPeriodCountCommandResponse>.FailureResponse(ErrorCodes.InventoryPeriodNotFound, "Inventory period not found.", 404);
 

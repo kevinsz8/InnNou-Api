@@ -63,6 +63,38 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         return canAccess == 1;
     }
 
+    private readonly record struct ResolvedArticleQuantity(decimal Normalized, int? UnitId, decimal? RawQuantity);
+
+    // Copied verbatim from InventoryService/RequisitionService — resolves a quantity entered
+    // against enteredUnitId (or directly against the article's own PurchaseUnitId when
+    // unitToken is null) to a PurchaseUnitId-normalized value, per ArticleUnitConversion. See
+    // .claude/RequisitionsModule.md's "unit-aware quantities" section for the full design.
+    private static async Task<ResolvedArticleQuantity> ResolveArticleQuantityAsync(
+        IDbConnection connection, IDbTransaction? transaction, IMapper mapper,
+        int articleId, int purchaseUnitId, string articleName, Guid? unitToken, decimal enteredQuantity)
+    {
+        if (unitToken is null)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var unit = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+            "sp_UnitOfMeasure_GetByToken", new { UnitOfMeasureToken = unitToken.Value }, transaction, commandType: CommandType.StoredProcedure);
+        if (unit is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"Unit of measure not found for '{articleName}'.", 404);
+
+        if (unit.UnitOfMeasureId == purchaseUnitId)
+            return new ResolvedArticleQuantity(enteredQuantity, null, null);
+
+        var levels = mapper.MapList<ArticlePackagingLevelDto>(
+            await connection.QueryAsync<ArticlePackagingLevel>(
+                "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = articleId }, transaction, commandType: CommandType.StoredProcedure));
+
+        var normalized = ArticleUnitConversion.ToPurchaseUnitQuantity(purchaseUnitId, levels, unit.UnitOfMeasureId, enteredQuantity);
+        if (normalized is null)
+            throw new ApiException(ErrorCodes.ArticleUnitNotValidForArticle, $"'{unit.Code}' is not a valid unit for '{articleName}'.", 400);
+
+        return new ResolvedArticleQuantity(normalized.Value, unit.UnitOfMeasureId, enteredQuantity);
+    }
+
     private async Task<InventoryPeriodDto> HydrateAsync(IDbConnection connection, InventoryPeriod header, IDbTransaction? transaction = null)
     {
         var dto = mapper.Map<InventoryPeriodDto>(header);
@@ -161,7 +193,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         }
     }
 
-    public async Task<InventoryPeriodDto?> SubmitCountAsync(Guid periodToken, Guid articleToken, decimal countedQuantity, IRequestContext context, CancellationToken cancellationToken)
+    public async Task<InventoryPeriodDto?> SubmitCountAsync(Guid periodToken, Guid articleToken, decimal countedQuantity, Guid? unitToken, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
 
@@ -186,11 +218,21 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         if (article is null)
             throw new ApiException(ErrorCodes.InventoryArticleNotFound, "Article not found.", 404);
 
+        var resolvedQuantity = await ResolveArticleQuantityAsync(
+            connection, null, mapper, article.ArticleId, article.PurchaseUnitId, article.Name, unitToken, countedQuantity);
+
         var actor = context.ActorUserToken.ToString();
 
         var updatedLine = await connection.QueryFirstOrDefaultAsync<InventoryPeriodCount>(
             "sp_InventoryPeriodCount_UpdateCount",
-            new { period.InventoryPeriodId, article.ArticleId, CountedQuantity = countedQuantity, ActorBy = actor },
+            new
+            {
+                period.InventoryPeriodId, article.ArticleId,
+                CountedQuantity = resolvedQuantity.Normalized,
+                CountedUnitId = resolvedQuantity.UnitId,
+                CountedQuantityInUnit = resolvedQuantity.RawQuantity,
+                ActorBy = actor
+            },
             commandType: CommandType.StoredProcedure);
 
         if (updatedLine is null)

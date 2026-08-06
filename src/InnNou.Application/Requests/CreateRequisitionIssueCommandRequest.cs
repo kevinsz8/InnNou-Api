@@ -8,6 +8,7 @@ namespace InnNou.Application.Requests
     {
         public Guid RequisitionLineToken { get; set; }
         public decimal QuantityIssued { get; set; }
+        public Guid? UnitToken { get; set; }
         public string? Notes { get; set; }
     }
 

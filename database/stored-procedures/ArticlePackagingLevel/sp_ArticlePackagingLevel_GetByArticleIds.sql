@@ -24,6 +24,7 @@ BEGIN
         apl.ArticleId,
         apl.SequenceOrder,
         apl.UnitOfMeasureId,
+        uom.UnitOfMeasureToken AS UnitOfMeasureToken,
         uom.Code   AS UnitOfMeasureCode,
         uom.Symbol AS UnitOfMeasureSymbol,
         apl.QuantityInParentUnit,

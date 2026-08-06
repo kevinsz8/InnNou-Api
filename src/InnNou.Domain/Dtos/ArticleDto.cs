@@ -20,6 +20,9 @@ namespace InnNou.Domain.Dtos
         public string? SubFamilyCode { get; set; }
         public Dictionary<string, string>? SubFamilyNameTranslations { get; set; }
         public int PurchaseUnitId { get; set; }
+        // Added so a caller (e.g. a Requisition/Inventory quantity-entry unit picker) can offer
+        // the article's own purchase unit as a selectable UnitToken — see ArticleUnitConversion.
+        public Guid PurchaseUnitToken { get; set; }
         public string? PurchaseUnitCode { get; set; }
         public string? PurchaseUnitSymbol { get; set; }
         public Dictionary<string, string>? PurchaseUnitNameTranslations { get; set; }

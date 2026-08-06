@@ -13,7 +13,7 @@ namespace InnNou.Application.Common.Interfaces
     public interface IInventoryPeriodService
     {
         Task<InventoryPeriodDto?> OpenAsync(Guid warehouseToken, string? notes, IRequestContext context, CancellationToken cancellationToken);
-        Task<InventoryPeriodDto?> SubmitCountAsync(Guid periodToken, Guid articleToken, decimal countedQuantity, IRequestContext context, CancellationToken cancellationToken);
+        Task<InventoryPeriodDto?> SubmitCountAsync(Guid periodToken, Guid articleToken, decimal countedQuantity, Guid? unitToken, IRequestContext context, CancellationToken cancellationToken);
         Task<InventoryPeriodDto?> CloseAsync(Guid periodToken, IRequestContext context, CancellationToken cancellationToken);
         Task<InventoryPeriodDto?> ReopenAsync(Guid periodToken, IRequestContext context, CancellationToken cancellationToken);
         Task<PagedResult<InventoryPeriodDto>> GetPagedAsync(Guid? warehouseToken, int pageNumber, int pageSize, IRequestContext context, CancellationToken cancellationToken);

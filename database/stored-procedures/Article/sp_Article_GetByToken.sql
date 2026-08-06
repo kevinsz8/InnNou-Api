@@ -89,6 +89,7 @@ BEGIN
         sf.Code         AS SubFamilyCode,
         sf.NameTranslations AS SubFamilyNameTranslations,
         a.PurchaseUnitId,
+        pu.UnitOfMeasureToken AS PurchaseUnitToken,
         pu.Code         AS PurchaseUnitCode,
         pu.Symbol       AS PurchaseUnitSymbol,
         pu.NameTranslations AS PurchaseUnitNameTranslations,

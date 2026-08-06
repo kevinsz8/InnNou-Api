@@ -57,13 +57,16 @@ BEGIN
     )
     SELECT
         ipc.InventoryPeriodCountId, ipc.InventoryPeriodCountToken, ipc.InventoryPeriodId,
-        ipc.ArticleId, a.ArticleToken, a.Name AS ArticleName,
+        ipc.ArticleId, a.ArticleToken, a.Name AS ArticleName, a.PurchaseUnitId, u.Code AS PurchaseUnitCode,
         f.Code AS FamilyCode, sf.Code AS SubFamilyCode,
         cat.Code AS CategoryCode, subcat.Code AS SubCategoryCode,
         ipc.OpeningQuantity, ipc.CountedQuantity, ipc.SystemQuantityAtClose, ipc.VarianceQuantity,
+        ipc.CountedUnitId, cu.Code AS CountedUnitCode, ipc.CountedQuantityInUnit,
         ipc.CreatedUtc, ipc.CreatedBy, ipc.LastUpdatedUtc, ipc.LastUpdatedBy
     FROM dbo.InventoryPeriodCounts ipc
     JOIN dbo.Articles a ON a.ArticleId = ipc.ArticleId
+    JOIN dbo.UnitsOfMeasure u ON u.UnitOfMeasureId = a.PurchaseUnitId
+    LEFT JOIN dbo.UnitsOfMeasure cu ON cu.UnitOfMeasureId = ipc.CountedUnitId
     LEFT JOIN dbo.Families f      ON f.FamilyId      = a.FamilyId
     LEFT JOIN dbo.SubFamilies sf  ON sf.SubFamilyId  = a.SubFamilyId
     LEFT JOIN EffectiveArticleClassification eac ON eac.ArticleId = a.ArticleId AND eac.rn = 1

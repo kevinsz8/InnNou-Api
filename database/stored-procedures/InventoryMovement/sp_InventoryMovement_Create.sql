@@ -26,6 +26,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_InventoryMovement_Create
     @InternalOrderShipmentLineId INT          = NULL,
     @InternalOrderReceiptLineId  INT          = NULL,
     @RequisitionIssueLineId      INT          = NULL,
+    @EnteredUnitId               INT           = NULL,
+    @EnteredQuantity             DECIMAL(18,8) = NULL,
     @Reason                     NVARCHAR(500) = NULL,
     @CreatedBy                  VARCHAR(150)
 )
@@ -36,18 +38,21 @@ BEGIN
     INSERT INTO dbo.InventoryMovements
         (InventoryMovementToken, WarehouseId, ArticleId, InventoryMovementTypeId, Quantity,
          GoodsReceiptLineId, InventoryTransferLineId, InventoryPeriodCountId,
-         InternalOrderShipmentLineId, InternalOrderReceiptLineId, RequisitionIssueLineId, Reason, CreatedBy)
+         InternalOrderShipmentLineId, InternalOrderReceiptLineId, RequisitionIssueLineId,
+         EnteredUnitId, EnteredQuantity, Reason, CreatedBy)
     VALUES
         (@InventoryMovementToken, @WarehouseId, @ArticleId,
          (SELECT InventoryMovementTypeId FROM dbo.InventoryMovementTypes WHERE Code = @Type),
          @Quantity, @GoodsReceiptLineId, @InventoryTransferLineId, @InventoryPeriodCountId,
-         @InternalOrderShipmentLineId, @InternalOrderReceiptLineId, @RequisitionIssueLineId, @Reason, @CreatedBy);
+         @InternalOrderShipmentLineId, @InternalOrderReceiptLineId, @RequisitionIssueLineId,
+         @EnteredUnitId, @EnteredQuantity, @Reason, @CreatedBy);
 
     SELECT
         im.InventoryMovementId, im.InventoryMovementToken,
         im.WarehouseId, w.WarehouseToken, w.Name AS WarehouseName,
         im.ArticleId, a.ArticleToken, a.Name AS ArticleName,
         mt.Code AS Type, im.Quantity,
+        im.EnteredUnitId, eu.Code AS EnteredUnitCode, im.EnteredQuantity,
         gr.GoodsReceiptToken, it.InventoryTransferToken, ipc.InventoryPeriodCountToken,
         ios.InternalOrderShipmentToken, ior.InternalOrderReceiptToken, reqi.RequisitionIssueToken,
         im.Reason, im.CreatedUtc, im.CreatedBy
@@ -55,6 +60,7 @@ BEGIN
     JOIN dbo.Warehouses w                          ON w.WarehouseId              = im.WarehouseId
     JOIN dbo.Articles a                            ON a.ArticleId                = im.ArticleId
     JOIN dbo.InventoryMovementTypes mt              ON mt.InventoryMovementTypeId = im.InventoryMovementTypeId
+    LEFT JOIN dbo.UnitsOfMeasure eu                 ON eu.UnitOfMeasureId         = im.EnteredUnitId
     LEFT JOIN dbo.GoodsReceiptLine grl              ON grl.GoodsReceiptLineId     = im.GoodsReceiptLineId
     LEFT JOIN dbo.GoodsReceipt gr                   ON gr.GoodsReceiptId          = grl.GoodsReceiptId
     LEFT JOIN dbo.InventoryTransferLines tl         ON tl.InventoryTransferLineId = im.InventoryTransferLineId

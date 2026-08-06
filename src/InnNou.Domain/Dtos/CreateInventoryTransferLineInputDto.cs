@@ -6,6 +6,9 @@ namespace InnNou.Domain.Dtos
     {
         public Guid ArticleToken { get; set; }
         public decimal Quantity { get; set; }
+        // Denominated in UnitToken when provided (see ArticleUnitConversion), or in the
+        // article's PurchaseUnitId directly when null.
+        public Guid? UnitToken { get; set; }
         public string? Notes { get; set; }
     }
 }
