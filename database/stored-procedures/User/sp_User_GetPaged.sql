@@ -95,6 +95,14 @@ BEGIN
             OR (@SearchField = 'firstname' AND LOWER(u.FirstName) LIKE '%' + LOWER(@SearchText) + '%')
             OR (@SearchField = 'lastname'  AND LOWER(u.LastName)  LIKE '%' + LOWER(@SearchText) + '%')
             OR (@SearchField = 'username'  AND LOWER(u.UserName)  LIKE '%' + LOWER(@SearchText) + '%')
+            -- 'name' matches first name, last name, or the full "First Last" concatenation --
+            -- used by free-text user pickers (e.g. FamilyApprovalThresholds' approver select)
+            -- that don't expose a field dropdown to the caller, unlike the Users list page.
+            OR (@SearchField = 'name' AND (
+                    LOWER(u.FirstName) LIKE '%' + LOWER(@SearchText) + '%'
+                    OR LOWER(u.LastName) LIKE '%' + LOWER(@SearchText) + '%'
+                    OR LOWER(u.FirstName + ' ' + u.LastName) LIKE '%' + LOWER(@SearchText) + '%'
+                ))
         )
         AND
         (
