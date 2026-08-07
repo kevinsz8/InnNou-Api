@@ -23,7 +23,6 @@ public class OrderService(
     IOrderPdfStorage orderPdfStorage,
     IEmailSender emailSender,
     INotificationService notificationService,
-    IArticleDiscountService articleDiscountService,
     ILogger<OrderService> logger,
     IConfiguration configuration) : IOrderService
 {
@@ -394,14 +393,26 @@ public class OrderService(
         if (article is null)
             throw new ApiException(ErrorCodes.ArticleNotFound, "Article not found.", 404);
 
+        // Packaging levels, zone coverage, current price, effective discount, and effective
+        // classification are 5 independent lookups keyed off the ArticleId/SupplierId/
+        // OrganizationId/WarehouseId just resolved above — combined into ONE round trip via
+        // sp_Article_ResolveOrderLineDetails's multiple result sets (read through Dapper's
+        // QueryMultipleAsync) instead of 5 sequential calls. This is the single most-frequent
+        // action in the app (AddLineAsync is also reused as-is by CopyOrderAsync/ImportLinesAsync,
+        // which inherit the fix for free) — see the 2026-08-07 Performance Optimization backlog,
+        // item #1, and CLAUDE.md's Orders section.
+        await using var multi = await connection.QueryMultipleAsync(
+            "sp_Article_ResolveOrderLineDetails",
+            new { article.ArticleId, article.SupplierId, order.OrganizationId, order.WarehouseId, AsOfDate = DateTime.UtcNow.Date },
+            commandType: CommandType.StoredProcedure);
+
         // OrderLine no longer duplicates the Article's full packaging chain (that's now N rows
         // in ArticlePackagingLevels, immutable via Supersede same as PurchaseUnitId) — it keeps
         // only a display-friendly total: the Unidad Definida's unit, plus the TOTAL factor from
         // the purchase unit down to it (product of every level's QuantityInParentUnit). This
         // degrades gracefully for any chain depth (1, 2, 3+ levels) without OrderLine needing to
         // know how many levels exist.
-        var packagingLevels = (await connection.QueryAsync<ArticlePackagingLevel>(
-            "sp_ArticlePackagingLevel_GetByArticleId", new { ArticleId = article.ArticleId }, commandType: CommandType.StoredProcedure)).ToList();
+        var packagingLevels = (await multi.ReadAsync<ArticlePackagingLevel>()).ToList();
         var definedLevel = packagingLevels.FirstOrDefault(l => l.IsDefinedUnit);
         var totalContentQuantity = packagingLevels.Aggregate(1m, (total, level) => total * level.QuantityInParentUnit);
 
@@ -412,10 +423,7 @@ public class OrderService(
         // assigned") or the warehouse's organization not being ASSOCIATE-type means "not
         // enforced yet" — never a block. Day-of-week is deliberately not considered — coverage
         // on any day is enough to be available for ordering.
-        var coverage = await connection.QueryFirstOrDefaultAsync<SupplierDeliveryZoneCoverage>(
-            "sp_SupplierDeliveryZone_CheckCoverage",
-            new { SupplierId = article.SupplierId, WarehouseId = order.WarehouseId },
-            commandType: CommandType.StoredProcedure);
+        var coverage = await multi.ReadFirstOrDefaultAsync<SupplierDeliveryZoneCoverage>();
 
         if (coverage is not null && coverage.EnforcementActive && !coverage.HasCoverage)
             throw new ApiException(ErrorCodes.ArticleSupplierZoneNotCovered,
@@ -423,18 +431,9 @@ public class OrderService(
 
         // Resolve the current price for the Order's organization — same resolution the
         // ArticlePrices "current price" read path already uses (contract-over-global, with
-        // the currency-hierarchy fallback baked into the SP itself). Exact param shape mirrors
-        // ArticlePriceService.GetCurrentAsync's own call to this SP.
-        var priceParams = new DynamicParameters();
-        priceParams.Add("@ArticleId", article.ArticleId);
-        priceParams.Add("@OrganizationId", order.OrganizationId);
-        priceParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
-        priceParams.Add("@AsOfDate", DateTime.UtcNow.Date);
-
-        var priceRow = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
-            "sp_ArticlePrice_GetCurrent", priceParams, commandType: CommandType.StoredProcedure);
-
-        var resolvedCurrencyCode = priceParams.Get<string?>("@CurrencyCode");
+        // the currency-hierarchy fallback baked into the SP itself).
+        var priceRow = await multi.ReadFirstOrDefaultAsync<ArticlePrice>();
+        var resolvedCurrencyCode = await multi.ReadFirstOrDefaultAsync<string>();
 
         decimal unitPrice;
         string currencyCode;
@@ -483,9 +482,13 @@ public class OrderService(
         int? discountTypeId = null;
         decimal? discountValueApplied = null;
 
+        // Discount result set is always read here regardless of priceRow, to stay in lockstep
+        // with sp_Article_ResolveOrderLineDetails's fixed result-set order — only actually
+        // applied when priceRow is not null, identical to the original behavior.
+        var effectiveDiscount = await multi.ReadFirstOrDefaultAsync<EffectiveArticleDiscountRow>();
+
         if (priceRow is not null)
         {
-            var effectiveDiscount = await articleDiscountService.GetEffectiveForArticleAsync(article.ArticleId, DateTime.UtcNow.Date, cancellationToken);
             if (effectiveDiscount is not null)
             {
                 decimal? discountedPrice = effectiveDiscount.DiscountTypeCode switch
@@ -525,10 +528,7 @@ public class OrderService(
         // reclassification or Category Code rename must never retroactively change what an
         // already-placed Order reports. An unclassified article simply snapshots nulls —
         // classification is optional metadata, never a purchasing precondition.
-        var classification = await connection.QueryFirstOrDefaultAsync<ArticleClassificationEffective>(
-            "sp_ArticleClassification_GetEffectiveForArticle",
-            new { ArticleId = article.ArticleId, OrganizationId = order.OrganizationId },
-            commandType: CommandType.StoredProcedure);
+        var classification = await multi.ReadFirstOrDefaultAsync<ArticleClassificationEffective>();
 
         var linePararms = new DynamicParameters();
         linePararms.Add("@OrderLineToken", Guid.NewGuid());
@@ -1719,5 +1719,20 @@ public class OrderService(
         public int? SubCategoryId { get; set; }
         public string? SubCategoryCode { get; set; }
         public bool IsInherited { get; set; }
+    }
+
+    // Projection for sp_ArticleDiscount_GetEffective's result set, read as part of
+    // sp_Article_ResolveOrderLineDetails's combined round trip in AddLineAsync — same shape as
+    // ArticleDiscountService's own private EffectiveArticleDiscountRow, kept as a separate local
+    // copy since that one is private to its own service (established convention: each service
+    // defines its own private row-projection classes for SP results, see CLAUDE.md's "Service
+    // query conventions").
+    private sealed class EffectiveArticleDiscountRow
+    {
+        public Guid ArticleDiscountToken { get; set; }
+        public int DiscountTypeId { get; set; }
+        public string DiscountTypeCode { get; set; } = default!;
+        public decimal DiscountValue { get; set; }
+        public string? CurrencyCode { get; set; }
     }
 }
