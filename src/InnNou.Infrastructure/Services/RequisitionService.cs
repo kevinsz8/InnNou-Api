@@ -194,16 +194,28 @@ public class RequisitionService(IDbConnectionFactory connectionFactory, IMapper 
         if (lines.Count == 0)
             throw new ApiException(ErrorCodes.RequisitionEmpty, "At least one line must be requested.", 400);
 
-        var validatedLines = new List<(Article Article, ResolvedArticleQuantity Quantity, string? Notes)>();
-        var seenArticleIds = new HashSet<int>();
         foreach (var input in lines)
         {
             if (input.QuantityRequested <= 0)
                 throw new ApiException(ErrorCodes.RequisitionInvalidQuantity, "Requested quantity must be greater than zero.", 400);
+        }
 
-            var article = await connection.QueryFirstOrDefaultAsync<Article>(
-                "sp_Article_GetByToken", new { ArticleToken = input.ArticleToken }, commandType: CommandType.StoredProcedure);
-            if (article is null)
+        // Batch-resolve every line's ArticleToken in one round trip instead of one
+        // sp_Article_GetByToken call per line (2026-08-07 full-system audit finding #9) —
+        // sp_Article_GetByTokens is a lean, bypass-mode resolver purpose-built for this call site;
+        // see its own header comment for why it's not shared with InternalOrderService/
+        // PurchaseOrderService.RectifyAsync's own per-line loops (those need real hierarchy/
+        // private-supplier visibility filtering, deliberately left un-batched).
+        var distinctTokens = string.Join(",", lines.Select(l => l.ArticleToken).Distinct());
+        var resolvedArticles = (await connection.QueryAsync<Article>(
+            "sp_Article_GetByTokens", new { ArticleTokens = distinctTokens }, commandType: CommandType.StoredProcedure))
+            .ToDictionary(a => a.ArticleToken);
+
+        var validatedLines = new List<(Article Article, ResolvedArticleQuantity Quantity, string? Notes)>();
+        var seenArticleIds = new HashSet<int>();
+        foreach (var input in lines)
+        {
+            if (!resolvedArticles.TryGetValue(input.ArticleToken, out var article))
                 throw new ApiException(ErrorCodes.RequisitionArticleNotFound, $"Article '{input.ArticleToken}' not found.", 404);
 
             if (!seenArticleIds.Add(article.ArticleId))

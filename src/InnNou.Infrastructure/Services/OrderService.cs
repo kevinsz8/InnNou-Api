@@ -495,6 +495,19 @@ public class OrderService(
                     _ => null
                 };
 
+                // Found in the 2026-08-07 full-system audit (finding #7): a currency mismatch here
+                // used to be a silent no-op — nobody (buyer or supplier) had any way to discover why
+                // a configured discount never applied. Logging it doesn't change the behavior (this
+                // codebase still has no FX conversion to fall back on), but makes a genuine "why
+                // isn't my discount applying" support question answerable from the logs instead of
+                // requiring a live debugging session.
+                if (discountedPrice is null && effectiveDiscount.DiscountTypeCode == DiscountTypeCodes.FixedAmount && effectiveDiscount.CurrencyCode != currencyCode)
+                {
+                    logger.LogWarning(
+                        "ArticleDiscount {ArticleDiscountToken} on article {ArticleToken} was not applied — its currency {DiscountCurrency} doesn't match the resolved price currency {PriceCurrency}",
+                        effectiveDiscount.ArticleDiscountToken, article.ArticleToken, effectiveDiscount.CurrencyCode, currencyCode);
+                }
+
                 if (discountedPrice.HasValue)
                 {
                     baseUnitPrice = unitPrice;

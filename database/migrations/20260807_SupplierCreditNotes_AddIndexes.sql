@@ -24,6 +24,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SupplierCreditNoteLine
     CREATE INDEX IX_SupplierCreditNoteLines_SupplierCreditNoteId ON dbo.SupplierCreditNoteLines (SupplierCreditNoteId);
 GO
 
+-- ArticleId FK was missed in the first pass of this migration (audit finding #5, 2026-08-07) — no
+-- query filters/joins on it today, but it's the obvious join key for any future "credit note
+-- history for this article" report, and an unindexed FK also means SQL Server table-scans
+-- SupplierCreditNoteLines on every Article delete/update to check referential integrity.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SupplierCreditNoteLines_ArticleId' AND object_id = OBJECT_ID('dbo.SupplierCreditNoteLines'))
+    CREATE INDEX IX_SupplierCreditNoteLines_ArticleId ON dbo.SupplierCreditNoteLines (ArticleId);
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SupplierCreditNoteInvoices_SupplierCreditNoteId' AND object_id = OBJECT_ID('dbo.SupplierCreditNoteInvoices'))
     CREATE INDEX IX_SupplierCreditNoteInvoices_SupplierCreditNoteId ON dbo.SupplierCreditNoteInvoices (SupplierCreditNoteId);
 GO
