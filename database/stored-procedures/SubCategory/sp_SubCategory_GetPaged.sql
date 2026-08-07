@@ -57,7 +57,10 @@ BEGIN
     LEFT JOIN Organizations o ON o.OrganizationId = c.OrganizationId
     WHERE (@IncludeInactive = 1 OR sc.IsActive = 1)
       AND (@CategoryId IS NULL OR sc.CategoryId = @CategoryId)
-      AND (@SearchText IS NULL OR LOWER(sc.Code) LIKE '%' + LOWER(@SearchText) + '%')
+      -- Code's column collation is SQL_Latin1_General_CP1_CI_AS (case-insensitive) — confirmed live
+      -- against InnNou/InnNou_Test via sys.columns before dropping LOWER() on both sides here, since
+      -- wrapping the filtered column in a function blocks an index seek (SARGability).
+      AND (@SearchText IS NULL OR sc.Code LIKE '%' + @SearchText + '%')
       AND
       (
           @ContextRoleLevel >= 100

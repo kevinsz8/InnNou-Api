@@ -133,6 +133,15 @@ BEGIN
         subcat.NameTranslations AS SubCategoryNameTranslations,
         ISNULL(ec.IsInherited, CAST(0 AS BIT)) AS IsCategoryInherited,
         eco.Name        AS ClassificationOrganizationName,
+        a.TaxCategoryId,
+        tc.TaxCategoryToken AS TaxCategoryToken,
+        tc.Code         AS TaxCategoryCode,
+        COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId) AS EffectiveTaxCategoryId,
+        etc.Code        AS EffectiveTaxCategoryCode,
+        a.DefaultReceivingUnitId,
+        dru.UnitOfMeasureToken AS DefaultReceivingUnitToken,
+        dru.Code        AS DefaultReceivingUnitCode,
+        dru.NameTranslations AS DefaultReceivingUnitNameTranslations,
         a.DeletedUtc,
         a.DeletedBy,
         COUNT(*) OVER() AS TotalCount
@@ -143,6 +152,9 @@ BEGIN
     LEFT JOIN Families     f  ON  f.FamilyId         = a.FamilyId
     LEFT JOIN SubFamilies  sf ON  sf.SubFamilyId      = a.SubFamilyId
     LEFT JOIN Articles     r  ON  r.ArticleId         = a.ReplacedByArticleId
+    LEFT JOIN TaxCategories tc  ON tc.TaxCategoryId  = a.TaxCategoryId
+    LEFT JOIN TaxCategories etc ON etc.TaxCategoryId = COALESCE(a.TaxCategoryId, f.DefaultTaxCategoryId)
+    LEFT JOIN UnitsOfMeasure dru ON dru.UnitOfMeasureId = a.DefaultReceivingUnitId
     LEFT JOIN (SELECT ArticleId, OrganizationId, IsInherited FROM EffectiveFavorites WHERE rn = 1) ef ON ef.ArticleId = a.ArticleId
     LEFT JOIN Organizations efo ON efo.OrganizationId = ef.OrganizationId
     LEFT JOIN (SELECT ArticleId, OrganizationId, CategoryId, SubCategoryId, IsInherited FROM EffectiveClassifications WHERE rn = 1) ec ON ec.ArticleId = a.ArticleId

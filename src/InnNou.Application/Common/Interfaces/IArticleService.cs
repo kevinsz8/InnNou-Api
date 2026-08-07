@@ -10,6 +10,11 @@ namespace InnNou.Application.Common.Interfaces
         Task<PagedResult<ArticlePackagingConversionDto>> GetPackagingConversionReportAsync(int pageNumber, int pageSize, string? searchText, bool includeInactive, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default);
         Task<List<ArticlePriceComparisonDto>> GetPriceComparisonReportAsync(int categoryId, int? subCategoryId, int? organizationId, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default);
+        // Batch token→id resolution (one round trip regardless of list size), applying the exact
+        // same visibility rule GetByTokenAsync applies per-token. Returns only the tokens that
+        // both exist and are visible to the caller — an unresolvable/invisible token is simply
+        // absent from the result, left for the caller to report as a per-item error.
+        Task<Dictionary<Guid, int>> GetIdsByTokensAsync(List<Guid> tokens, IRequestContext context, CancellationToken cancellationToken = default);
         Task<bool> ExistsBySupplierSkuAsync(int supplierId, string supplierSku, Guid? excludeToken, CancellationToken cancellationToken = default);
         Task<ArticleDto?> CreateAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDto?> EditAsync(ArticleDto dto, IRequestContext context, CancellationToken cancellationToken = default);

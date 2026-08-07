@@ -27,13 +27,13 @@ namespace InnNou.Application.Handlers
             {
                 SubFamilies = mapper.MapList<Responses.Common.SubFamily>(result.Items),
                 TotalCount = result.TotalCount,
-                PageNumber = request.PageNumber,
-                PageSize = request.PageSize,
+                PageNumber = result.PageNumber,
+                PageSize = result.PageSize,
                 TotalPages = totalPages,
-                HasNextPage = request.PageNumber < totalPages,
-                HasPreviousPage = request.PageNumber > 1,
-                NextPageNumber = request.PageNumber < totalPages ? request.PageNumber + 1 : (int?)null,
-                PreviousPageNumber = request.PageNumber > 1 ? request.PageNumber - 1 : (int?)null
+                HasNextPage = result.PageNumber < totalPages,
+                HasPreviousPage = result.PageNumber > 1,
+                NextPageNumber = result.PageNumber < totalPages ? result.PageNumber + 1 : (int?)null,
+                PreviousPageNumber = result.PageNumber > 1 ? result.PageNumber - 1 : (int?)null
             };
             return ApiResponse<GetSubFamiliesQueryResponse>.SuccessResponse(response, 200);
         }

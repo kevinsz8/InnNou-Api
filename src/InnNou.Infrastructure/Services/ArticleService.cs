@@ -9,6 +9,7 @@ using InnNou.Infrastructure.Excel;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Globalization;
@@ -315,6 +316,44 @@ public class ArticleService(
         var dto = mapper.Map<ArticleDto>(row);
         dto.PackagingLevels = await LoadPackagingLevelsAsync(connection, row.ArticleId);
         return dto;
+    }
+
+    private sealed class ArticleIdTokenSupplierRow
+    {
+        public int ArticleId { get; set; }
+        public Guid ArticleToken { get; set; }
+        public int SupplierId { get; set; }
+    }
+
+    public async Task<Dictionary<Guid, int>> GetIdsByTokensAsync(List<Guid> tokens, IRequestContext context, CancellationToken cancellationToken = default)
+    {
+        if (tokens.Count == 0)
+            return [];
+
+        await using var connection = connectionFactory.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("@ArticleTokens", string.Join(',', tokens));
+        p.Add("@OrganizationId", context.OrganizationId);
+        p.Add("@ContextRoleLevel", context.RoleLevel);
+        p.Add("@ContextSupplierId", context.SupplierId);
+
+        var rows = (await connection.QueryAsync<ArticleIdTokenSupplierRow>(
+            "sp_Article_GetIdsByTokens", p, commandType: CommandType.StoredProcedure)).ToList();
+
+        // Mirror GetByTokenAsync's own post-fetch narrowing exactly (see that method above): a
+        // supplier-scoped caller only ever sees its own articles regardless of the broader
+        // global/hierarchy visibility the SP's WHERE allows, and a caller with neither a
+        // SupplierId nor an OrganizationId below Admin role sees nothing at all.
+        if (context.SupplierId.HasValue)
+        {
+            rows = rows.Where(r => r.SupplierId == context.SupplierId.Value).ToList();
+        }
+        else if (!context.OrganizationId.HasValue && context.RoleLevel < AdminRoleLevel)
+        {
+            return [];
+        }
+
+        return rows.ToDictionary(r => r.ArticleToken, r => r.ArticleId);
     }
 
     // Detail reads only (GetByTokenAsync, and internally after Create/Edit/Supersede) — never
@@ -633,8 +672,12 @@ public class ArticleService(
             await connection.ExecuteAsync("sp_Article_SoftDelete", p, commandType: CommandType.StoredProcedure);
             return true;
         }
-        catch
+        catch (SqlException ex) when (ex.Message.Contains("ARTICLE_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
         {
+            // sp_Article_SoftDelete re-checks existence itself (closes the TOCTOU race window
+            // against the `existing is null` check above) and raises this specific error when the
+            // row disappeared in between — anything else (timeout, deadlock, connectivity) must
+            // propagate as a real error instead of being misreported as "not found".
             return false;
         }
     }

@@ -14,8 +14,16 @@ namespace InnNou.Application.Handlers
         IRequestContext context)
         : IRequestHandler<BulkAssignArticleClassificationCommandRequest, ApiResponse<BulkAssignArticleClassificationCommandResponse>>
     {
+        // Same cap this codebase enforces on every other bulk operation (bulk import, template
+        // application, price-change subscriptions) — a batch resolution being one round trip
+        // instead of N doesn't remove the need for an upper bound on N itself.
+        private const int MaxArticleTokens = 500;
+
         public async Task<ApiResponse<BulkAssignArticleClassificationCommandResponse>> Handle(BulkAssignArticleClassificationCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.ArticleTokens.Count > MaxArticleTokens)
+                return ApiResponse<BulkAssignArticleClassificationCommandResponse>.FailureResponse(ErrorCodes.ArticleClassificationTooManyArticleTokens, $"A single bulk classification request cannot contain more than {MaxArticleTokens} article tokens.", 400);
+
             var category = await categoryService.GetByTokenAsync(request.CategoryToken, context, cancellationToken);
             if (category is null)
                 return ApiResponse<BulkAssignArticleClassificationCommandResponse>.FailureResponse(ErrorCodes.ArticleClassificationCategoryNotFound, "Category not found or outside your organization's scope.", 404);
@@ -33,22 +41,22 @@ namespace InnNou.Application.Handlers
                 subCategoryId = subCategory.SubCategoryId;
             }
 
-            // Resolve every ArticleToken up front — an unresolvable token becomes a per-item error
-            // in the response rather than failing the whole batch, same "partial success" shape as
-            // every other bulk operation in this codebase.
-            var articleIdToToken = new Dictionary<int, Guid>();
+            // Resolve every ArticleToken up front in a single batched round trip — an unresolvable
+            // token becomes a per-item error in the response rather than failing the whole batch,
+            // same "partial success" shape as every other bulk operation in this codebase.
             var response = new BulkAssignArticleClassificationCommandResponse { TotalCount = request.ArticleTokens.Count };
 
+            var resolvedTokenToId = await articleService.GetIdsByTokensAsync(request.ArticleTokens, context, cancellationToken);
+            var articleIdToToken = new Dictionary<int, Guid>();
             foreach (var articleToken in request.ArticleTokens)
             {
-                var article = await articleService.GetByTokenAsync(articleToken, context, cancellationToken);
-                if (article is null)
+                if (!resolvedTokenToId.TryGetValue(articleToken, out var articleId))
                 {
                     response.Errors.Add(new BulkAssignArticleClassificationItemError { ArticleToken = articleToken, Code = ErrorCodes.ArticleNotFound, Description = "Article not found." });
                     continue;
                 }
 
-                articleIdToToken[article.ArticleId] = articleToken;
+                articleIdToToken[articleId] = articleToken;
             }
 
             if (articleIdToToken.Count > 0)

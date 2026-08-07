@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateSubFamilyCommandResponse>> Handle(CreateSubFamilyCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var family = await familyService.GetByTokenAsync(request.FamilyToken, cancellationToken);
             if (family is null)
                 return ApiResponse<CreateSubFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyNotFound, "Family not found.", 404);

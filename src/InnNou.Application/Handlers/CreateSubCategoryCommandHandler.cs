@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateSubCategoryCommandResponse>> Handle(CreateSubCategoryCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateSubCategoryCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var category = await categoryService.GetByTokenAsync(request.CategoryToken, context, cancellationToken);
             if (category is null)
                 return ApiResponse<CreateSubCategoryCommandResponse>.FailureResponse(ErrorCodes.CategoryNotFound, "Category not found.", 404);

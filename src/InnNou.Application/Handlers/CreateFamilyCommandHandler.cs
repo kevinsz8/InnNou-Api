@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateFamilyCommandResponse>> Handle(CreateFamilyCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             if (await familyService.ExistsByCodeAsync(request.Code, cancellationToken))
                 return ApiResponse<CreateFamilyCommandResponse>.FailureResponse(ErrorCodes.FamilyCodeExists, "A family with this code already exists.", 409);
 

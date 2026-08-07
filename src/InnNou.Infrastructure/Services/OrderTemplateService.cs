@@ -14,7 +14,7 @@ using System.Data;
 
 namespace InnNou.Infrastructure.Services;
 
-public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMapper mapper, IOrderService orderService, ILogger<OrderTemplateService> logger) : IOrderTemplateService
+public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMapper mapper, IOrderService orderService, IArticlePriceService articlePriceService, ILogger<OrderTemplateService> logger) : IOrderTemplateService
 {
     private sealed class OrderTemplatePageRow : OrderTemplate { public int TotalCount { get; set; } }
 
@@ -395,24 +395,23 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             worksheet.Cell(1, i + 1).Value = BulkExcelLocalization.Header(headers[i], language);
         worksheet.Row(1).Style.Font.Bold = true;
 
+        // Resolve every line's current price in one batched call (same pattern as
+        // ArticleService.GetPriceComparisonReportAsync's own use of GetCurrentBatchAsync)
+        // instead of looping sp_ArticlePrice_GetCurrent once per line.
+        var articleIds = lines.Select(l => l.ArticleId).Distinct().ToList();
+        var pricesByArticleId = await articlePriceService.GetCurrentBatchAsync(articleIds, template.OrganizationId, DateTime.UtcNow.Date, cancellationToken);
+
         var r = 2;
         foreach (var line in lines)
         {
-            var priceParams = new DynamicParameters();
-            priceParams.Add("@ArticleId", line.ArticleId);
-            priceParams.Add("@OrganizationId", template.OrganizationId);
-            priceParams.Add("@CurrencyCode", null, DbType.AnsiString, size: 10, direction: ParameterDirection.InputOutput);
-            priceParams.Add("@AsOfDate", DateTime.UtcNow.Date);
-
-            var priceRow = await connection.QueryFirstOrDefaultAsync<ArticlePrice>(
-                "sp_ArticlePrice_GetCurrent", priceParams, commandType: CommandType.StoredProcedure);
+            var hasPrice = pricesByArticleId.TryGetValue(line.ArticleId, out var price);
 
             worksheet.Cell(r, 1).Value = line.SupplierName;
             worksheet.Cell(r, 2).Value = line.SupplierSku;
             worksheet.Cell(r, 3).Value = line.ArticleName;
             worksheet.Cell(r, 4).Value = line.Quantity;
-            worksheet.Cell(r, 5).Value = priceRow?.Price;
-            worksheet.Cell(r, 6).Value = priceRow?.CurrencyCode ?? priceParams.Get<string?>("@CurrencyCode");
+            worksheet.Cell(r, 5).Value = hasPrice ? price.Price : (decimal?)null;
+            worksheet.Cell(r, 6).Value = hasPrice ? price.CurrencyCode : null;
             worksheet.Cell(r, 7).Value = line.ArticleToken.ToString();
             r++;
         }
@@ -438,6 +437,18 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
         if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: false))
             return null;
+
+        // Fail fast on a non-Draft target order instead of letting every line's own AddLineAsync
+        // call independently discover and report ORDER_NOT_DRAFT — same error code/message
+        // AddLineAsync itself uses, just raised once upfront rather than N times per line.
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            return null;
+
+        if (order.Status != OrderStatus.Draft)
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
         var lines = await GetLinesAsync(connection, template.OrderTemplateId);
 

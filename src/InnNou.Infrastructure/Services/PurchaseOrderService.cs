@@ -470,6 +470,12 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
             if (articleTokensAlreadyOnOrder.Contains(input.ArticleToken))
                 throw new ApiException(ErrorCodes.PurchaseOrderRectificationNewLineAlreadyOnOrder, $"Article '{input.ArticleToken}' is already a line on this purchase order — rectify its quantity/price instead of adding it again.", 409);
 
+            // Mark it claimed immediately (not just after the whole loop) so a second entry for
+            // the SAME ArticleToken within this same newLines batch trips the check above too —
+            // otherwise both would pass validation and insert as separate PurchaseOrderLine rows,
+            // silently double-counting that article's spend for the Family-approval recompute.
+            articleTokensAlreadyOnOrder.Add(input.ArticleToken);
+
             if (input.Quantity <= 0)
                 throw new ApiException(ErrorCodes.PurchaseOrderRectificationInvalidQuantity, $"A positive Quantity is required for article '{input.ArticleToken}'.", 400);
 
@@ -1527,8 +1533,10 @@ public class PurchaseOrderService(IDbConnectionFactory connectionFactory, IMappe
 
         // Unlike PurchaseOrder's own GetPagedAsync, hydrate Lines for every row here — a
         // GoodsReceipt list is always scoped to a handful of receipts for one PurchaseOrder
-        // (never an unbounded cross-organization browse), and the caller (the "Receive" modal)
-        // needs every line's QuantityAccepted to compute what's already been received.
+        // (never an unbounded cross-organization browse — GetGoodsReceiptsQueryHandler requires
+        // PurchaseOrderToken and rejects the request otherwise, precisely so this per-row
+        // hydration stays safe), and the caller (the "Receive" modal) needs every line's
+        // QuantityAccepted to compute what's already been received.
         foreach (var item in items)
         {
             var goodsReceipt = rows.First(r => r.GoodsReceiptToken == item.GoodsReceiptToken);

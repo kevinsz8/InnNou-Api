@@ -13,13 +13,16 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- Not PENDING (already decided, or the token doesn't exist) — return with no result set
+    -- rather than RAISERROR, so the caller's own UPDATE...WHERE status guard below is what's
+    -- atomic, not this earlier read. C# maps the resulting null to a 409
+    -- ORDER_APPROVAL_STEP_ALREADY_DECIDED instead of an unhandled 500.
     IF NOT EXISTS (
         SELECT 1 FROM OrderApprovalSteps s
         JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
         WHERE s.OrderApprovalStepToken = @OrderApprovalStepToken AND oass.Code = 'PENDING'
     )
     BEGIN
-        RAISERROR('ORDER_APPROVAL_STEP_ALREADY_DECIDED', 16, 1);
         RETURN;
     END
 

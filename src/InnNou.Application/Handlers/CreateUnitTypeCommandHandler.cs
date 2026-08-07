@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateUnitTypeCommandResponse>> Handle(CreateUnitTypeCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             if (await unitTypeService.ExistsByCodeAsync(request.Code, cancellationToken))
                 return ApiResponse<CreateUnitTypeCommandResponse>.FailureResponse(ErrorCodes.UnitTypeCodeExists, "A unit type with this code already exists.", 409);
 

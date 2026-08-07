@@ -29,7 +29,7 @@ public class ConsolidatedPurchaseOrderService(IDbConnectionFactory connectionFac
         if (context.RoleLevel >= SuperAdminRoleLevel)
         {
             if (!superAssociateOrganizationToken.HasValue)
-                throw new ApiException(ErrorCodes.ConsolidatedPurchaseOrderForbidden, "SuperAssociateOrganizationToken is required.", 400);
+                throw new ApiException(ErrorCodes.ConsolidatedPurchaseOrderOrganizationRequired, "SuperAssociateOrganizationToken is required.", 400);
 
             var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
                 "sp_Organization_GetByToken", new { OrganizationToken = superAssociateOrganizationToken.Value }, commandType: CommandType.StoredProcedure);
@@ -259,13 +259,20 @@ public class ConsolidatedPurchaseOrderService(IDbConnectionFactory connectionFac
         var members = (await connection.QueryAsync<ConsolidatedPurchaseOrderMember>(
             "sp_ConsolidatedPurchaseOrderMember_GetByConsolidatedPurchaseOrderId", new { header.ConsolidatedPurchaseOrderId }, commandType: CommandType.StoredProcedure)).ToList();
 
-        var memberLines = new List<(ConsolidatedPurchaseOrderMember Member, List<PurchaseOrderLine> Lines)>();
-        foreach (var member in members)
-        {
-            var lines = (await connection.QueryAsync<PurchaseOrderLine>(
-                "sp_PurchaseOrderLine_GetEffective", new { member.OrderId, member.PurchaseOrderId }, commandType: CommandType.StoredProcedure)).ToList();
-            memberLines.Add((member, lines));
-        }
+        // Single batched round trip for every member PurchaseOrder's effective lines, instead of
+        // looping sp_PurchaseOrderLine_GetEffective once per member (N+1) — same STRING_SPLIT
+        // list-passing convention as sp_User_GetPaged/sp_ArticlePrice_GetCurrentBatch.
+        var allLines = members.Count == 0
+            ? []
+            : (await connection.QueryAsync<PurchaseOrderLine>(
+                "sp_PurchaseOrderLine_GetEffectiveByPurchaseOrderIds",
+                new { PurchaseOrderIds = string.Join(',', members.Select(m => m.PurchaseOrderId)) },
+                commandType: CommandType.StoredProcedure)).ToList();
+        var linesByPurchaseOrderId = allLines.GroupBy(l => l.PurchaseOrderId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var memberLines = members
+            .Select(member => (Member: member, Lines: linesByPurchaseOrderId.TryGetValue(member.PurchaseOrderId, out var lines) ? lines : []))
+            .ToList();
 
         var pdfBytes = ConsolidatedPurchaseOrderDocument.Build(header, memberLines);
         var fileName = $"consolidated-po-{header.ConsolidatedPurchaseOrderToken:N}.pdf";

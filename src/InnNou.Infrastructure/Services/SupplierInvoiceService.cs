@@ -674,12 +674,16 @@ public class SupplierInvoiceService(
 
             if (anyDiscrepancy)
             {
-                var statusParams = new DynamicParameters();
-                statusParams.Add("@SupplierInvoiceToken", header.SupplierInvoiceToken);
-                statusParams.Add("@SupplierInvoiceStatusId", (int)SupplierInvoiceStatus.Discrepancy);
                 await connection.ExecuteAsync(
-                    "UPDATE dbo.SupplierInvoices SET SupplierInvoiceStatusId = @SupplierInvoiceStatusId WHERE SupplierInvoiceToken = @SupplierInvoiceToken",
-                    statusParams, transaction);
+                    "sp_SupplierInvoice_SetStatus",
+                    new
+                    {
+                        header.SupplierInvoiceToken,
+                        SupplierInvoiceStatusId = (int)SupplierInvoiceStatus.Discrepancy,
+                        LastUpdatedUtc = DateTime.UtcNow,
+                        LastUpdatedBy = context.ActorUserToken.ToString()
+                    },
+                    transaction, commandType: CommandType.StoredProcedure);
             }
 
             await transaction.CommitAsync(cancellationToken);
@@ -697,6 +701,34 @@ public class SupplierInvoiceService(
         }
     }
 
+    // Mirrors SupplierService.IsValidImageSignature's exact byte-matching approach (same PNG/JPEG
+    // magic bytes), extended with the PDF signature — the invoice attachment allow-list adds
+    // ".pdf" on top of the image types the Supplier logo upload accepts. Confirms the actual file
+    // content matches the claimed extension rather than trusting Path.GetExtension alone.
+    private static bool IsValidAttachmentSignature(Stream stream, string fileExtension)
+    {
+        if (!stream.CanSeek)
+            return true; // best-effort only; skip if the stream can't be rewound
+
+        var header = new byte[12];
+        var originalPosition = stream.Position;
+        stream.Position = 0;
+        var bytesRead = stream.Read(header, 0, header.Length);
+        stream.Position = originalPosition;
+
+        if (bytesRead < 4)
+            return false;
+
+        return fileExtension.ToLowerInvariant() switch
+        {
+            ".pdf" => bytesRead >= 5
+                && header[0] == 0x25 && header[1] == 0x50 && header[2] == 0x44 && header[3] == 0x46 && header[4] == 0x2D, // "%PDF-"
+            ".png" => header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47,
+            ".jpg" or ".jpeg" => header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF,
+            _ => false
+        };
+    }
+
     public async Task<bool> UploadAttachmentAsync(Guid supplierInvoiceToken, Stream fileStream, string fileExtension, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -711,6 +743,9 @@ public class SupplierInvoiceService(
 
         using var memoryStream = new MemoryStream();
         await fileStream.CopyToAsync(memoryStream, cancellationToken);
+
+        if (!IsValidAttachmentSignature(memoryStream, fileExtension))
+            throw new ApiException(ErrorCodes.SupplierInvoiceAttachmentInvalidFile, "The uploaded file does not match the declared file type.", 400);
 
         await fileStorage.SaveAsync(supplierInvoiceToken, memoryStream.ToArray(), fileExtension, cancellationToken);
 

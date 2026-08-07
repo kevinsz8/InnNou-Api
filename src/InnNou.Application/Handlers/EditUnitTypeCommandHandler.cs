@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditUnitTypeCommandResponse>> Handle(EditUnitTypeCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<EditUnitTypeCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var dto = new UnitTypeDto { UnitTypeToken = request.UnitTypeToken, Code = request.Code };
             var result = await unitTypeService.EditAsync(dto, context, cancellationToken);
             if (result is null)

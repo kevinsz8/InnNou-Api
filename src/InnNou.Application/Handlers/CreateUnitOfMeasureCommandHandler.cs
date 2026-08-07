@@ -13,6 +13,12 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateUnitOfMeasureCommandResponse>> Handle(CreateUnitOfMeasureCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
+            if (string.IsNullOrWhiteSpace(request.Symbol))
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Symbol is required.", 400);
+
             var unitType = await unitTypeService.GetByTokenAsync(request.UnitTypeToken, cancellationToken);
             if (unitType is null)
                 return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);

@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateCategoryCommandResponse>> Handle(CreateCategoryCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<CreateCategoryCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var dto = new CategoryDto { Code = request.Code, OrganizationToken = request.OrganizationToken };
             var result = await categoryService.CreateAsync(dto, context, cancellationToken: cancellationToken);
             if (result is null)

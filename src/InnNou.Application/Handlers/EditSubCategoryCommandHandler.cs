@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditSubCategoryCommandResponse>> Handle(EditSubCategoryCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<EditSubCategoryCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var dto = new SubCategoryDto { SubCategoryToken = request.SubCategoryToken, Code = request.Code };
             var result = await subCategoryService.EditAsync(dto, context, cancellationToken);
             if (result is null)

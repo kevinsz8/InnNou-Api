@@ -287,29 +287,38 @@ public class SupplierCreditNoteService(
 
         await using var connection = connectionFactory.CreateConnection();
 
+        // Same shape as SupplierInvoiceService.GetPagedAsync — an explicit organizationToken
+        // always wins; omitting it falls back to a whole-hierarchy search, but that fallback is
+        // deliberately restricted to non-ASSOCIATE callers (SuperAdmin/Admin/Super Asociado): an
+        // ASSOCIATE (single-property) caller must always pick their own organization explicitly.
+        // Kept in sync with SupplierInvoiceService's own branch for consistency between these two
+        // near-identical list endpoints.
         int? rootOrganizationId;
-        if (context.RoleLevel >= SuperAdminRoleLevel)
-        {
-            rootOrganizationId = null;
-        }
-        else if (context.RoleLevel >= AdminRoleLevel && context.OrganizationId.HasValue)
-        {
-            rootOrganizationId = context.OrganizationId.Value;
-        }
-        else
-        {
-            return new PagedResult<SupplierCreditNoteDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
-        }
 
         if (organizationToken.HasValue)
         {
             var organization = await connection.QueryFirstOrDefaultAsync<Organization>(
                 "sp_Organization_GetByToken", new { OrganizationToken = organizationToken.Value }, commandType: CommandType.StoredProcedure);
 
-            if (organization is null || !await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
+            if (organization is null)
                 return new PagedResult<SupplierCreditNoteDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
+            if (!await CanReadOrganizationAsync(connection, context, organization.OrganizationId))
+                throw new ApiException(ErrorCodes.SupplierCreditNoteForbidden, "Cannot view supplier credit notes outside your scope.", 403);
+
             rootOrganizationId = organization.OrganizationId;
+        }
+        else if (context.RoleLevel >= SuperAdminRoleLevel)
+        {
+            rootOrganizationId = context.OrganizationId;
+        }
+        else if (context.OrganizationTypeCode != OrganizationTypeCodes.Associate && context.OrganizationId.HasValue)
+        {
+            rootOrganizationId = context.OrganizationId.Value;
+        }
+        else
+        {
+            throw new ApiException(ErrorCodes.InvalidRequest, "An organization must be selected.", 400);
         }
 
         int? supplierId = null;

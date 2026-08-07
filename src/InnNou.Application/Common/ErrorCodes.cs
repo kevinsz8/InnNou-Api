@@ -141,6 +141,7 @@ namespace InnNou.Application.Common
         public const string ArticleClassificationCategoryNotFound = "ARTICLE_CLASSIFICATION_CATEGORY_NOT_FOUND";
         public const string ArticleClassificationSubCategoryMismatch = "ARTICLE_CLASSIFICATION_SUB_CATEGORY_MISMATCH";
         public const string ArticleClassificationOutsideScope = "ARTICLE_CLASSIFICATION_OUTSIDE_SCOPE";
+        public const string ArticleClassificationTooManyArticleTokens = "ARTICLE_CLASSIFICATION_TOO_MANY_ARTICLE_TOKENS";
 
         // Family
         public const string FamilyForbidden = "FAMILY_FORBIDDEN";
@@ -389,6 +390,7 @@ namespace InnNou.Application.Common
         public const string ConsolidatedPurchaseOrderNotFound = "CONSOLIDATED_PURCHASE_ORDER_NOT_FOUND";
         public const string ConsolidatedPurchaseOrderForbidden = "CONSOLIDATED_PURCHASE_ORDER_FORBIDDEN";
         public const string ConsolidatedPurchaseOrderOrganizationNotFound = "CONSOLIDATED_PURCHASE_ORDER_ORGANIZATION_NOT_FOUND";
+        public const string ConsolidatedPurchaseOrderOrganizationRequired = "CONSOLIDATED_PURCHASE_ORDER_ORGANIZATION_REQUIRED";
         public const string ConsolidatedPurchaseOrderInvalidDateRange = "CONSOLIDATED_PURCHASE_ORDER_INVALID_DATE_RANGE";
         public const string ConsolidatedPurchaseOrderEmpty = "CONSOLIDATED_PURCHASE_ORDER_EMPTY";
         public const string ConsolidatedPurchaseOrderInvalidMember = "CONSOLIDATED_PURCHASE_ORDER_INVALID_MEMBER";

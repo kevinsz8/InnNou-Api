@@ -12,6 +12,13 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<GetGoodsReceiptsQueryResponse>> Handle(GetGoodsReceiptsQueryRequest request, CancellationToken cancellationToken)
         {
+            // This list is always meant to be scoped to a handful of receipts for one
+            // PurchaseOrder (see PurchaseOrderService.GetGoodsReceiptsAsync's own comment) — the
+            // per-row Lines hydration it does is only safe under that assumption. Enforce it here
+            // instead of silently falling through to an unbounded org/supplier-wide browse.
+            if (!request.PurchaseOrderToken.HasValue)
+                return ApiResponse<GetGoodsReceiptsQueryResponse>.FailureResponse(ErrorCodes.InvalidRequest, "PurchaseOrderToken is required.", 400);
+
             var result = await purchaseOrderService.GetGoodsReceiptsAsync(
                 request.PurchaseOrderToken, request.PageNumber, request.PageSize, context, cancellationToken);
 

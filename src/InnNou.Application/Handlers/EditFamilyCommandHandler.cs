@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditFamilyCommandResponse>> Handle(EditFamilyCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<EditFamilyCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
             var dto = new FamilyDto { FamilyToken = request.FamilyToken, Code = request.Code };
             var result = await familyService.EditAsync(dto, context, cancellationToken);
             if (result is null)

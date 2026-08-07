@@ -1405,7 +1405,14 @@ public class OrderService(
             new { OrderToken = orderToken, Status = OrderStatusCodes.Cancelled, ActorBy = context.ActorUserToken.ToString() },
             commandType: CommandType.StoredProcedure);
 
-        return updated is null ? null : mapper.Map<OrderDto>(updated);
+        if (updated is null)
+            return null;
+
+        var dto = mapper.Map<OrderDto>(updated);
+        dto.Lines = mapper.MapList<OrderLineDto>(await GetLinesAsync(connection, updated.OrderId));
+        dto.LineCount = dto.Lines.Count;
+        dto.ApprovalSteps = mapper.MapList<OrderApprovalStepDto>(await GetApprovalStepsAsync(connection, updated.OrderId));
+        return dto;
     }
 
     // Creates a new Draft order for the same Warehouse as a SUBMITTED source order, re-adding

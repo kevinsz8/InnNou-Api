@@ -13,6 +13,12 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditUnitOfMeasureCommandResponse>> Handle(EditUnitOfMeasureCommandRequest request, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return ApiResponse<EditUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Code is required.", 400);
+
+            if (string.IsNullOrWhiteSpace(request.Symbol))
+                return ApiResponse<EditUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Symbol is required.", 400);
+
             var dto = new UnitOfMeasureDto
             {
                 UnitOfMeasureToken = request.UnitOfMeasureToken,

@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
 
@@ -121,6 +122,8 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        var currentToken = default(Guid);
+
         try
         {
             var headerParams = new DynamicParameters();
@@ -138,9 +141,10 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
                 return null;
             }
 
-            var lines = new List<SupplierReturnLine>();
             foreach (var selected in selectedLines)
             {
+                currentToken = selected.GoodsReceiptLineToken;
+
                 var lineParams = new DynamicParameters();
                 lineParams.Add("@SupplierReturnLineToken", Guid.NewGuid());
                 lineParams.Add("@SupplierReturnId", header.SupplierReturnId);
@@ -148,17 +152,31 @@ public class SupplierReturnService(IDbConnectionFactory connectionFactory, IMapp
                 lineParams.Add("@Notes", (string?)null);
                 lineParams.Add("@CreatedBy", actor);
 
-                var line = await connection.QueryFirstOrDefaultAsync<SupplierReturnLine>(
+                await connection.QueryFirstOrDefaultAsync<SupplierReturnLine>(
                     "sp_SupplierReturnLine_Create", lineParams, transaction, commandType: CommandType.StoredProcedure);
-                if (line is not null)
-                    lines.Add(line);
             }
 
             await transaction.CommitAsync(cancellationToken);
 
+            // Re-fetch via the same SP GetByTokenAsync/CloseAsync use — sp_SupplierReturnLine_Create's
+            // own SELECT is narrower than sp_SupplierReturnLine_GetBySupplierReturnId (missing the
+            // frozen GoodsReceiptLine pricing fields), so trusting its rows here would silently omit
+            // UnitPrice/CurrencyCode/TaxCategoryId/TaxRatePercent from the create response.
             var dto = mapper.Map<SupplierReturnDto>(header);
-            dto.Lines = mapper.MapList<SupplierReturnLineDto>(lines);
+            dto.Lines = mapper.MapList<SupplierReturnLineDto>(
+                await connection.QueryAsync<SupplierReturnLine>(
+                    "sp_SupplierReturnLine_GetBySupplierReturnId", new { header.SupplierReturnId }, commandType: CommandType.StoredProcedure));
             return dto;
+        }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            // UQ_SupplierReturnLines_GoodsReceiptLineId — the real enforcement against two
+            // concurrent create-return requests both claiming the same rejected GoodsReceiptLine
+            // (the eligibility check above is TOCTOU-racy by nature). Translate to the same
+            // 409 SupplierReturnLineNotEligible the pre-check above already raises for the
+            // non-racing "not eligible" case, rather than letting it fall through to a raw 500.
+            await transaction.RollbackAsync(cancellationToken);
+            throw new ApiException(ErrorCodes.SupplierReturnLineNotEligible, $"Goods receipt line '{currentToken}' is not eligible for a return — already claimed, not rejected, or doesn't belong to this purchase order.", 409);
         }
         catch
         {
