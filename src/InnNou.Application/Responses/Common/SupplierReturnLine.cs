@@ -11,5 +11,8 @@ namespace InnNou.Application.Responses.Common
         public string? Notes { get; set; }
         public DateTime CreatedUtc { get; set; }
         public string? CreatedBy { get; set; }
+        public decimal? UnitPrice { get; set; }
+        public string? CurrencyCode { get; set; }
+        public decimal? TaxRatePercent { get; set; }
     }
 }

@@ -1767,7 +1767,10 @@ namespace InnNou.Application.Mapping
                 RejectionReason = d.RejectionReason,
                 Notes = d.Notes,
                 CreatedUtc = d.CreatedUtc,
-                CreatedBy = d.CreatedBy
+                CreatedBy = d.CreatedBy,
+                UnitPrice = d.UnitPrice,
+                CurrencyCode = d.CurrencyCode,
+                TaxRatePercent = d.TaxRatePercent
             });
 
             mapper.Register<SupplierReturnDto, CommonSupplierReturn>(d => new CommonSupplierReturn

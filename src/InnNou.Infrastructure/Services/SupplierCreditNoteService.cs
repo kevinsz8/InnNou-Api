@@ -71,6 +71,11 @@ public class SupplierCreditNoteService(
         dto.CorrectedInvoices = mapper.MapList<SupplierCreditNoteInvoiceRefDto>(
             await connection.QueryAsync<SupplierCreditNoteInvoiceRef>(
                 "sp_SupplierCreditNoteInvoice_GetBySupplierCreditNoteId", new { SupplierCreditNoteId = supplierCreditNoteId }, commandType: CommandType.StoredProcedure));
+
+        // Computed from the lines just fetched, not a separate SQL aggregate — GetPaged's own SP
+        // still does its own CROSS APPLY SUM since it never fetches per-row Lines.
+        dto.LineCount = dto.Lines.Count;
+        dto.TotalAmount = dto.Lines.Sum(l => l.TotalAmount);
     }
 
     public async Task<SupplierCreditNoteDto?> CreateAsync(Guid supplierReturnToken, string creditNoteNumber, DateTime creditNoteDate, string reason, string? notes, List<CreateSupplierCreditNoteLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken = default)

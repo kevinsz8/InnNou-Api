@@ -914,7 +914,10 @@ namespace InnNou.Infrastructure.Mapping
                 RejectionReason = e.RejectionReason,
                 Notes = e.Notes,
                 CreatedUtc = e.CreatedUtc,
-                CreatedBy = e.CreatedBy
+                CreatedBy = e.CreatedBy,
+                UnitPrice = e.UnitPrice,
+                CurrencyCode = e.CurrencyCode,
+                TaxRatePercent = e.TaxRatePercent
             });
 
             mapper.Register<EligibleReturnLineEntity, EligibleReturnLineDto>(e => new EligibleReturnLineDto
