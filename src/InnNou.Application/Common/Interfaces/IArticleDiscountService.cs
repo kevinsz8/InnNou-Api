@@ -10,9 +10,5 @@ namespace InnNou.Application.Common.Interfaces
         Task<ArticleDiscountDto?> CreateAsync(Guid supplierToken, Guid? articleToken, Guid? subFamilyToken, Guid? familyToken, string discountTypeCode, decimal discountValue, string? currencyCode, DateTime effectiveFrom, DateTime? effectiveUntil, string? description, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDiscountDto?> EditAsync(Guid token, string discountTypeCode, decimal discountValue, string? currencyCode, DateTime effectiveFrom, DateTime? effectiveUntil, string? description, IRequestContext context, CancellationToken cancellationToken = default);
         Task<ArticleDiscountDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default);
-
-        // Internal resolution used by OrderService.AddLineAsync — no IRequestContext, not an
-        // authorized caller-facing read (mirrors ArticlePriceService.GetCurrentBatchAsync's shape).
-        Task<EffectiveArticleDiscountDto?> GetEffectiveForArticleAsync(int articleId, DateTime asOfDate, CancellationToken cancellationToken = default);
     }
 }

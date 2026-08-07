@@ -44,17 +44,6 @@ public class ArticleDiscountService(
         public string? Description { get; set; }
     }
 
-    private sealed class EffectiveArticleDiscountRow
-    {
-        public int ArticleDiscountId { get; set; }
-        public Guid ArticleDiscountToken { get; set; }
-        public int DiscountTypeId { get; set; }
-        public string DiscountTypeCode { get; set; } = default!;
-        public decimal DiscountValue { get; set; }
-        public string? CurrencyCode { get; set; }
-        public string ScopeLevel { get; set; } = default!;
-    }
-
     // Suppliers own ArticleDiscounts, same ownership shape as ArticlePriceService.CanManage —
     // only the owning supplier (real login or impersonated) or Admin+ may manage/view them.
     private static bool CanManage(IRequestContext context, int supplierId) =>
@@ -390,25 +379,5 @@ public class ArticleDiscountService(
             throw TranslateOverlapGuardException(ex)!;
         }
         return row is null ? null : mapper.Map<ArticleDiscountDto>(row);
-    }
-
-    public async Task<EffectiveArticleDiscountDto?> GetEffectiveForArticleAsync(int articleId, DateTime asOfDate, CancellationToken cancellationToken = default)
-    {
-        await using var connection = connectionFactory.CreateConnection();
-        var row = await connection.QueryFirstOrDefaultAsync<EffectiveArticleDiscountRow>(
-            "sp_ArticleDiscount_GetEffective", new { ArticleId = articleId, AsOfDate = asOfDate.Date }, commandType: CommandType.StoredProcedure);
-
-        if (row is null)
-            return null;
-
-        return new EffectiveArticleDiscountDto
-        {
-            ArticleDiscountToken = row.ArticleDiscountToken,
-            DiscountTypeId = row.DiscountTypeId,
-            DiscountTypeCode = row.DiscountTypeCode,
-            DiscountValue = row.DiscountValue,
-            CurrencyCode = row.CurrencyCode,
-            ScopeLevel = row.ScopeLevel
-        };
     }
 }
