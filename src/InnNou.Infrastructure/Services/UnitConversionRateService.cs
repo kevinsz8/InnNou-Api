@@ -86,6 +86,10 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         {
             throw new ApiException(ErrorCodes.UnitConversionRateCrossTypeInvalid, "Cannot create a conversion between units of different unit types.", 400);
         }
+        catch (SqlException ex) when (ex.Message.Contains("CONVERSION_COUNT_TYPE_NOT_ALLOWED", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRateCountTypeNotAllowed, "Count-type units (Box, Bottle, Pack...) have no universal conversion factor — this ratio is specific to each article's own packaging and is configured on the article itself.", 400);
+        }
         catch (SqlException ex) when (ex.Message.Contains("CONVERSION_SAME_UNIT_INVALID", StringComparison.OrdinalIgnoreCase))
         {
             throw new ApiException(ErrorCodes.UnitConversionRateSameUnitInvalid, "A unit cannot be converted to itself.", 400);

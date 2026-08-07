@@ -34,6 +34,24 @@ BEGIN
         RETURN;
     END
 
+    -- COUNT-type units (Caja/Botella/Pack/Pieza...) have no universal ratio to one another - how
+    -- many Botellas fit in a Caja is a fact about one specific Article's own packaging, not a
+    -- catalog-wide constant, and is already captured per-article by ArticlePackagingLevels (see
+    -- ArticleUnitConversion.GetCumulativeChain). A global "1 Caja = 24 Botella" row here would
+    -- silently be wrong for any article whose real ratio differs. Only physical/dimensional
+    -- UnitTypes (MASS, VOLUME, ...) get a real universal Factor.
+    IF EXISTS (
+        SELECT 1
+        FROM UnitsOfMeasure f
+        JOIN UnitTypes ut ON ut.UnitTypeId = f.UnitTypeId
+        WHERE f.UnitOfMeasureId = @FromUnitOfMeasureId
+          AND ut.Code = 'COUNT'
+    )
+    BEGIN
+        RAISERROR('CONVERSION_COUNT_TYPE_NOT_ALLOWED', 16, 1);
+        RETURN;
+    END
+
     -- Cannot convert a unit to itself
     IF @FromUnitOfMeasureId = @ToUnitOfMeasureId
     BEGIN

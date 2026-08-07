@@ -220,6 +220,7 @@ namespace InnNou.Application.Common
         public const string UnitConversionRateFromUnitNotFound = "UNIT_CONVERSION_RATE_FROM_UNIT_NOT_FOUND";
         public const string UnitConversionRateToUnitNotFound = "UNIT_CONVERSION_RATE_TO_UNIT_NOT_FOUND";
         public const string UnitConversionRateCrossTypeInvalid = "UNIT_CONVERSION_RATE_CROSS_TYPE_INVALID";
+        public const string UnitConversionRateCountTypeNotAllowed = "UNIT_CONVERSION_RATE_COUNT_TYPE_NOT_ALLOWED";
         public const string UnitConversionRateSameUnitInvalid = "UNIT_CONVERSION_RATE_SAME_UNIT_INVALID";
         public const string UnitConversionRatePairExists = "UNIT_CONVERSION_RATE_PAIR_EXISTS";
 
