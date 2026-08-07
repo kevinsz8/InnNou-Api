@@ -330,6 +330,17 @@ public class ArticleDiscountService(
 
         EnsureCanManage(context, existing.SupplierId);
 
+        // Reactivating must re-validate overlap exactly like Create/Edit — sp_ArticleDiscount_GetByScope
+        // only ever returns IsActive=1 rows, so another discount could legitimately have been created
+        // for this exact scope+overlapping dates while this one sat inactive; without this check,
+        // reactivating would silently resurrect an overlap that Create/Edit would have hard-blocked
+        // with 409. Found in the 2026-08-07 full-system audit.
+        if (isActive)
+        {
+            await EnsureNoOverlapAsync(connection, existing.SupplierId, existing.ArticleId, existing.SubFamilyId, existing.FamilyId,
+                existing.EffectiveFrom, existing.EffectiveUntil, excludeToken: token);
+        }
+
         var p = new DynamicParameters();
         p.Add("@ArticleDiscountToken", token);
         p.Add("@IsActive", isActive);

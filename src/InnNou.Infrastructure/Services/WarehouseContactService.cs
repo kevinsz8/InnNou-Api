@@ -30,13 +30,20 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
 
     // Same rule as WarehouseService.CanManageOrganizationAsync — deliberately duplicated
     // rather than shared, matching this codebase's convention of each service owning its
-    // own authorization logic.
-    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    // own authorization logic. targetWarehouseId additionally layers WarehouseScopeGuard on
+    // top of the org-hierarchy check (per CLAUDE.md's IRequestContext.WarehouseId note) — a
+    // WarehouseContact's own login must not manage another warehouse's contacts within the
+    // same organization. Found missing here during the 2026-08-07 full-system audit; see
+    // project_warehouse_contact_scope_gap in memory for the original instance of this bug.
+    private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -47,12 +54,15 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         return canAccess == 1;
     }
 
-    private static async Task<bool> CanManageReadAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    private static async Task<bool> CanManageReadAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId, int? targetWarehouseId = null)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
 
         if (!context.OrganizationId.HasValue)
+            return false;
+
+        if (!WarehouseScopeGuard.Allows(context, targetWarehouseId))
             return false;
 
         var canAccess = await connection.ExecuteScalarAsync<int>(
@@ -80,7 +90,7 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
             "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken }, commandType: CommandType.StoredProcedure);
 
-        if (warehouse is null || !await CanManageReadAsync(connection, context, warehouse.OrganizationId))
+        if (warehouse is null || !await CanManageReadAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             return new PagedResult<WarehouseContactDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         var p = new DynamicParameters();
@@ -109,7 +119,7 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         var contact = await connection.QueryFirstOrDefaultAsync<WarehouseContact>(
             "sp_WarehouseContact_GetByToken", new { WarehouseContactToken = warehouseContactToken }, commandType: CommandType.StoredProcedure);
 
-        if (contact is null || !await CanManageReadAsync(connection, context, contact.WarehouseOrganizationId!.Value))
+        if (contact is null || !await CanManageReadAsync(connection, context, contact.WarehouseOrganizationId!.Value, contact.WarehouseId))
             return null;
 
         return mapper.Map<WarehouseContactDto>(contact);
@@ -125,7 +135,7 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         if (warehouse is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId))
+        if (!await CanManageOrganizationAsync(connection, context, warehouse.OrganizationId, warehouse.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseContactOutsideScope, "Cannot manage contacts for a warehouse outside your scope.", 403);
 
         var hasAccess = dto.HasAccessToSystem ?? false;
@@ -240,7 +250,7 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
 
         var organizationId = existing.WarehouseOrganizationId!.Value;
 
-        if (!await CanManageOrganizationAsync(connection, context, organizationId))
+        if (!await CanManageOrganizationAsync(connection, context, organizationId, existing.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseContactOutsideScope, "Cannot edit a contact for a warehouse outside your scope.", 403);
 
         var touchesAccess = dto.HasAccessToSystem.HasValue
@@ -356,7 +366,7 @@ public class WarehouseContactService(IDbConnectionFactory connectionFactory, IMa
         if (existing is null)
             return false;
 
-        if (!await CanManageOrganizationAsync(connection, context, existing.WarehouseOrganizationId!.Value))
+        if (!await CanManageOrganizationAsync(connection, context, existing.WarehouseOrganizationId!.Value, existing.WarehouseId))
             throw new ApiException(ErrorCodes.WarehouseContactOutsideScope, "Cannot delete a contact for a warehouse outside your scope.", 403);
 
         var now = DateTime.UtcNow;

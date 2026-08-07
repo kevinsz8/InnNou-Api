@@ -167,4 +167,47 @@ public class ArticleDiscountTests(DatabaseFixture fixture) : TransactionalTestBa
         line.DiscountValue.Should().Be(25m);
         line.UnitPrice.Should().Be(UnitPrice * 0.75m);
     }
+
+    [Fact]
+    public async Task Reactivate_WhenAnotherDiscountNowOccupiesTheSameOverlappingScope_IsRejected()
+    {
+        // Regression guard for a gap found in the 2026-08-07 full-system audit: CreateAsync/
+        // EditAsync both re-validate overlap before writing, but SetActiveAsync didn't — so
+        // deactivating discount A, creating overlapping discount B (allowed, since
+        // sp_ArticleDiscount_GetByScope only ever sees IsActive=1 rows), then reactivating A would
+        // silently resurrect an overlap CreateAsync itself would have hard-blocked with 409.
+        var (_, supplierToken, articleToken, _) = await SetupCatalogAsync("ARTDISC_REACTIVATE");
+        var today = DateTime.UtcNow.Date;
+
+        var discountA = await Data.CreateArticleDiscountAsync(supplierToken, "PERCENTAGE", 10m, today, today.AddDays(10), articleToken: articleToken);
+
+        var deactivate = await Mediator.Send(new SetActiveArticleDiscountCommandRequest { ArticleDiscountToken = discountA.ArticleDiscountToken, IsActive = false });
+        deactivate.Success.Should().BeTrue(string.Join("; ", deactivate.Errors.Select(e => $"{e.Code}: {e.Description}")));
+
+        // Now legal — A is inactive, so this doesn't collide per sp_ArticleDiscount_GetByScope.
+        await Data.CreateArticleDiscountAsync(supplierToken, "PERCENTAGE", 20m, today.AddDays(5), today.AddDays(15), articleToken: articleToken);
+
+        var reactivate = await Mediator.Send(new SetActiveArticleDiscountCommandRequest { ArticleDiscountToken = discountA.ArticleDiscountToken, IsActive = true });
+
+        reactivate.Success.Should().BeFalse();
+        reactivate.StatusCode.Should().Be(409);
+        reactivate.Errors.Should().ContainSingle(e => e.Code == ErrorCodes.ArticleDiscountOverlapping);
+    }
+
+    [Fact]
+    public async Task Reactivate_WhenNoOtherDiscountOccupiesTheScope_Succeeds()
+    {
+        var (_, supplierToken, articleToken, _) = await SetupCatalogAsync("ARTDISC_REACTIVATE_OK");
+        var today = DateTime.UtcNow.Date;
+
+        var discount = await Data.CreateArticleDiscountAsync(supplierToken, "PERCENTAGE", 10m, today, today.AddDays(10), articleToken: articleToken);
+
+        var deactivate = await Mediator.Send(new SetActiveArticleDiscountCommandRequest { ArticleDiscountToken = discount.ArticleDiscountToken, IsActive = false });
+        deactivate.Success.Should().BeTrue();
+
+        var reactivate = await Mediator.Send(new SetActiveArticleDiscountCommandRequest { ArticleDiscountToken = discount.ArticleDiscountToken, IsActive = true });
+
+        reactivate.Success.Should().BeTrue();
+        reactivate.ReturnData!.ArticleDiscount.IsActive.Should().BeTrue();
+    }
 }

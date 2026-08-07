@@ -103,6 +103,16 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         return warehouse.WarehouseToken;
     }
 
+    // Token -> Id resolution for tests that need to set TestRequestContext.WarehouseId (an int) to
+    // simulate a real WarehouseContact login scoped to one Warehouse — the DTO/response layer only
+    // ever exposes the token, never the surrogate key, so this is test-only plumbing.
+    public async Task<int> GetWarehouseIdAsync(Guid warehouseToken)
+    {
+        await using var connection = ConnectionFactory.CreateConnection();
+        return await connection.QuerySingleAsync<int>(
+            "SELECT WarehouseId FROM Warehouses WHERE WarehouseToken = @warehouseToken", new { warehouseToken });
+    }
+
     public async Task<Guid> CreateSupplierAsync(Guid organizationToken, string namePrefix)
     {
         var supplier = await SendAsync(new CreateSupplierCommandRequest
