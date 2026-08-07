@@ -13,24 +13,33 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    DECLARE @PendingStatusId INT = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'PENDING');
+
     -- Not PENDING (already decided, or the token doesn't exist) — return with no result set
-    -- rather than RAISERROR, so the caller's own UPDATE...WHERE status guard below is what's
-    -- atomic, not this earlier read. C# maps the resulting null to a 409
+    -- rather than RAISERROR. C# maps the resulting null to a 409
     -- ORDER_APPROVAL_STEP_ALREADY_DECIDED instead of an unhandled 500.
     IF NOT EXISTS (
-        SELECT 1 FROM OrderApprovalSteps s
-        JOIN OrderApprovalStepStatuses oass ON oass.OrderApprovalStepStatusId = s.OrderApprovalStepStatusId
-        WHERE s.OrderApprovalStepToken = @OrderApprovalStepToken AND oass.Code = 'PENDING'
+        SELECT 1 FROM OrderApprovalSteps
+        WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND OrderApprovalStepStatusId = @PendingStatusId
     )
     BEGIN
         RETURN;
     END
 
+    -- The actual atomic guard against two concurrent Approve calls racing on the same step:
+    -- the WHERE clause re-checks PENDING so only the caller that "wins" the row lock flips it
+    -- (the IF NOT EXISTS above is just a fast-path early-out, not what makes this safe).
     UPDATE OrderApprovalSteps
     SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'APPROVED'),
            DecidedUtc                = SYSUTCDATETIME(),
            DecidedBy                 = @DecidedBy
-    WHERE  OrderApprovalStepToken = @OrderApprovalStepToken;
+    WHERE  OrderApprovalStepToken = @OrderApprovalStepToken
+      AND  OrderApprovalStepStatusId = @PendingStatusId;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RETURN;
+    END
 
     SELECT
         s.OrderApprovalStepId, s.OrderApprovalStepToken, s.OrderId, ord.OrderToken,

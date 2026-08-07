@@ -117,8 +117,12 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
     }
 
     /// <summary>A minimal 1-level article - purchase unit BOX, defined content 1 KILOGRAM
-    /// (mirrors the simplest real articles in the catalog, e.g. "Cafe Tarrazu 1kg").</summary>
-    public async Task<Guid> CreateArticleAsync(Guid supplierToken, Guid familyToken, string namePrefix)
+    /// (mirrors the simplest real articles in the catalog, e.g. "Cafe Tarrazu 1kg").
+    /// <paramref name="taxCategoryToken"/> is optional (defaults to null, i.e. inherit the
+    /// Family's own default) - pass it when a test needs a concrete, non-inherited starting
+    /// value to later prove an override (e.g. Supersede's own TaxCategoryToken) actually took
+    /// effect rather than just matching whatever the Family already defaults to.</summary>
+    public async Task<Guid> CreateArticleAsync(Guid supplierToken, Guid familyToken, string namePrefix, Guid? taxCategoryToken = null)
     {
         var boxToken = await GetUnitOfMeasureTokenAsync("BOX");
         var kilogramToken = await GetUnitOfMeasureTokenAsync("KILOGRAM");
@@ -138,9 +142,40 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
                     QuantityInParentUnit = 1,
                     IsDefinedUnit = true
                 }
-            ]
+            ],
+            TaxCategoryToken = taxCategoryToken
         });
         return article.Article!.ArticleToken;
+    }
+
+    /// <summary>Supersedes an article with a genuine structural change (the defined-content
+    /// quantity is always bumped from the original's 1 to 2, satisfying SupersedeArticleCommandHandler's
+    /// own "must actually change something structural" guard) plus whatever optional overrides the
+    /// caller supplies. Purchase unit stays BOX/defined-content stays KILOGRAM throughout - only
+    /// the quantity moves - so callers don't need to know the original article's own packaging shape.</summary>
+    public async Task<Article> SupersedeArticleAsync(Guid articleToken, string name, Guid? taxCategoryToken = null)
+    {
+        var boxToken = await GetUnitOfMeasureTokenAsync("BOX");
+        var kilogramToken = await GetUnitOfMeasureTokenAsync("KILOGRAM");
+
+        var result = await SendAsync(new SupersedeArticleCommandRequest
+        {
+            ArticleToken = articleToken,
+            Name = name,
+            PurchaseUnitToken = boxToken,
+            PackagingLevels =
+            [
+                new ArticlePackagingLevelRequest
+                {
+                    SequenceOrder = 1,
+                    UnitOfMeasureToken = kilogramToken,
+                    QuantityInParentUnit = 2,
+                    IsDefinedUnit = true
+                }
+            ],
+            TaxCategoryToken = taxCategoryToken
+        });
+        return result.Article!;
     }
 
     public async Task CreateArticlePriceAsync(Guid articleToken, decimal price, string currencyCode = "EUR")

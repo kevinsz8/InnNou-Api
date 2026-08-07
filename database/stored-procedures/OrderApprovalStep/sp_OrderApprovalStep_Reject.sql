@@ -18,20 +18,28 @@ BEGIN
     SELECT @OrderId = OrderId FROM OrderApprovalSteps WHERE OrderApprovalStepToken = @OrderApprovalStepToken AND OrderApprovalStepStatusId = @PendingStatusId;
 
     -- Not PENDING (already decided, or the token doesn't exist) — return with no result set
-    -- rather than RAISERROR, so the caller's own UPDATE...WHERE status guard below is what's
-    -- atomic, not this earlier read. C# maps the resulting null to a 409
+    -- rather than RAISERROR. C# maps the resulting null to a 409
     -- ORDER_APPROVAL_STEP_ALREADY_DECIDED instead of an unhandled 500.
     IF @OrderId IS NULL
     BEGIN
         RETURN;
     END
 
+    -- The actual atomic guard against two concurrent decide calls racing on the same step:
+    -- the WHERE clause re-checks PENDING so only the caller that "wins" the row lock flips it
+    -- (the read above into @OrderId is just a fast-path early-out, not what makes this safe).
     UPDATE OrderApprovalSteps
     SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'REJECTED'),
            DecidedUtc                = SYSUTCDATETIME(),
            DecidedBy                 = @DecidedBy,
            RejectionReason           = @RejectionReason
-    WHERE  OrderApprovalStepToken = @OrderApprovalStepToken;
+    WHERE  OrderApprovalStepToken = @OrderApprovalStepToken
+      AND  OrderApprovalStepStatusId = @PendingStatusId;
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        RETURN;
+    END
 
     UPDATE OrderApprovalSteps
     SET    OrderApprovalStepStatusId = (SELECT OrderApprovalStepStatusId FROM OrderApprovalStepStatuses WHERE Code = 'CANCELLED'),

@@ -9,6 +9,7 @@ using InnNou.Infrastructure.Documents;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Localization;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Data;
@@ -691,6 +692,21 @@ public class OrderService(
             await SendOrderConfirmationAsync(connection, updatedOrder, lines, purchaseOrdersWithLines, context, dto, cancellationToken);
 
             return dto;
+        }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            // UX_PurchaseOrder_Order_Supplier — the real enforcement against two concurrent
+            // callers both completing the same Order's submission at once (e.g. the last
+            // OrderApprovalStep being decided twice in a race, or that decide racing against a
+            // recovering SubmitAsync self-healing retry — see OrderService.SubmitAsync's own
+            // "if invoked on a PENDING_APPROVAL order whose steps are all APPROVED, retry
+            // completion" comment). The OrderApprovalStep decide SPs now atomically gate on
+            // PENDING (see sp_OrderApprovalStep_Approve/Reject) which closes the common case,
+            // but this is the backstop for the same-order-different-path race those SPs can't
+            // see. Translate to a clean, anticipated 409 instead of letting the raw unique-index
+            // violation reach ExceptionHandlingBehavior as an UNHANDLED_ERROR 500.
+            await transaction.RollbackAsync(cancellationToken);
+            throw new ApiException(ErrorCodes.PurchaseOrderAlreadyCreatedForSupplier, "This order was already submitted by a concurrent request.", 409);
         }
         catch
         {
