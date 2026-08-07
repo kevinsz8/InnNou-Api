@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<EditUnitConversionRateCommandResponse>> Handle(EditUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.Factor <= 0)
+                return ApiResponse<EditUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Factor must be greater than zero.", 400);
+
             var dto = new UnitConversionRateDto { UnitConversionRateToken = request.UnitConversionRateToken, Factor = request.Factor };
             var result = await unitConversionRateService.EditAsync(dto, context, cancellationToken);
             if (result is null)

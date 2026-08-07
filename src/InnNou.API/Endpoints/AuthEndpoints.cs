@@ -22,6 +22,12 @@ namespace InnNou.API.Endpoints
             group.MapPost("/refresh", Refresh)
                 .Produces<ApiResponse<LoginResponse>>(200);
 
+            // No .RequireAuthorization() — mirrors /refresh: the access token may already be
+            // expired by the time a client logs out, so this must work off the refresh token
+            // alone. Always succeeds (revoking an already-revoked/unknown token is a no-op).
+            group.MapPost("/logout", Logout)
+                .Produces<ApiResponse<LogoutResponse>>(200);
+
             group.MapPost("/impersonate", Impersonate)
                 .RequireAuthorization()
                 .Produces<ApiResponse<ImpersonateResponse>>(200);
@@ -54,6 +60,15 @@ namespace InnNou.API.Endpoints
         private static async Task<IResult> Refresh(
             [FromBody] RefreshTokenRequest request,
              IMediator mediator,
+            CancellationToken ct)
+        {
+            var result = await mediator.Send(request, ct);
+            return Results.Json(result, statusCode: result.StatusCode ?? (result.Success ? 200 : 400));
+        }
+
+        private static async Task<IResult> Logout(
+            [FromBody] LogoutRequest request,
+            IMediator mediator,
             CancellationToken ct)
         {
             var result = await mediator.Send(request, ct);

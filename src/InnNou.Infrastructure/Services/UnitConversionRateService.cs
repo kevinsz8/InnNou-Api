@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -67,11 +68,37 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
         p.Add("@ToUnitOfMeasureId", dto.ToUnitOfMeasureId);
         p.Add("@Factor", dto.Factor);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_Create", p, commandType: CommandType.StoredProcedure);
+        UnitConversionRate? row;
+        try
+        {
+            row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_Create", p, commandType: CommandType.StoredProcedure);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("FROM_UNIT_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRateFromUnitNotFound, "The source unit of measure was not found or is inactive.", 404);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("TO_UNIT_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRateToUnitNotFound, "The target unit of measure was not found or is inactive.", 404);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("CONVERSION_CROSS_TYPE_INVALID", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRateCrossTypeInvalid, "Cannot create a conversion between units of different unit types.", 400);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("CONVERSION_SAME_UNIT_INVALID", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRateSameUnitInvalid, "A unit cannot be converted to itself.", 400);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("CONVERSION_PAIR_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitConversionRatePairExists, "A conversion rate for this pair of units already exists.", 409);
+        }
         if (row is null) return null;
 
-        // Create reverse pair transparently; skip if it already exists
+        // Create reverse pair transparently; skip only if it already exists (CONVERSION_PAIR_EXISTS) —
+        // any other failure (timeout, deadlock, etc.) must propagate rather than be silently swallowed,
+        // since that would leave the forward row committed with no reverse counterpart and no error surfaced.
         try
         {
             var rp = new DynamicParameters();
@@ -82,7 +109,10 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             rp.Add("@CreatedBy", context.ActorUserToken.ToString());
             await connection.ExecuteAsync("sp_UnitConversionRate_Create", rp, commandType: CommandType.StoredProcedure);
         }
-        catch { /* reverse pair already exists — no-op */ }
+        catch (SqlException ex) when (ex.Message.Contains("CONVERSION_PAIR_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            /* reverse pair already exists — no-op */
+        }
 
         return mapper.Map<UnitConversionRateDto>(row);
     }
@@ -93,31 +123,47 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can edit unit conversion rates.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        var p = new DynamicParameters();
-        p.Add("@UnitConversionRateToken", dto.UnitConversionRateToken);
-        p.Add("@Factor", dto.Factor);
-        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_Update", p, commandType: CommandType.StoredProcedure);
-        if (row is null) return null;
-
-        // Update reverse pair
-        var rp = new DynamicParameters();
-        rp.Add("@FromUnitOfMeasureId", row.ToUnitOfMeasureId);
-        rp.Add("@ToUnitOfMeasureId", row.FromUnitOfMeasureId);
-        var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_GetByPair", rp, commandType: CommandType.StoredProcedure);
-        if (reverseRow is not null)
+        try
         {
-            var rrp = new DynamicParameters();
-            rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
-            rrp.Add("@Factor", dto.Factor == 0 ? 0 : 1m / dto.Factor);
-            rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-            await connection.ExecuteAsync("sp_UnitConversionRate_Update", rrp, commandType: CommandType.StoredProcedure);
-        }
+            var p = new DynamicParameters();
+            p.Add("@UnitConversionRateToken", dto.UnitConversionRateToken);
+            p.Add("@Factor", dto.Factor);
+            p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+            var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_Update", p, transaction, commandType: CommandType.StoredProcedure);
+            if (row is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
 
-        return mapper.Map<UnitConversionRateDto>(row);
+            // Update reverse pair, in the same transaction — a failure here must not leave the
+            // forward row updated with a stale reverse counterpart.
+            var rp = new DynamicParameters();
+            rp.Add("@FromUnitOfMeasureId", row.ToUnitOfMeasureId);
+            rp.Add("@ToUnitOfMeasureId", row.FromUnitOfMeasureId);
+            var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_GetByPair", rp, transaction, commandType: CommandType.StoredProcedure);
+            if (reverseRow is not null)
+            {
+                var rrp = new DynamicParameters();
+                rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
+                rrp.Add("@Factor", dto.Factor == 0 ? 0 : 1m / dto.Factor);
+                rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+                await connection.ExecuteAsync("sp_UnitConversionRate_Update", rrp, transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return mapper.Map<UnitConversionRateDto>(row);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<UnitConversionRateDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
@@ -126,31 +172,47 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can activate/deactivate unit conversion rates.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        var p = new DynamicParameters();
-        p.Add("@UnitConversionRateToken", token);
-        p.Add("@IsActive", isActive);
-        p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_SetActive", p, commandType: CommandType.StoredProcedure);
-        if (row is null) return null;
-
-        // Mirror active state on reverse pair
-        var rp = new DynamicParameters();
-        rp.Add("@FromUnitOfMeasureId", row.ToUnitOfMeasureId);
-        rp.Add("@ToUnitOfMeasureId", row.FromUnitOfMeasureId);
-        var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_GetByPair", rp, commandType: CommandType.StoredProcedure);
-        if (reverseRow is not null)
+        try
         {
-            var rrp = new DynamicParameters();
-            rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
-            rrp.Add("@IsActive", isActive);
-            rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-            await connection.ExecuteAsync("sp_UnitConversionRate_SetActive", rrp, commandType: CommandType.StoredProcedure);
-        }
+            var p = new DynamicParameters();
+            p.Add("@UnitConversionRateToken", token);
+            p.Add("@IsActive", isActive);
+            p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+            var row = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_SetActive", p, transaction, commandType: CommandType.StoredProcedure);
+            if (row is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return null;
+            }
 
-        return mapper.Map<UnitConversionRateDto>(row);
+            // Mirror active state on reverse pair, in the same transaction — a failure here must not
+            // leave the forward row's active state out of sync with its reverse counterpart.
+            var rp = new DynamicParameters();
+            rp.Add("@FromUnitOfMeasureId", row.ToUnitOfMeasureId);
+            rp.Add("@ToUnitOfMeasureId", row.FromUnitOfMeasureId);
+            var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_GetByPair", rp, transaction, commandType: CommandType.StoredProcedure);
+            if (reverseRow is not null)
+            {
+                var rrp = new DynamicParameters();
+                rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
+                rrp.Add("@IsActive", isActive);
+                rrp.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
+                await connection.ExecuteAsync("sp_UnitConversionRate_SetActive", rrp, transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return mapper.Map<UnitConversionRateDto>(row);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<bool> DeleteAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
@@ -159,26 +221,42 @@ public class UnitConversionRateService(IDbConnectionFactory connectionFactory, I
             throw new ApiException(ErrorCodes.UnitConversionRateForbidden, "Only Admins and SuperAdmins can delete unit conversion rates.", 403);
 
         await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        var p = new DynamicParameters();
-        p.Add("@UnitConversionRateToken", token);
-        var deleted = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_Delete", p, commandType: CommandType.StoredProcedure);
-        if (deleted is null) return false;
-
-        // Delete reverse pair
-        var rp = new DynamicParameters();
-        rp.Add("@FromUnitOfMeasureId", deleted.ToUnitOfMeasureId);
-        rp.Add("@ToUnitOfMeasureId", deleted.FromUnitOfMeasureId);
-        var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
-            "sp_UnitConversionRate_GetByPair", rp, commandType: CommandType.StoredProcedure);
-        if (reverseRow is not null)
+        try
         {
-            var rrp = new DynamicParameters();
-            rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
-            await connection.ExecuteAsync("sp_UnitConversionRate_Delete", rrp, commandType: CommandType.StoredProcedure);
-        }
+            var p = new DynamicParameters();
+            p.Add("@UnitConversionRateToken", token);
+            var deleted = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_Delete", p, transaction, commandType: CommandType.StoredProcedure);
+            if (deleted is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
 
-        return true;
+            // Delete reverse pair, in the same transaction — a failure here must not leave the
+            // forward row deleted with an orphaned reverse counterpart still present.
+            var rp = new DynamicParameters();
+            rp.Add("@FromUnitOfMeasureId", deleted.ToUnitOfMeasureId);
+            rp.Add("@ToUnitOfMeasureId", deleted.FromUnitOfMeasureId);
+            var reverseRow = await connection.QueryFirstOrDefaultAsync<UnitConversionRate>(
+                "sp_UnitConversionRate_GetByPair", rp, transaction, commandType: CommandType.StoredProcedure);
+            if (reverseRow is not null)
+            {
+                var rrp = new DynamicParameters();
+                rrp.Add("@UnitConversionRateToken", reverseRow.UnitConversionRateToken);
+                await connection.ExecuteAsync("sp_UnitConversionRate_Delete", rrp, transaction, commandType: CommandType.StoredProcedure);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }

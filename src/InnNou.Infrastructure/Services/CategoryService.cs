@@ -165,9 +165,16 @@ public class CategoryService(IDbConnectionFactory connectionFactory, IMapper map
         p.Add("@CategoryToken", dto.CategoryToken);
         p.Add("@Code", dto.Code);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Category>(
-            "sp_Category_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<CategoryDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Category>(
+                "sp_Category_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<CategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("CATEGORY_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.CategoryCodeExists, "A category with this code already exists.", 409);
+        }
     }
 
     public async Task<CategoryDto?> SetNameTranslationsAsync(Guid categoryToken, Dictionary<string, string> translations, IRequestContext context, CancellationToken cancellationToken = default)

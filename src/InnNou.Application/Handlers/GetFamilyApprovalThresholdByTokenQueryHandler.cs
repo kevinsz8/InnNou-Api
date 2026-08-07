@@ -7,12 +7,12 @@ using MediatR;
 
 namespace InnNou.Application.Handlers
 {
-    public class GetFamilyApprovalThresholdByTokenQueryHandler(IFamilyApprovalThresholdService service, IMapper mapper)
+    public class GetFamilyApprovalThresholdByTokenQueryHandler(IFamilyApprovalThresholdService service, IMapper mapper, IRequestContext context)
         : IRequestHandler<GetFamilyApprovalThresholdByTokenQueryRequest, ApiResponse<GetFamilyApprovalThresholdByTokenQueryResponse>>
     {
         public async Task<ApiResponse<GetFamilyApprovalThresholdByTokenQueryResponse>> Handle(GetFamilyApprovalThresholdByTokenQueryRequest request, CancellationToken cancellationToken)
         {
-            var result = await service.GetByTokenAsync(request.FamilyApprovalThresholdToken, cancellationToken);
+            var result = await service.GetByTokenAsync(request.FamilyApprovalThresholdToken, context, cancellationToken);
             if (result is null)
                 return ApiResponse<GetFamilyApprovalThresholdByTokenQueryResponse>.FailureResponse(ErrorCodes.FamilyApprovalThresholdNotFound, "Approval threshold not found.", 404);
 

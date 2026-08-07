@@ -18,5 +18,12 @@ namespace InnNou.Application.Requests
         public List<ArticlePackagingLevelRequest> PackagingLevels { get; set; } = [];
         public decimal? MinimumOrderQty { get; set; }
         public int? LeadTimeDays { get; set; }
+
+        // Optional overrides — when omitted, the handler carries the ORIGINAL article's current
+        // TaxCategoryId/DefaultReceivingUnitId forward onto the new superseding row instead of
+        // silently dropping them to NULL. See .claude/ArticleLifecycleModule.md /
+        // .claude/ArticleUnitConversionModule.md for what a NULL means for each field.
+        public Guid? TaxCategoryToken { get; set; }
+        public Guid? DefaultReceivingUnitToken { get; set; }
     }
 }

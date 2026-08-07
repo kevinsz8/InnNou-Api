@@ -13,6 +13,9 @@ namespace InnNou.Application.Handlers
     {
         public async Task<ApiResponse<CreateUnitConversionRateCommandResponse>> Handle(CreateUnitConversionRateCommandRequest request, CancellationToken cancellationToken)
         {
+            if (request.Factor <= 0)
+                return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.InvalidRequest, "Factor must be greater than zero.", 400);
+
             var fromUnit = await unitOfMeasureService.GetByTokenAsync(request.FromUnitOfMeasureToken, cancellationToken);
             if (fromUnit is null)
                 return ApiResponse<CreateUnitConversionRateCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureNotFound, "Source unit of measure not found.", 404);

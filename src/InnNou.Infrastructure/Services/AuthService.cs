@@ -101,6 +101,18 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
         if (tokenData is null || tokenData.IsRevoked || tokenData.ExpiresUtc < DateTime.UtcNow)
             return null;
 
+        // A deactivated/deleted user's outstanding refresh token must stop working the same way
+        // LoginAsync already blocks their login — otherwise disabling an account (fired employee,
+        // compromised login, revoked Supplier/WarehouseContact access) doesn't actually end an
+        // already-issued session for up to its full 7-day life.
+        if (tokenData.IsDeleted || !tokenData.IsActive)
+            return null;
+
+        // Same check on the impersonated TARGET when this token was minted mid-impersonation — a
+        // session must stop refreshing if the target was deactivated/deleted while it was active.
+        if (tokenData.ImpersonatedUserId.HasValue && (tokenData.ImpersonatedIsDeleted == true || tokenData.ImpersonatedIsActive == false))
+            return null;
+
         var (newPlainToken, newTokenHash, newTokenId) = GenerateRefreshToken();
         var now = DateTime.UtcNow;
 
@@ -171,6 +183,11 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             commandType: CommandType.StoredProcedure);
 
         if (actor is null || target is null)
+            return null;
+
+        // A deactivated/deleted actor or target must never be able to start (or be the subject
+        // of) a new impersonation session — same reasoning as RefreshTokenAsync's own check.
+        if (actor.IsDeleted || !actor.IsActive || target.IsDeleted || !target.IsActive)
             return null;
 
         if (!actor.CanImpersonate)
@@ -340,6 +357,16 @@ public class AuthService(IDbConnectionFactory connectionFactory, IConfiguration 
             UserId = actor.UserId,
             UserToken = actor.UserToken
         };
+    }
+
+    public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        await connection.ExecuteAsync(
+            "sp_Auth_RevokeRefreshToken",
+            new { TokenHash = HashToken(refreshToken), RevokedUtc = DateTime.UtcNow, ReplacedByToken = (Guid?)null },
+            commandType: CommandType.StoredProcedure);
     }
 
     private string GenerateJwtToken(

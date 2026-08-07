@@ -27,12 +27,17 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
     // list, never itself a purchase, unlike Order (where Super Asociado is fully
     // write-blocked, see OrderService.CanManageOrganizationAsync). Everyone else may only
     // see/edit their own templates (exact organization + exact owner match, never hierarchy).
+    // templateWarehouseId layers WarehouseScopeGuard on top for a WarehouseContact's own login —
+    // same "AND on top of the scope" placement as every sibling service (see CLAUDE.md).
     private static async Task<bool> CanAccessTemplateAsync(
-        IDbConnection connection, IRequestContext context, int templateOrganizationId, int templateOwnerUserId,
+        IDbConnection connection, IRequestContext context, int templateOrganizationId, int templateWarehouseId, int templateOwnerUserId,
         int? callerUserId, bool requireWrite)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
+
+        if (!WarehouseScopeGuard.Allows(context, templateWarehouseId))
+            return false;
 
         if (!context.OrganizationId.HasValue)
             return false;
@@ -121,12 +126,16 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             throw new ApiException(ErrorCodes.OrderTemplateNoOrganizationContext, "This action requires an organization-scoped account.", 403);
         }
 
-        int? warehouseId = null;
+        // Defaults to the caller's own WarehouseId (WarehouseContact login) so an unfiltered
+        // request never falls through to "every warehouse in the org" for a warehouse-scoped
+        // caller — an explicit warehouseToken is still validated against it below. Same pattern
+        // as OrderService.GetPagedAsync.
+        int? warehouseId = context.WarehouseId;
         if (warehouseToken.HasValue)
         {
             var warehouse = await connection.QueryFirstOrDefaultAsync<Warehouse>(
                 "sp_Warehouse_GetByToken", new { WarehouseToken = warehouseToken.Value }, commandType: CommandType.StoredProcedure);
-            if (warehouse is null)
+            if (warehouse is null || !WarehouseScopeGuard.Allows(context, warehouse.WarehouseId))
                 return new PagedResult<OrderTemplateDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
             warehouseId = warehouse.WarehouseId;
         }
@@ -172,7 +181,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return null;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: false))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: false))
             return null;
 
         var dto = mapper.Map<OrderTemplateDto>(template);
@@ -198,6 +207,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
 
         var canCreate = isSuperAdmin
             || (context.RoleLevel >= StaffRoleLevel && context.OrganizationId.HasValue &&
+                WarehouseScopeGuard.Allows(context, warehouse.WarehouseId) &&
                 (context.OrganizationId.Value == warehouse.OrganizationId ||
                  (isSuperAssociate && await connection.ExecuteScalarAsync<int>("sp_Organization_IsInHierarchy",
                      new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = warehouse.OrganizationId },
@@ -235,7 +245,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return null;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot modify this template.", 403);
 
         var updated = await connection.QueryFirstOrDefaultAsync<OrderTemplate>(
@@ -257,7 +267,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return false;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot delete this template.", 403);
 
         await connection.ExecuteAsync(
@@ -277,7 +287,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return null;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot modify this template.", 403);
 
         // Pass the Template's OWN organization, never the acting user's identity — same
@@ -320,7 +330,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return null;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot modify this template.", 403);
 
         var updated = await connection.QueryFirstOrDefaultAsync<OrderTemplateLine>(
@@ -346,7 +356,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return false;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: true))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: true))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot modify this template.", 403);
 
         await connection.ExecuteAsync(
@@ -366,7 +376,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             throw new ApiException(ErrorCodes.OrderTemplateNotFound, "Order template not found.", 404);
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: false))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: false))
             throw new ApiException(ErrorCodes.OrderTemplateForbidden, "Cannot export this template.", 403);
 
         var lines = await GetLinesAsync(connection, template.OrderTemplateId);
@@ -426,7 +436,7 @@ public class OrderTemplateService(IDbConnectionFactory connectionFactory, IMappe
             return null;
 
         var callerUserId = await ResolveOwnerUserIdAsync(connection, context);
-        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.OwnerUserId, callerUserId, requireWrite: false))
+        if (!await CanAccessTemplateAsync(connection, context, template.OrganizationId, template.WarehouseId, template.OwnerUserId, callerUserId, requireWrite: false))
             return null;
 
         var lines = await GetLinesAsync(connection, template.OrderTemplateId);

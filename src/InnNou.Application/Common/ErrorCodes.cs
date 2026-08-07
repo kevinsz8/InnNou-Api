@@ -216,6 +216,11 @@ namespace InnNou.Application.Common
         public const string UnitConversionRateForbidden = "UNIT_CONVERSION_RATE_FORBIDDEN";
         public const string UnitConversionRateNotFound = "UNIT_CONVERSION_RATE_NOT_FOUND";
         public const string UnitConversionRateCreateFailed = "UNIT_CONVERSION_RATE_CREATE_FAILED";
+        public const string UnitConversionRateFromUnitNotFound = "UNIT_CONVERSION_RATE_FROM_UNIT_NOT_FOUND";
+        public const string UnitConversionRateToUnitNotFound = "UNIT_CONVERSION_RATE_TO_UNIT_NOT_FOUND";
+        public const string UnitConversionRateCrossTypeInvalid = "UNIT_CONVERSION_RATE_CROSS_TYPE_INVALID";
+        public const string UnitConversionRateSameUnitInvalid = "UNIT_CONVERSION_RATE_SAME_UNIT_INVALID";
+        public const string UnitConversionRatePairExists = "UNIT_CONVERSION_RATE_PAIR_EXISTS";
 
         // OrganizationContact
         public const string OrganizationContactNotFound = "ORGANIZATION_CONTACT_NOT_FOUND";
@@ -366,6 +371,7 @@ namespace InnNou.Application.Common
         public const string InventoryPeriodNotClosed = "INVENTORY_PERIOD_NOT_CLOSED";
         public const string InventoryPeriodNotMostRecent = "INVENTORY_PERIOD_NOT_MOST_RECENT";
         public const string InventoryPeriodReopenForbidden = "INVENTORY_PERIOD_REOPEN_FORBIDDEN";
+        public const string InventoryPeriodReopenWouldGoNegative = "INVENTORY_PERIOD_REOPEN_WOULD_GO_NEGATIVE";
 
         // ParLevel (par levels / suggested replenishment)
         public const string ParLevelNotFound = "PAR_LEVEL_NOT_FOUND";

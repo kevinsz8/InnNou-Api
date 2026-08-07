@@ -18,7 +18,7 @@ namespace InnNou.Application.Handlers
                 return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitTypeNotFound, "Unit type not found.", 404);
 
             if (await unitOfMeasureService.ExistsByCodeAsync(request.Code, unitType.UnitTypeId, cancellationToken))
-                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureCodeExists, "A unit of measure with this code already exists in the unit type.", 409);
+                return ApiResponse<CreateUnitOfMeasureCommandResponse>.FailureResponse(ErrorCodes.UnitOfMeasureCodeExists, "A unit of measure with this code already exists.", 409);
 
             var dto = new UnitOfMeasureDto
             {

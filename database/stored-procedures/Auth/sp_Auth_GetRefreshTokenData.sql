@@ -47,7 +47,9 @@ BEGIN
         iu.SupplierId AS ImpersonatedSupplierId,
         ir.RoleLevel AS ImpersonatedRoleLevel,
         iot.Code AS ImpersonatedOrganizationTypeCode,
-        iwc.WarehouseId AS ImpersonatedWarehouseId
+        iwc.WarehouseId AS ImpersonatedWarehouseId,
+        iu.IsActive AS ImpersonatedIsActive,
+        iu.IsDeleted AS ImpersonatedIsDeleted
     FROM dbo.RefreshTokens rt
     INNER JOIN dbo.Users u ON u.UserId = rt.UserId
     INNER JOIN dbo.Roles r ON r.RoleId = u.RoleId

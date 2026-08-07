@@ -11,5 +11,10 @@ namespace InnNou.Domain.Persistence
         Task<Login?> ImpersonateWarehouseContactAsync(Guid actorUserToken, Guid warehouseContactToken, CancellationToken cancellationToken);
         Task<Login?> ImpersonateOrganizationAsync(Guid actorUserToken, Guid organizationToken, CancellationToken cancellationToken);
         Task<Login?> StopImpersonationAsync(Guid actorUserToken, CancellationToken cancellationToken);
+
+        // Revokes the presented refresh token server-side — always succeeds (revoking an
+        // already-revoked/unknown token is a no-op, not an error) so a client can call this
+        // unconditionally on logout without special-casing an already-expired session.
+        Task LogoutAsync(string refreshToken, CancellationToken cancellationToken);
     }
 }

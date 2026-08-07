@@ -78,6 +78,7 @@ public class FamilyApprovalThresholdService(IDbConnectionFactory connectionFacto
 
         await using var connection = connectionFactory.CreateConnection();
         var organization = await ResolveAssociateOrganizationAsync(connection, organizationToken);
+        EnsureCanManage(context, organization.OrganizationId);
 
         int? familyId = null;
         if (familyToken.HasValue)
@@ -101,12 +102,16 @@ public class FamilyApprovalThresholdService(IDbConnectionFactory connectionFacto
         };
     }
 
-    public async Task<FamilyApprovalThresholdDto?> GetByTokenAsync(Guid token, CancellationToken cancellationToken = default)
+    public async Task<FamilyApprovalThresholdDto?> GetByTokenAsync(Guid token, IRequestContext context, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
         var row = await connection.QueryFirstOrDefaultAsync<FamilyApprovalThreshold>(
             "sp_FamilyApprovalThreshold_GetByToken", new { FamilyApprovalThresholdToken = token }, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<FamilyApprovalThresholdDto>(row);
+        if (row is null)
+            return null;
+
+        EnsureCanManage(context, row.OrganizationId);
+        return mapper.Map<FamilyApprovalThresholdDto>(row);
     }
 
     public async Task<FamilyApprovalThresholdDto?> CreateAsync(Guid organizationToken, Guid familyToken, int level, decimal thresholdAmount, Guid approverUserToken, IRequestContext context, CancellationToken cancellationToken = default)

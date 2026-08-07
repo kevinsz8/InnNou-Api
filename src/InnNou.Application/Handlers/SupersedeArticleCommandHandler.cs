@@ -78,7 +78,14 @@ namespace InnNou.Application.Handlers
                 PurchaseUnitId = purchaseUnit.UnitOfMeasureId,
                 PackagingLevels = levelsResult.Levels,
                 MinimumOrderQty = request.MinimumOrderQty,
-                LeadTimeDays = request.LeadTimeDays
+                LeadTimeDays = request.LeadTimeDays,
+                // Carry the original article's own current values forward unless the caller
+                // explicitly overrides them — otherwise superseding silently reverts the new
+                // article to the Family's default tax category and loses the receiving-unit
+                // pre-fill. See ArticleService.SupersedeAsync, which resolves these the same way
+                // CreateAsync/EditAsync already resolve TaxCategoryToken/DefaultReceivingUnitToken.
+                TaxCategoryToken = request.TaxCategoryToken ?? existing.TaxCategoryToken,
+                DefaultReceivingUnitToken = request.DefaultReceivingUnitToken ?? existing.DefaultReceivingUnitToken
             };
 
             var result = await articleService.SupersedeAsync(request.ArticleToken, newArticleData, context, cancellationToken);

@@ -94,9 +94,16 @@ public class FamilyService(IDbConnectionFactory connectionFactory, IMapper mappe
         p.Add("@FamilyToken", dto.FamilyToken);
         p.Add("@Code", dto.Code);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Family>(
-            "sp_Family_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<FamilyDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Family>(
+                "sp_Family_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<FamilyDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("FAMILY_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.FamilyCodeExists, "A family with this code already exists.", 409);
+        }
     }
 
     public async Task<FamilyDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

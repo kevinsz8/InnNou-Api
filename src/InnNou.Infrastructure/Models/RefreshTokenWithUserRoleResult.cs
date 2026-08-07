@@ -18,6 +18,11 @@ internal sealed class RefreshTokenWithUserRoleResult
     public int? WarehouseId { get; set; }
     public int RoleLevel { get; set; }
 
+    // The refresh token's own owning user — a deactivated/deleted user's outstanding refresh
+    // token must stop working the same way LoginAsync already blocks their login.
+    public bool IsActive { get; set; }
+    public bool IsDeleted { get; set; }
+
     // Populated by sp_Auth_GetRefreshTokenData (joins Organizations -> OrganizationTypes off the
     // user's own OrganizationId); null for a Supplier-scoped login with no OrganizationId.
     public string? OrganizationTypeCode { get; set; }
@@ -33,4 +38,10 @@ internal sealed class RefreshTokenWithUserRoleResult
     public int? ImpersonatedWarehouseId { get; set; }
     public int? ImpersonatedRoleLevel { get; set; }
     public string? ImpersonatedOrganizationTypeCode { get; set; }
+
+    // Same reasoning as IsActive/IsDeleted above, but for the impersonated target — a session
+    // minted mid-impersonation must stop refreshing if the TARGET was deactivated/deleted while
+    // impersonation was in progress, not just the actor.
+    public bool? ImpersonatedIsActive { get; set; }
+    public bool? ImpersonatedIsDeleted { get; set; }
 }

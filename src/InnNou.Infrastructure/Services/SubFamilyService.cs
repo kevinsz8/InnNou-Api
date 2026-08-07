@@ -94,9 +94,16 @@ public class SubFamilyService(IDbConnectionFactory connectionFactory, IMapper ma
         p.Add("@SubFamilyToken", dto.SubFamilyToken);
         p.Add("@Code", dto.Code);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
-            "sp_SubFamily_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<SubFamilyDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubFamily>(
+                "sp_SubFamily_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubFamilyDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("SUB_FAMILY_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.SubFamilyCodeExists, "A sub-family with this code already exists in the family.", 409);
+        }
     }
 
     public async Task<SubFamilyDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

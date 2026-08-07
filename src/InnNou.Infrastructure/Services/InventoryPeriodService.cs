@@ -437,6 +437,37 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
         var lines = (await connection.QueryAsync<InventoryPeriodCount>(
             "sp_InventoryPeriodCount_GetByPeriodId", new { period.InventoryPeriodId }, commandType: CommandType.StoredProcedure)).ToList();
 
+        var reversedLines = lines.Where(l => l.VarianceQuantity is not (null or 0)).ToList();
+
+        // Batched — same anti-N+1 shape as CloseAsync's own read of sp_StockLevel_GetAllByWarehouseId.
+        // Unlike CloseAsync (provably safe by construction — see the comment there), a reversal here
+        // is NOT provably safe: the balance can have legitimately moved since this period closed
+        // (Adjustments/Transfers/Requisition-Issues/Receipts are only blocked while a period is
+        // IN_PROGRESS/PRE_CLOSED, not once it's CLOSED), so the compensating reversal can genuinely
+        // drive a line negative. Validate every line in a full pre-pass BEFORE the transaction opens
+        // and starts writing, so a single failing line cleanly rejects the whole Reopen with no
+        // partial state — mirrors sp_StockLevel_ApplyDelta's own guard, just surfaced as a clean
+        // business error instead of an unhandled SqlException.
+        if (reversedLines.Count > 0)
+        {
+            var currentStockForValidation = (await connection.QueryAsync<StockLevel>(
+                "sp_StockLevel_GetAllByWarehouseId", new { period.WarehouseId }, commandType: CommandType.StoredProcedure))
+                .ToDictionary(s => s.ArticleId, s => s.QuantityOnHand);
+
+            foreach (var line in reversedLines)
+            {
+                var reversal = -line.VarianceQuantity!.Value;
+                var currentQuantity = currentStockForValidation.GetValueOrDefault(line.ArticleId, 0m);
+                var newQuantity = currentQuantity + reversal;
+
+                if (newQuantity < 0)
+                    throw new ApiException(
+                        ErrorCodes.InventoryPeriodReopenWouldGoNegative,
+                        $"Reopening this inventory period would leave on-hand quantity at {newQuantity} for '{line.ArticleName}' — stock has moved since this period was closed and cannot go negative.",
+                        400);
+            }
+        }
+
         var actor = context.ActorUserToken.ToString();
 
         await connection.OpenAsync(cancellationToken);
@@ -444,7 +475,7 @@ public class InventoryPeriodService(IDbConnectionFactory connectionFactory, IMap
 
         try
         {
-            foreach (var line in lines.Where(l => l.VarianceQuantity is not (null or 0)))
+            foreach (var line in reversedLines)
             {
                 var reversal = -line.VarianceQuantity!.Value;
 

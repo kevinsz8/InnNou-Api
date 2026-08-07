@@ -86,9 +86,16 @@ public class UnitTypeService(IDbConnectionFactory connectionFactory, IMapper map
         p.Add("@UnitTypeToken", dto.UnitTypeToken);
         p.Add("@Code", dto.Code);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
-            "sp_UnitType_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<UnitTypeDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitType>(
+                "sp_UnitType_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitTypeDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("UNIT_TYPE_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitTypeCodeExists, "A unit type with this code already exists.", 409);
+        }
     }
 
     public async Task<UnitTypeDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

@@ -125,9 +125,16 @@ public class SubCategoryService(IDbConnectionFactory connectionFactory, IMapper 
         p.Add("@SubCategoryToken", dto.SubCategoryToken);
         p.Add("@Code", dto.Code);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
-            "sp_SubCategory_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<SubCategoryDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<SubCategory>(
+                "sp_SubCategory_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<SubCategoryDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("SUB_CATEGORY_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.SubCategoryCodeExists, "A sub-category with this code already exists in the category.", 409);
+        }
     }
 
     public async Task<SubCategoryDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

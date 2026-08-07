@@ -531,6 +531,12 @@ public class ArticleService(
         if (existing.ReplacedByArticleId.HasValue)
             throw new ApiException(ErrorCodes.ArticleAlreadyReplaced, "This article has already been replaced.", 409);
 
+        // Resolved the same way CreateAsync/EditAsync resolve TaxCategoryToken/DefaultReceivingUnitToken —
+        // the handler already defaults these to the original article's own current values when the
+        // caller doesn't override them, so this must not silently fall back to NULL here.
+        var taxCategoryId = await ResolveTaxCategoryIdAsync(connection, newArticleData.TaxCategoryToken);
+        var defaultReceivingUnitId = await ResolveDefaultReceivingUnitIdAsync(connection, newArticleData.DefaultReceivingUnitToken, newArticleData.PurchaseUnitId, newArticleData.PackagingLevels);
+
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
@@ -548,6 +554,8 @@ public class ArticleService(
             createP.Add("@PurchaseUnitId", newArticleData.PurchaseUnitId);
             createP.Add("@MinimumOrderQty", newArticleData.MinimumOrderQty);
             createP.Add("@LeadTimeDays", newArticleData.LeadTimeDays);
+            createP.Add("@TaxCategoryId", taxCategoryId);
+            createP.Add("@DefaultReceivingUnitId", defaultReceivingUnitId);
             createP.Add("@CreatedBy", context.ActorUserToken.ToString());
 
             var newRow = await connection.QueryFirstOrDefaultAsync<Article>(

@@ -93,9 +93,16 @@ public class UnitOfMeasureService(IDbConnectionFactory connectionFactory, IMappe
         p.Add("@Symbol", dto.Symbol);
         p.Add("@Decimals", dto.Decimals);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
-            "sp_UnitOfMeasure_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<UnitOfMeasureDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<UnitOfMeasure>(
+                "sp_UnitOfMeasure_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<UnitOfMeasureDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains("UNIT_OF_MEASURE_CODE_EXISTS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.UnitOfMeasureCodeExists, "A unit of measure with this code already exists.", 409);
+        }
     }
 
     public async Task<UnitOfMeasureDto?> SetActiveAsync(Guid token, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)

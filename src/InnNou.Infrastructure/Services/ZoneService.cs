@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using System.Data;
 
 namespace InnNou.Infrastructure.Services;
@@ -87,9 +88,20 @@ public class ZoneService(IDbConnectionFactory connectionFactory, IMapper mapper)
         p.Add("@Code", dto.Code);
         p.Add("@Name", dto.Name);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Zone>(
-            "sp_Zone_Update", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<ZoneDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Zone>(
+                "sp_Zone_Update", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<ZoneDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains(ErrorCodes.ZoneNotFound, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.ZoneNotFound, "Zone not found.", 404);
+        }
+        catch (SqlException ex) when (ex.Message.Contains(ErrorCodes.ZoneCodeExists, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.ZoneCodeExists, "A zone with this code already exists in this country.", 409);
+        }
     }
 
     public async Task<ZoneDto?> SetActiveAsync(Guid zoneToken, bool isActive, IRequestContext context, CancellationToken cancellationToken = default)
@@ -102,8 +114,15 @@ public class ZoneService(IDbConnectionFactory connectionFactory, IMapper mapper)
         p.Add("@ZoneToken", zoneToken);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<Zone>(
-            "sp_Zone_SetActive", p, commandType: CommandType.StoredProcedure);
-        return row is null ? null : mapper.Map<ZoneDto>(row);
+        try
+        {
+            var row = await connection.QueryFirstOrDefaultAsync<Zone>(
+                "sp_Zone_SetActive", p, commandType: CommandType.StoredProcedure);
+            return row is null ? null : mapper.Map<ZoneDto>(row);
+        }
+        catch (SqlException ex) when (ex.Message.Contains(ErrorCodes.ZoneNotFound, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApiException(ErrorCodes.ZoneNotFound, "Zone not found.", 404);
+        }
     }
 }

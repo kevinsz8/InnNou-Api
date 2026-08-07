@@ -47,6 +47,7 @@ BEGIN
     CROSS APPLY (SELECT COUNT(*) AS LineCount FROM dbo.InternalOrderLines l WHERE l.InternalOrderId = io.InternalOrderId) lc
     WHERE (@ContextOrganizationId IS NULL OR io.RequestingOrganizationId = @ContextOrganizationId OR io.SourceOrganizationId = @ContextOrganizationId)
       AND (@DirectionFilter IS NULL
+           OR @ContextOrganizationId IS NULL
            OR (@DirectionFilter = 'REQUESTING' AND io.RequestingOrganizationId = @ContextOrganizationId)
            OR (@DirectionFilter = 'SOURCE' AND io.SourceOrganizationId = @ContextOrganizationId))
       AND (@Status IS NULL OR ios.Code = @Status)
