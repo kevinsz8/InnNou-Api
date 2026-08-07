@@ -287,6 +287,7 @@ namespace InnNou.Application.Common
         public const string ArticleDiscountInvalidCurrency = "ARTICLE_DISCOUNT_INVALID_CURRENCY";
         public const string ArticleDiscountInvalidDateRange = "ARTICLE_DISCOUNT_INVALID_DATE_RANGE";
         public const string ArticleDiscountOverlapping = "ARTICLE_DISCOUNT_OVERLAPPING";
+        public const string ArticleDiscountLockTimeout = "ARTICLE_DISCOUNT_LOCK_TIMEOUT";
 
         // OrderApprovalStep
         public const string OrderApprovalStepNotFound = "ORDER_APPROVAL_STEP_NOT_FOUND";
@@ -402,6 +403,7 @@ namespace InnNou.Application.Common
         public const string ParLevelOverrideNotFound = "PAR_LEVEL_OVERRIDE_NOT_FOUND";
         public const string ParLevelOverrideInvalidDateRange = "PAR_LEVEL_OVERRIDE_INVALID_DATE_RANGE";
         public const string ParLevelOverrideOverlap = "PAR_LEVEL_OVERRIDE_OVERLAP";
+        public const string ParLevelOverrideLockTimeout = "PAR_LEVEL_OVERRIDE_LOCK_TIMEOUT";
 
         // ConsolidatedPurchaseOrder (multi-property spend consolidation)
         public const string ConsolidatedPurchaseOrderNotFound = "CONSOLIDATED_PURCHASE_ORDER_NOT_FOUND";

@@ -71,6 +71,49 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
 
     private static bool RangesOverlap(int aStart, int aEnd, int bStart, int bEnd) => aStart <= bEnd && bStart <= aEnd;
 
+    // Shared by CreateOverrideAsync's fast-path pre-check and its DB-lock-protected backstop
+    // re-check (see the TOCTOU-race comment in CreateOverrideAsync) so the two can never drift.
+    private static bool TryFindOverlap(
+        ParLevelOverrideType type, List<ParLevelOverride> sameTypeOverrides,
+        int? startMonth, int? startDay, int? endMonth, int? endDay,
+        DateOnly? startDate, DateOnly? endDate, out string? conflictLabel)
+    {
+        if (type == ParLevelOverrideType.Seasonal)
+        {
+            var newRanges = DecomposeSeasonalRanges(ToMmdd(startMonth!.Value, startDay!.Value), ToMmdd(endMonth!.Value, endDay!.Value));
+
+            foreach (var existing in sameTypeOverrides)
+            {
+                var existingRanges = DecomposeSeasonalRanges(
+                    ToMmdd(existing.StartMonth!.Value, existing.StartDay!.Value),
+                    ToMmdd(existing.EndMonth!.Value, existing.EndDay!.Value));
+
+                if (newRanges.Any(nr => existingRanges.Any(er => RangesOverlap(nr.Start, nr.End, er.Start, er.End))))
+                {
+                    conflictLabel = existing.Label ?? "unnamed";
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            foreach (var existing in sameTypeOverrides)
+            {
+                var existingStart = DateOnly.FromDateTime(existing.StartDate!.Value);
+                var existingEnd = DateOnly.FromDateTime(existing.EndDate!.Value);
+
+                if (existingStart <= endDate!.Value && startDate!.Value <= existingEnd)
+                {
+                    conflictLabel = existing.Label ?? "unnamed";
+                    return true;
+                }
+            }
+        }
+
+        conflictLabel = null;
+        return false;
+    }
+
     public async Task<ParLevelDto?> CreateBaseAsync(Guid warehouseToken, Guid articleToken, decimal minimumQuantity, decimal reorderQuantity, IRequestContext context, CancellationToken cancellationToken)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -223,55 +266,78 @@ public class ParLevelService(IDbConnectionFactory connectionFactory, IMapper map
             new { warehouse.WarehouseId, article.ArticleId, Type = typeCode },
             commandType: CommandType.StoredProcedure)).ToList();
 
-        if (type == ParLevelOverrideType.Seasonal)
+        var kind = type == ParLevelOverrideType.Seasonal ? "seasonal" : "event";
+
+        if (TryFindOverlap(type, sameTypeOverrides, startMonth, startDay, endMonth, endDay, startDate, endDate, out var conflictLabel))
+            throw new ApiException(ErrorCodes.ParLevelOverrideOverlap, $"This date range overlaps an existing {kind} override ('{conflictLabel}').", 400);
+
+        // DB-level backstop against a TOCTOU race identical in shape to ArticleDiscount's
+        // (2026-08-07 audit finding #4, fixed the same day): two genuinely-concurrent creates for
+        // the same (Warehouse, Article, Type) scope could both pass the pre-check above before
+        // either INSERT landed. sp_getapplock scoped to that triple serializes concurrent writers;
+        // the overlap check re-runs once the lock is held so the loser sees the winner's
+        // now-committed row. Kept as a C#-side re-check (not pushed into the SP, unlike
+        // ArticleDiscount's own fix) because the seasonal-wraparound decomposition logic
+        // (DecomposeSeasonalRanges) only exists in C# — duplicating it in T-SQL would be a
+        // correctness/drift risk this codebase avoids; TryFindOverlap is the single source of
+        // truth both the pre-check and this backstop call.
+        var lockResource = $"ParLevelOverrideScope:{warehouse.WarehouseId}:{article.ArticleId}:{typeCode}";
+
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            var newRanges = DecomposeSeasonalRanges(ToMmdd(startMonth!.Value, startDay!.Value), ToMmdd(endMonth!.Value, endDay!.Value));
+            var lockParams = new DynamicParameters();
+            lockParams.Add("@Resource", lockResource);
+            lockParams.Add("@LockMode", "Exclusive");
+            lockParams.Add("@LockOwner", "Transaction");
+            lockParams.Add("@LockTimeout", 10000);
+            lockParams.Add("@ReturnValue", dbType: DbType.Int32, direction: ParameterDirection.ReturnValue);
 
-            foreach (var existing in sameTypeOverrides)
-            {
-                var existingRanges = DecomposeSeasonalRanges(
-                    ToMmdd(existing.StartMonth!.Value, existing.StartDay!.Value),
-                    ToMmdd(existing.EndMonth!.Value, existing.EndDay!.Value));
+            await connection.ExecuteAsync("sp_getapplock", lockParams, transaction, commandType: CommandType.StoredProcedure);
+            var lockResult = lockParams.Get<int>("@ReturnValue");
+            if (lockResult < 0)
+                throw new ApiException(ErrorCodes.ParLevelOverrideLockTimeout, "Another update to this article's par level overrides is in progress — please retry.", 409);
 
-                var overlaps = newRanges.Any(nr => existingRanges.Any(er => RangesOverlap(nr.Start, nr.End, er.Start, er.End)));
-                if (overlaps)
-                    throw new ApiException(ErrorCodes.ParLevelOverrideOverlap, $"This date range overlaps an existing seasonal override ('{existing.Label ?? "unnamed"}').", 400);
-            }
+            var lockedSameTypeOverrides = (await connection.QueryAsync<ParLevelOverride>(
+                "sp_ParLevelOverride_GetByWarehouseAndArticle",
+                new { warehouse.WarehouseId, article.ArticleId, Type = typeCode },
+                transaction, commandType: CommandType.StoredProcedure)).ToList();
+
+            if (TryFindOverlap(type, lockedSameTypeOverrides, startMonth, startDay, endMonth, endDay, startDate, endDate, out var lockedConflictLabel))
+                throw new ApiException(ErrorCodes.ParLevelOverrideOverlap, $"This date range overlaps an existing {kind} override ('{lockedConflictLabel}').", 400);
+
+            var created = await connection.QueryFirstOrDefaultAsync<ParLevelOverride>(
+                "sp_ParLevelOverride_Create",
+                new
+                {
+                    ParLevelOverrideToken = Guid.NewGuid(),
+                    warehouse.WarehouseId,
+                    article.ArticleId,
+                    Type = typeCode,
+                    Label = label,
+                    MinimumQuantity = minimumQuantity,
+                    ReorderQuantity = reorderQuantity,
+                    StartMonth = startMonth,
+                    StartDay = startDay,
+                    EndMonth = endMonth,
+                    EndDay = endDay,
+                    StartDate = startDate?.ToDateTime(TimeOnly.MinValue),
+                    EndDate = endDate?.ToDateTime(TimeOnly.MinValue),
+                    CreatedBy = context.ActorUserToken.ToString()
+                },
+                transaction, commandType: CommandType.StoredProcedure);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return created is null ? null : mapper.Map<ParLevelOverrideDto>(created);
         }
-        else
+        catch
         {
-            foreach (var existing in sameTypeOverrides)
-            {
-                var existingStart = DateOnly.FromDateTime(existing.StartDate!.Value);
-                var existingEnd = DateOnly.FromDateTime(existing.EndDate!.Value);
-
-                if (existingStart <= endDate!.Value && startDate!.Value <= existingEnd)
-                    throw new ApiException(ErrorCodes.ParLevelOverrideOverlap, $"This date range overlaps an existing event override ('{existing.Label ?? "unnamed"}').", 400);
-            }
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
-
-        var created = await connection.QueryFirstOrDefaultAsync<ParLevelOverride>(
-            "sp_ParLevelOverride_Create",
-            new
-            {
-                ParLevelOverrideToken = Guid.NewGuid(),
-                warehouse.WarehouseId,
-                article.ArticleId,
-                Type = typeCode,
-                Label = label,
-                MinimumQuantity = minimumQuantity,
-                ReorderQuantity = reorderQuantity,
-                StartMonth = startMonth,
-                StartDay = startDay,
-                EndMonth = endMonth,
-                EndDay = endDay,
-                StartDate = startDate?.ToDateTime(TimeOnly.MinValue),
-                EndDate = endDate?.ToDateTime(TimeOnly.MinValue),
-                CreatedBy = context.ActorUserToken.ToString()
-            },
-            commandType: CommandType.StoredProcedure);
-
-        return created is null ? null : mapper.Map<ParLevelOverrideDto>(created);
     }
 
     public async Task<bool> DeleteOverrideAsync(Guid parLevelOverrideToken, IRequestContext context, CancellationToken cancellationToken)

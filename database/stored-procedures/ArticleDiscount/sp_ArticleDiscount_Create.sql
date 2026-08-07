@@ -22,12 +22,54 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+    -- ArticleDiscountService.EnsureNoOverlapAsync already ran this same check in C# before this
+    -- call — this is a DB-level backstop for the race window between that check and this INSERT
+    -- (two concurrent Creates for the identical scope+overlapping dates), same "C# primary check,
+    -- DB backstop" shape as sp_StockLevel_ApplyDelta. Unlike StockLevel's single-row UPDATE (which
+    -- serializes for free via row locking), this is an INSERT-vs-absence-of-conflict check, which
+    -- needs an explicit app lock to actually block a concurrent writer under READ COMMITTED.
+    DECLARE @LockResource NVARCHAR(200) =
+        'ArticleDiscountScope:' + CAST(@SupplierId AS NVARCHAR(20)) + ':' +
+        ISNULL('A' + CAST(@ArticleId AS NVARCHAR(20)),
+        ISNULL('SF' + CAST(@SubFamilyId AS NVARCHAR(20)),
+        ISNULL('F' + CAST(@FamilyId AS NVARCHAR(20)), 'ALL')));
+    DECLARE @LockResult INT;
+
+    BEGIN TRANSACTION;
+
+    EXEC @LockResult = sp_getapplock @Resource = @LockResource, @LockMode = 'Exclusive',
+        @LockOwner = 'Transaction', @LockTimeout = 10000;
+    IF @LockResult < 0
+    BEGIN
+        ROLLBACK TRANSACTION;
+        RAISERROR('ARTICLE_DISCOUNT_LOCK_TIMEOUT', 16, 1);
+        RETURN;
+    END
+
+    IF EXISTS (
+        SELECT 1 FROM ArticleDiscounts d
+        WHERE d.SupplierId = @SupplierId
+          AND d.IsActive = 1
+          AND (d.ArticleId = @ArticleId OR (d.ArticleId IS NULL AND @ArticleId IS NULL))
+          AND (d.SubFamilyId = @SubFamilyId OR (d.SubFamilyId IS NULL AND @SubFamilyId IS NULL))
+          AND (d.FamilyId = @FamilyId OR (d.FamilyId IS NULL AND @FamilyId IS NULL))
+          AND d.EffectiveFrom <= ISNULL(@EffectiveUntil, '9999-12-31')
+          AND ISNULL(d.EffectiveUntil, '9999-12-31') >= @EffectiveFrom
+    )
+    BEGIN
+        ROLLBACK TRANSACTION;
+        RAISERROR('ARTICLE_DISCOUNT_OVERLAPPING', 16, 1);
+        RETURN;
+    END
+
     INSERT INTO ArticleDiscounts
         (ArticleDiscountToken, SupplierId, ArticleId, SubFamilyId, FamilyId,
          DiscountTypeId, DiscountValue, CurrencyCode, EffectiveFrom, EffectiveUntil, Description, CreatedBy)
     VALUES
         (@ArticleDiscountToken, @SupplierId, @ArticleId, @SubFamilyId, @FamilyId,
          @DiscountTypeId, @DiscountValue, @CurrencyCode, @EffectiveFrom, @EffectiveUntil, @Description, @CreatedBy);
+
+    COMMIT TRANSACTION;
 
     SELECT
         d.ArticleDiscountId, d.ArticleDiscountToken,

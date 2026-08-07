@@ -14,13 +14,39 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
 {
     private sealed class OrganizationContactPageRow : OrganizationContact { public int TotalCount { get; set; } }
 
+    private const int StaffRoleLevel = 20;
     private const int SuperAdminRoleLevel = 100;
     private const int MaxPageSize = 100;
 
-    // RoleLevel >= 100 manages/reads any organization's contacts. Below that, the caller must be
-    // organization-scoped and the target must be within their own organization's hierarchy —
-    // a caller with no organization (e.g. a Supplier-scoped login) is denied, never unrestricted.
+    // Write visibility — RoleLevel >= 100 manages any organization's contacts. Below that, the
+    // caller must be RoleLevel >= Staff (20) AND organization-scoped, with the target within their
+    // own organization's hierarchy. This Staff floor was missing until the 2026-08-07 full-system
+    // audit — any authenticated caller belonging to the organization's hierarchy, even a "Regular
+    // user" (RoleLevel 0/1 per CLAUDE.md's role table), could Create/Edit/Delete its contacts.
+    // Every sibling contact service (WarehouseContactService.CanManageOrganizationAsync) already
+    // required it; this brings OrganizationContactService's writes in line. Deliberately NOT
+    // applied to reads (see CanManageReadAsync below) — a regular org member looking up "who's our
+    // IT contact" was never the reported problem, only unrestricted writes were.
     private static async Task<bool> CanManageOrganizationAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
+    {
+        if (context.RoleLevel >= SuperAdminRoleLevel)
+            return true;
+
+        if (context.RoleLevel < StaffRoleLevel || !context.OrganizationId.HasValue)
+            return false;
+
+        var canAccess = await connection.ExecuteScalarAsync<int>(
+            "sp_Organization_IsInHierarchy",
+            new { RootOrganizationId = context.OrganizationId.Value, TargetOrganizationId = targetOrganizationId },
+            commandType: CommandType.StoredProcedure);
+
+        return canAccess == 1;
+    }
+
+    // Read visibility, no RoleLevel floor — mirrors WarehouseContactService.CanManageReadAsync.
+    // Any authenticated member of the organization's own hierarchy can view its contacts; only
+    // writes require Staff+.
+    private static async Task<bool> CanManageReadAsync(IDbConnection connection, IRequestContext context, int targetOrganizationId)
     {
         if (context.RoleLevel >= SuperAdminRoleLevel)
             return true;
@@ -55,7 +81,7 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
             new { OrganizationToken = organizationToken, RootOrganizationId = (int?)null },
             commandType: CommandType.StoredProcedure);
 
-        if (organization is null || !await CanManageOrganizationAsync(connection, context, organization.OrganizationId))
+        if (organization is null || !await CanManageReadAsync(connection, context, organization.OrganizationId))
             return new PagedResult<OrganizationContactDto> { Items = [], TotalCount = 0, PageNumber = safePageNumber, PageSize = safePageSize };
 
         var p = new DynamicParameters();
@@ -89,7 +115,7 @@ public class OrganizationContactService(IDbConnectionFactory connectionFactory, 
         if (contact is null)
             return null;
 
-        if (!await CanManageOrganizationAsync(connection, context, contact.OrganizationId))
+        if (!await CanManageReadAsync(connection, context, contact.OrganizationId))
             return null;
 
         return mapper.Map<OrganizationContactDto>(contact);

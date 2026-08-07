@@ -6,6 +6,7 @@ using InnNou.Domain.Dtos.Common;
 using InnNou.Infrastructure.Abstractions;
 using InnNou.Infrastructure.Repositories.DbEntities;
 using InnNou.Shared.Mapping;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Data.Common;
@@ -69,6 +70,20 @@ public class ArticleDiscountService(
 
     private static bool DatesOverlap(DateTime aFrom, DateTime? aUntil, DateTime bFrom, DateTime? bUntil) =>
         aFrom <= (bUntil ?? DateTime.MaxValue) && bFrom <= (aUntil ?? DateTime.MaxValue);
+
+    // Translates the DB-level backstop guard's RAISERROR messages (sp_ArticleDiscount_Create/
+    // _Update/_SetActive) into the same clean ApiException the C#-side EnsureNoOverlapAsync
+    // pre-check already throws — this only ever fires for the race window itself (two concurrent
+    // writers for the identical scope), since the pre-check already caught the common case.
+    // Precedent: UnitConversionRateService's catch for CONVERSION_COUNT_TYPE_NOT_ALLOWED.
+    private static ApiException? TranslateOverlapGuardException(SqlException ex)
+    {
+        if (ex.Message.Contains("ARTICLE_DISCOUNT_OVERLAPPING"))
+            return new ApiException(ErrorCodes.ArticleDiscountOverlapping, "An active discount already covers this scope during an overlapping date range.", 409);
+        if (ex.Message.Contains("ARTICLE_DISCOUNT_LOCK_TIMEOUT"))
+            return new ApiException(ErrorCodes.ArticleDiscountLockTimeout, "Another update to this discount's scope is in progress — please retry.", 409);
+        return null;
+    }
 
     private async Task<Supplier> ResolveSupplierAsync(IDbConnection connection, Guid supplierToken)
     {
@@ -226,8 +241,17 @@ public class ArticleDiscountService(
         p.Add("@EffectiveUntil", effectiveUntil?.Date);
         p.Add("@Description", description);
         p.Add("@CreatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
-            "sp_ArticleDiscount_Create", p, commandType: CommandType.StoredProcedure);
+
+        ArticleDiscount? row;
+        try
+        {
+            row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
+                "sp_ArticleDiscount_Create", p, commandType: CommandType.StoredProcedure);
+        }
+        catch (SqlException ex) when (TranslateOverlapGuardException(ex) is not null)
+        {
+            throw TranslateOverlapGuardException(ex)!;
+        }
         if (row is null)
             return null;
 
@@ -314,8 +338,17 @@ public class ArticleDiscountService(
         p.Add("@EffectiveUntil", effectiveUntil?.Date);
         p.Add("@Description", description);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
-            "sp_ArticleDiscount_Update", p, commandType: CommandType.StoredProcedure);
+
+        ArticleDiscount? row;
+        try
+        {
+            row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
+                "sp_ArticleDiscount_Update", p, commandType: CommandType.StoredProcedure);
+        }
+        catch (SqlException ex) when (TranslateOverlapGuardException(ex) is not null)
+        {
+            throw TranslateOverlapGuardException(ex)!;
+        }
         return row is null ? null : mapper.Map<ArticleDiscountDto>(row);
     }
 
@@ -345,8 +378,17 @@ public class ArticleDiscountService(
         p.Add("@ArticleDiscountToken", token);
         p.Add("@IsActive", isActive);
         p.Add("@LastUpdatedBy", context.ActorUserToken.ToString());
-        var row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
-            "sp_ArticleDiscount_SetActive", p, commandType: CommandType.StoredProcedure);
+
+        ArticleDiscount? row;
+        try
+        {
+            row = await connection.QueryFirstOrDefaultAsync<ArticleDiscount>(
+                "sp_ArticleDiscount_SetActive", p, commandType: CommandType.StoredProcedure);
+        }
+        catch (SqlException ex) when (TranslateOverlapGuardException(ex) is not null)
+        {
+            throw TranslateOverlapGuardException(ex)!;
+        }
         return row is null ? null : mapper.Map<ArticleDiscountDto>(row);
     }
 
