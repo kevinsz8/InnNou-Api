@@ -61,19 +61,18 @@ public class SupplierInvoiceService(
         return canAccess == 1;
     }
 
+    // Lines/PurchaseOrders/TaxBreakdown are 3 independent lookups keyed only by
+    // SupplierInvoiceId — combined into ONE round trip via sp_SupplierInvoice_HydrateDetails's
+    // multiple result sets instead of 3 sequential calls (2026-08-07 Performance Optimization
+    // backlog item #5).
     private async Task HydrateAsync(IDbConnection connection, SupplierInvoiceDto dto, int supplierInvoiceId)
     {
-        dto.Lines = mapper.MapList<SupplierInvoiceLineDto>(
-            await connection.QueryAsync<SupplierInvoiceLine>(
-                "sp_SupplierInvoiceLine_GetBySupplierInvoiceId", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure));
+        await using var multi = await connection.QueryMultipleAsync(
+            "sp_SupplierInvoice_HydrateDetails", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure);
 
-        dto.PurchaseOrders = mapper.MapList<SupplierInvoicePurchaseOrderDto>(
-            await connection.QueryAsync<SupplierInvoicePurchaseOrder>(
-                "sp_SupplierInvoicePurchaseOrder_GetBySupplierInvoiceId", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure));
-
-        dto.TaxBreakdown = mapper.MapList<SupplierInvoiceTaxBreakdownDto>(
-            await connection.QueryAsync<SupplierInvoiceTaxBreakdown>(
-                "sp_SupplierInvoiceTaxBreakdown_GetBySupplierInvoiceId", new { SupplierInvoiceId = supplierInvoiceId }, commandType: CommandType.StoredProcedure));
+        dto.Lines = mapper.MapList<SupplierInvoiceLineDto>(await multi.ReadAsync<SupplierInvoiceLine>());
+        dto.PurchaseOrders = mapper.MapList<SupplierInvoicePurchaseOrderDto>(await multi.ReadAsync<SupplierInvoicePurchaseOrder>());
+        dto.TaxBreakdown = mapper.MapList<SupplierInvoiceTaxBreakdownDto>(await multi.ReadAsync<SupplierInvoiceTaxBreakdown>());
 
         dto.LineCount = dto.Lines.Count;
     }

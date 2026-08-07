@@ -15,6 +15,7 @@ public class OrdersEndpoints : ICarterModule
 
         group.MapPost("/create",     HandleCreate).Produces<ApiResponse<CreateOrderCommandResponse>>(201);
         group.MapPost("/addLine",    HandleAddLine).Produces<ApiResponse<AddOrderLineCommandResponse>>(201);
+        group.MapPost("/addLines",   HandleAddLines).Produces<ApiResponse<AddOrderLinesCommandResponse>>(200);
         group.MapPost("/editLine",   HandleEditLine).Produces<ApiResponse<EditOrderLineCommandResponse>>(200);
         group.MapPost("/deleteLine", HandleDeleteLine).Produces<ApiResponse<DeleteOrderLineCommandResponse>>(200);
         group.MapPost("/submit",     HandleSubmit).Produces<ApiResponse<SubmitOrderCommandResponse>>(200);
@@ -62,6 +63,12 @@ public class OrdersEndpoints : ICarterModule
     {
         var result = await sender.Send(request, ct);
         return result.Success ? Results.Created("/orders", result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
+    }
+
+    private static async Task<IResult> HandleAddLines([FromBody] AddOrderLinesCommandRequest request, ISender sender, CancellationToken ct)
+    {
+        var result = await sender.Send(request, ct);
+        return result.Success ? Results.Ok(result) : Results.Json(result, statusCode: result.StatusCode ?? 400);
     }
 
     private static async Task<IResult> HandleEditLine([FromBody] EditOrderLineCommandRequest request, ISender sender, CancellationToken ct)

@@ -258,6 +258,8 @@ namespace InnNou.Application.Common
         public const string OrderImportLinesInvalidFile = "ORDER_IMPORT_LINES_INVALID_FILE";
         public const string OrderImportLinesTooManyRows = "ORDER_IMPORT_LINES_TOO_MANY_ROWS";
         public const string OrderImportLinesRowInvalid = "ORDER_IMPORT_LINES_ROW_INVALID";
+        public const string OrderAddLinesEmpty = "ORDER_ADD_LINES_EMPTY";
+        public const string OrderAddLinesTooMany = "ORDER_ADD_LINES_TOO_MANY";
         public const string OrderNotCancellable = "ORDER_NOT_CANCELLABLE";
         public const string OrderCopyInvalidSourceStatus = "ORDER_COPY_INVALID_SOURCE_STATUS";
         public const string OrderPdfNotAvailable = "ORDER_PDF_NOT_AVAILABLE";

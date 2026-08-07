@@ -1,6 +1,6 @@
 # InnNou — Backend Call & Round-Trip Optimization Backlog
 
-**Status: items #1, #2, and #3 implemented 2026-08-07 (Phase 1). #4 and #5 remain research-only.** Grew out of a question about whether InnNou's current call volume affects cloud hosting cost (see `CLOUD_HOSTING_ASSESSMENT.md`) — short answer there was "not directly, on the recommended flat-capacity plans," but reducing chattiness is still good practice: it delays the point where a bigger/pricier compute or DB tier is needed as usage grows, and it's a straight latency win regardless of billing model. Decided to act on the top two items the same day since InnNou is still early-stage and can afford the engineering time now.
+**Status: all 5 items implemented 2026-08-07 (Phase 1: #1-#3, Phase 2: #4-#5).** Grew out of a question about whether InnNou's current call volume affects cloud hosting cost (see `CLOUD_HOSTING_ASSESSMENT.md`) — short answer there was "not directly, on the recommended flat-capacity plans," but reducing chattiness is still good practice: it delays the point where a bigger/pricier compute or DB tier is needed as usage grows, and it's a straight latency win regardless of billing model. Decided to act on all of it the same day since InnNou is still early-stage and can afford the engineering time now.
 
 Findings from two parallel read-only audits (frontend HTTP-call-count-per-page-load, backend SP/round-trip-count-per-request), ranked by frequency of use × impact — how often the flow runs in a typical hotel back-office work day matters more than raw call count.
 
@@ -20,19 +20,17 @@ The `useFamilySearch`/`useCategorySearch`/`useSupplierSearch`/`useSubFamilySearc
 
 The `ArticleClassificationRow` component reuses the same shared `useCategorySearch()`/`useSubCategorySearch()` hooks as everywhere else — fixing #2 at the hook level fixed this for free, no separate per-row code change needed. A page of ~20 rows now fires zero Category/SubCategory calls until a user actually opens one of those dropdowns.
 
-## 4. No batch "add N lines to an order" endpoint
+## 4. ✅ No batch "add N lines to an order" endpoint — IMPLEMENTED
 
-`AddOrderLineCommandRequest` only accepts one article at a time; `ImportLinesAsync` (Excel-based) is the only existing batch path. A buyer adding 5–8 catalog items to a cart today fires 5–8 full `AddLineAsync` round trips, each independently redoing the order lookup + hierarchy check.
+`AddOrderLineCommandRequest` only accepted one article at a time; `ImportLinesAsync` (Excel-based) was the only existing batch path. A buyer adding 5–8 catalog items to a cart used to fire 5–8 full `AddLineAsync` round trips, each independently redoing the order lookup + hierarchy check.
 
-**Fix direction:** a `POST /orders/addLines` accepting an array of `(ArticleToken, Quantity)`, doing the order lookup/hierarchy check once and looping only the per-article resolution server-side. Worth checking whether Order Templates' "apply additively" flow has the same one-at-a-time shape internally — not confirmed, flagged as a likely twin worth a look.
+**Shipped 2026-08-07**: new `POST /orders/addLines` (`AddOrderLinesCommandRequest`, up to 100 lines) validates the Order once, then adds every line via a new shared `OrderService.AddLineToValidatedOrderAsync` helper — everything `AddLineAsync` used to do *after* its own order lookup/hierarchy/Draft checks, now callable directly with an already-resolved `Order`. `AddLineAsync` itself became a thin wrapper (resolve+validate, then call the helper) — its public signature/behavior is unchanged. `ImportLinesAsync`'s Excel-row loop was found to have the *identical* redundant-lookup problem (it called the public `AddLineAsync` per row) and got the same fix for free, switched to call the shared helper too. Best-effort semantics, same convention as `ImportLinesAsync`: one line's failure never aborts the rest, each failure reports its `Index`/`ArticleToken`/error back to the caller (`AddOrderLinesResultDto`). New regression tests: `tests/InnNou.IntegrationTests/Orders/AddOrderLinesBatchTests.cs` (all-succeed, partial-failure, order-not-found, empty-batch-rejected).
 
-**Priority: medium — real win, but shaped more like a feature addition than a quick optimization.**
+## 5. ✅ `SupplierInvoiceService`/`SupplierCreditNoteService`.HydrateAsync — 3 SP calls each per detail view — IMPLEMENTED
 
-## 5. `SupplierInvoiceService`/`SupplierCreditNoteService`.HydrateAsync — 3 SP calls each per detail view
+Same multi-result-set consolidation opportunity as #1 (Lines, TaxBreakdown, PurchaseOrders/CorrectedInvoices), called from `GetByTokenAsync` and right after every `CreateAsync`.
 
-Same multi-result-set consolidation opportunity as #1 (Lines, TaxBreakdown, PurchaseOrders/CorrectedInvoices), called from `GetByTokenAsync` and right after every `CreateAsync`. AP staff hit this repeatedly during invoice reconciliation, but at lower frequency than order line-adds, and the payoff is smaller (3→1, not 8→1).
-
-**Priority: low-medium.**
+**Shipped 2026-08-07**: two new SPs (`sp_SupplierInvoice_HydrateDetails`, `sp_SupplierCreditNote_HydrateDetails`) each fan out to their 3 existing sub-procedures as multiple result sets, read via `QueryMultipleAsync` in one round trip. Simpler than #1's fix — no OUTPUT params or conditional branching, just 3 independent `SELECT`s keyed by the header's own Id. Both `HydrateAsync` private methods keep their exact same signature, so every call site benefits with zero other changes.
 
 ## Lower priority — flagged for completeness, not urgency
 

@@ -58,19 +58,18 @@ public class SupplierCreditNoteService(
         return canAccess == 1;
     }
 
+    // Lines/TaxBreakdown/CorrectedInvoices are 3 independent lookups keyed only by
+    // SupplierCreditNoteId — combined into ONE round trip via
+    // sp_SupplierCreditNote_HydrateDetails's multiple result sets instead of 3 sequential calls
+    // (2026-08-07 Performance Optimization backlog item #5).
     private async Task HydrateAsync(IDbConnection connection, SupplierCreditNoteDto dto, int supplierCreditNoteId)
     {
-        dto.Lines = mapper.MapList<SupplierCreditNoteLineDto>(
-            await connection.QueryAsync<SupplierCreditNoteLine>(
-                "sp_SupplierCreditNoteLine_GetBySupplierCreditNoteId", new { SupplierCreditNoteId = supplierCreditNoteId }, commandType: CommandType.StoredProcedure));
+        await using var multi = await connection.QueryMultipleAsync(
+            "sp_SupplierCreditNote_HydrateDetails", new { SupplierCreditNoteId = supplierCreditNoteId }, commandType: CommandType.StoredProcedure);
 
-        dto.TaxBreakdown = mapper.MapList<SupplierCreditNoteTaxBreakdownDto>(
-            await connection.QueryAsync<SupplierCreditNoteTaxBreakdown>(
-                "sp_SupplierCreditNoteTaxBreakdown_GetBySupplierCreditNoteId", new { SupplierCreditNoteId = supplierCreditNoteId }, commandType: CommandType.StoredProcedure));
-
-        dto.CorrectedInvoices = mapper.MapList<SupplierCreditNoteInvoiceRefDto>(
-            await connection.QueryAsync<SupplierCreditNoteInvoiceRef>(
-                "sp_SupplierCreditNoteInvoice_GetBySupplierCreditNoteId", new { SupplierCreditNoteId = supplierCreditNoteId }, commandType: CommandType.StoredProcedure));
+        dto.Lines = mapper.MapList<SupplierCreditNoteLineDto>(await multi.ReadAsync<SupplierCreditNoteLine>());
+        dto.TaxBreakdown = mapper.MapList<SupplierCreditNoteTaxBreakdownDto>(await multi.ReadAsync<SupplierCreditNoteTaxBreakdown>());
+        dto.CorrectedInvoices = mapper.MapList<SupplierCreditNoteInvoiceRefDto>(await multi.ReadAsync<SupplierCreditNoteInvoiceRef>());
 
         // Computed from the lines just fetched, not a separate SQL aggregate — GetPaged's own SP
         // still does its own CROSS APPLY SUM since it never fetches per-row Lines.

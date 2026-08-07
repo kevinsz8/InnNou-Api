@@ -380,6 +380,16 @@ public class OrderService(
         if (order.Status != OrderStatus.Draft)
             throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
 
+        return await AddLineToValidatedOrderAsync(connection, order, articleToken, quantity, manualUnitPrice, manualCurrencyCode, context, cancellationToken);
+    }
+
+    // Everything AddLineAsync does once the Order has already been resolved and validated
+    // (existence / organization-scope / Draft-status) — split out so a caller adding MANY lines
+    // to the same Order (AddLinesAsync's batch endpoint, ImportLinesAsync's Excel import) can
+    // validate the Order once and add every line without redoing that lookup per line. See the
+    // 2026-08-07 Performance Optimization backlog, item #4.
+    private async Task<OrderLineDto?> AddLineToValidatedOrderAsync(DbConnection connection, Order order, Guid articleToken, decimal quantity, decimal? manualUnitPrice, string? manualCurrencyCode, IRequestContext context, CancellationToken cancellationToken)
+    {
         // Pass the Order's OWN organization (never null, never the acting user's role/supplier
         // identity) so supplier visibility is checked strictly against the order's org — a
         // private-supplier article must resolve here for its legitimate owning organization
@@ -555,6 +565,56 @@ public class OrderService(
             "sp_OrderLine_Upsert", linePararms, commandType: CommandType.StoredProcedure);
 
         return line is null ? null : mapper.Map<OrderLineDto>(line);
+    }
+
+    // Batch variant of AddLineAsync — validates the Order once (existence/organization-scope/
+    // Draft-status), then adds every requested line via the shared AddLineToValidatedOrderAsync
+    // helper instead of one full AddLineAsync round trip per line. Best-effort, same convention
+    // as ImportLinesAsync's Excel-row loop: one line's failure never aborts the rest, each
+    // failure is reported back with its position in the request so the caller (a buyer adding
+    // several catalog items to their cart at once) can see exactly which ones didn't land.
+    // Throws (rather than returning null) for a missing Order, matching ImportLinesAsync's own
+    // convention — not AddLineAsync's "return null, let the handler 404" shape, since this method
+    // has no single natural "not found" return value once it's also reporting per-line results.
+    public async Task<AddOrderLinesResultDto> AddLinesAsync(Guid orderToken, List<AddOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+
+        var order = await connection.QueryFirstOrDefaultAsync<Order>(
+            "sp_Order_GetByToken", new { OrderToken = orderToken }, commandType: CommandType.StoredProcedure);
+
+        if (order is null)
+            throw new ApiException(ErrorCodes.OrderNotFound, "Order not found.", 404);
+
+        if (!await CanManageOrganizationAsync(connection, context, order.OrganizationId, order.WarehouseId))
+            throw new ApiException(ErrorCodes.OrderForbidden, "Cannot modify an order outside your organization.", 403);
+
+        if (order.Status != OrderStatus.Draft)
+            throw new ApiException(ErrorCodes.OrderNotDraft, "Only a draft order can be modified.", 409);
+
+        var result = new AddOrderLinesResultDto { TotalLines = lines.Count };
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var input = lines[i];
+            try
+            {
+                await AddLineToValidatedOrderAsync(connection, order, input.ArticleToken, input.Quantity, input.ManualUnitPrice, input.ManualCurrencyCode, context, cancellationToken);
+                result.SucceededCount++;
+            }
+            catch (ApiException ex)
+            {
+                result.Errors.Add(new AddOrderLinesLineErrorDto { Index = i, ArticleToken = input.ArticleToken, Code = ex.Code, Description = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "AddLinesAsync: unexpected error processing line {Index} (article {ArticleToken}) for order {OrderToken}", i, input.ArticleToken, orderToken);
+                result.Errors.Add(new AddOrderLinesLineErrorDto { Index = i, ArticleToken = input.ArticleToken, Code = ErrorCodes.UnhandledError, Description = "An unexpected error occurred while processing this line." });
+            }
+        }
+
+        result.FailureCount = result.Errors.Count;
+        return result;
     }
 
     public async Task<OrderLineDto?> EditLineAsync(Guid orderLineToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken)
@@ -1686,7 +1746,11 @@ public class OrderService(
 
                 try
                 {
-                    await AddLineAsync(orderToken, article.ArticleToken, quantity, manualUnitPrice, manualCurrencyCode, context, cancellationToken);
+                    // Uses the already-validated `order` from this method's own lookup above,
+                    // not the public AddLineAsync — avoids redoing the order lookup/hierarchy/
+                    // Draft check on every single row (2026-08-07 Performance Optimization
+                    // backlog item #4, same fix AddLinesAsync's batch endpoint uses).
+                    await AddLineToValidatedOrderAsync(connection, order, article.ArticleToken, quantity, manualUnitPrice, manualCurrencyCode, context, cancellationToken);
                     result.SucceededCount++;
                 }
                 catch (ApiException ex)

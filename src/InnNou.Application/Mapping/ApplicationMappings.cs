@@ -2152,6 +2152,23 @@ namespace InnNou.Application.Mapping
                 Errors = mapper.MapList<ImportOrderLinesRowError>(d.Errors)
             });
 
+            // AddOrderLines batch result (Orders module — interactive multi-line add summary,
+            // same shape as ImportOrderLines above)
+            mapper.Register<AddOrderLinesLineErrorDto, AddOrderLinesLineError>(d => new AddOrderLinesLineError
+            {
+                Index = d.Index,
+                ArticleToken = d.ArticleToken,
+                Code = d.Code,
+                Description = d.Description
+            });
+            mapper.Register<AddOrderLinesResultDto, AddOrderLinesCommandResponse>(d => new AddOrderLinesCommandResponse
+            {
+                TotalLines = d.TotalLines,
+                SucceededCount = d.SucceededCount,
+                FailureCount = d.FailureCount,
+                Errors = mapper.MapList<AddOrderLinesLineError>(d.Errors)
+            });
+
             // CopyOrder result (Orders module — copy a SUBMITTED order into a new Draft)
             mapper.Register<CopyOrderSkippedLineDto, CopyOrderSkippedLineResponse>(d => new CopyOrderSkippedLineResponse
             {

@@ -15,6 +15,11 @@ namespace InnNou.Application.Common.Interfaces
         Task<(byte[] FileBytes, string FileName)?> GetPdfAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> CreateAsync(Guid warehouseToken, string? notes, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderLineDto?> AddLineAsync(Guid orderToken, Guid articleToken, decimal quantity, decimal? manualUnitPrice, string? manualCurrencyCode, IRequestContext context, CancellationToken cancellationToken);
+
+        // Best-effort batch variant of AddLineAsync — validates the Order once instead of once
+        // per line. Throws ApiException(OrderNotFound) for a missing Order rather than returning
+        // null, matching ImportLinesAsync's own convention (see OrderService.AddLinesAsync).
+        Task<AddOrderLinesResultDto> AddLinesAsync(Guid orderToken, List<AddOrderLineInputDto> lines, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderLineDto?> EditLineAsync(Guid orderLineToken, decimal quantity, IRequestContext context, CancellationToken cancellationToken);
         Task<bool> DeleteLineAsync(Guid orderLineToken, IRequestContext context, CancellationToken cancellationToken);
         Task<OrderDto?> SubmitAsync(Guid orderToken, IRequestContext context, CancellationToken cancellationToken);
