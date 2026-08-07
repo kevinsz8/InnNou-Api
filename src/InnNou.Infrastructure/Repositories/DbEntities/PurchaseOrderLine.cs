@@ -30,6 +30,11 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public string CurrencyCode { get; set; } = default!;
 
         // Copied verbatim from the source OrderLine at Submit split time — see OrderLine.cs.
+        public decimal? BaseUnitPrice { get; set; }
+        public int? DiscountTypeId { get; set; }
+        public string? DiscountTypeCode { get; set; }
+        public decimal? DiscountValue { get; set; }
+
         public int? CategoryId { get; set; }
         public string? CategoryCode { get; set; }
         public int? SubCategoryId { get; set; }

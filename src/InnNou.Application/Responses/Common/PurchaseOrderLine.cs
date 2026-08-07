@@ -19,6 +19,9 @@ namespace InnNou.Application.Responses.Common
         public decimal? ContentQuantity { get; set; }
         public decimal UnitPrice { get; set; }
         public string CurrencyCode { get; set; } = default!;
+        public decimal? BaseUnitPrice { get; set; }
+        public string? DiscountTypeCode { get; set; }
+        public decimal? DiscountValue { get; set; }
         public string? CategoryCode { get; set; }
         public string? SubCategoryCode { get; set; }
         public string? Notes { get; set; }

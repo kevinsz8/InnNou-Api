@@ -23,11 +23,13 @@ BEGIN
     INSERT INTO dbo.PurchaseOrderLine
         (PurchaseOrderLineToken, PurchaseOrderId, OrderLineId, ArticleId, Quantity,
          PurchaseUnitId, PurchaseQuantity, ContentUnitId, ContentQuantity,
-         UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
+         UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode,
+         BaseUnitPrice, DiscountTypeId, DiscountValue, Notes, CreatedBy)
     SELECT
         PurchaseOrderLineToken, PurchaseOrderId, OrderLineId, ArticleId, Quantity,
         PurchaseUnitId, PurchaseQuantity, ContentUnitId, ContentQuantity,
-        UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, @CreatedBy
+        UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode,
+        BaseUnitPrice, DiscountTypeId, DiscountValue, Notes, @CreatedBy
     FROM @Lines;
 END;
 GO

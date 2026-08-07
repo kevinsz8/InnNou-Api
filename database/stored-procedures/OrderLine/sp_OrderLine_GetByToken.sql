@@ -24,6 +24,7 @@ BEGIN
         ol.ContentUnitId, cu.Code AS ContentUnitCode,
         ol.ContentQuantity,
         ol.UnitPrice, ol.CurrencyCode,
+        ol.BaseUnitPrice, ol.DiscountTypeId, dt.Code AS DiscountTypeCode, ol.DiscountValue,
         ol.CategoryId, ol.CategoryCode, ol.SubCategoryId, ol.SubCategoryCode,
         ol.Notes,
         ol.CreatedUtc, ol.CreatedBy, ol.LastUpdatedUtc, ol.LastUpdatedBy
@@ -33,6 +34,7 @@ BEGIN
     JOIN dbo.Suppliers s       ON s.SupplierId       = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu ON pu.UnitOfMeasureId = ol.PurchaseUnitId
     JOIN dbo.UnitsOfMeasure cu ON cu.UnitOfMeasureId = ol.ContentUnitId
+    LEFT JOIN dbo.DiscountTypes dt ON dt.DiscountTypeId = ol.DiscountTypeId
     WHERE ol.OrderLineToken = @OrderLineToken;
 END;
 GO

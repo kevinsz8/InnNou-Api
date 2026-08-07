@@ -24,6 +24,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_OrderLine_Upsert
     @ContentQuantity  DECIMAL(18,8) = NULL,
     @UnitPrice        DECIMAL(18,8),
     @CurrencyCode     VARCHAR(3),
+    @BaseUnitPrice    DECIMAL(18,8) = NULL,
+    @DiscountTypeId   INT           = NULL,
+    @DiscountValue    DECIMAL(18,8) = NULL,
     @CategoryId       INT           = NULL,
     @CategoryCode     NVARCHAR(50)  = NULL,
     @SubCategoryId    INT           = NULL,
@@ -46,6 +49,9 @@ BEGIN
             ContentQuantity  = @ContentQuantity,
             UnitPrice        = @UnitPrice,
             CurrencyCode     = @CurrencyCode,
+            BaseUnitPrice    = @BaseUnitPrice,
+            DiscountTypeId   = @DiscountTypeId,
+            DiscountValue    = @DiscountValue,
             CategoryId       = @CategoryId,
             CategoryCode     = @CategoryCode,
             SubCategoryId    = @SubCategoryId,
@@ -59,11 +65,11 @@ BEGIN
     BEGIN
         INSERT INTO dbo.OrderLine
             (OrderLineToken, OrderId, ArticleId, Quantity, PurchaseUnitId, PurchaseQuantity,
-             ContentUnitId, ContentQuantity, UnitPrice, CurrencyCode,
+             ContentUnitId, ContentQuantity, UnitPrice, CurrencyCode, BaseUnitPrice, DiscountTypeId, DiscountValue,
              CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
         VALUES
             (@OrderLineToken, @OrderId, @ArticleId, @Quantity, @PurchaseUnitId, @PurchaseQuantity,
-             @ContentUnitId, @ContentQuantity, @UnitPrice, @CurrencyCode,
+             @ContentUnitId, @ContentQuantity, @UnitPrice, @CurrencyCode, @BaseUnitPrice, @DiscountTypeId, @DiscountValue,
              @CategoryId, @CategoryCode, @SubCategoryId, @SubCategoryCode, @Notes, @CreatedBy);
     END
 
@@ -76,6 +82,7 @@ BEGIN
         ol.ContentUnitId, cu.Code AS ContentUnitCode,
         ol.ContentQuantity,
         ol.UnitPrice, ol.CurrencyCode,
+        ol.BaseUnitPrice, ol.DiscountTypeId, dt.Code AS DiscountTypeCode, ol.DiscountValue,
         ol.CategoryId, ol.CategoryCode, ol.SubCategoryId, ol.SubCategoryCode,
         ol.Notes,
         ol.CreatedUtc, ol.CreatedBy, ol.LastUpdatedUtc, ol.LastUpdatedBy
@@ -85,6 +92,7 @@ BEGIN
     JOIN dbo.Suppliers s       ON s.SupplierId       = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu ON pu.UnitOfMeasureId = ol.PurchaseUnitId
     JOIN dbo.UnitsOfMeasure cu ON cu.UnitOfMeasureId = ol.ContentUnitId
+    LEFT JOIN dbo.DiscountTypes dt ON dt.DiscountTypeId = ol.DiscountTypeId
     WHERE ol.OrderId = @OrderId AND ol.ArticleId = @ArticleId;
 END;
 GO

@@ -273,6 +273,21 @@ namespace InnNou.Application.Common
         public const string FamilyApprovalThresholdApproverOutsideHierarchy = "FAMILY_APPROVAL_THRESHOLD_APPROVER_OUTSIDE_HIERARCHY";
         public const string FamilyApprovalThresholdOrganizationNotAssociate = "FAMILY_APPROVAL_THRESHOLD_ORGANIZATION_NOT_ASSOCIATE";
 
+        // ArticleDiscount
+        public const string ArticleDiscountNotFound = "ARTICLE_DISCOUNT_NOT_FOUND";
+        public const string ArticleDiscountForbidden = "ARTICLE_DISCOUNT_FORBIDDEN";
+        public const string ArticleDiscountInvalidScope = "ARTICLE_DISCOUNT_INVALID_SCOPE";
+        public const string ArticleDiscountArticleNotOwnedBySupplier = "ARTICLE_DISCOUNT_ARTICLE_NOT_OWNED_BY_SUPPLIER";
+        public const string ArticleDiscountArticleReplaced = "ARTICLE_DISCOUNT_ARTICLE_REPLACED";
+        public const string ArticleDiscountInvalidType = "ARTICLE_DISCOUNT_INVALID_TYPE";
+        public const string ArticleDiscountInvalidValue = "ARTICLE_DISCOUNT_INVALID_VALUE";
+        public const string ArticleDiscountPercentageExceedsMax = "ARTICLE_DISCOUNT_PERCENTAGE_EXCEEDS_MAX";
+        public const string ArticleDiscountCurrencyRequired = "ARTICLE_DISCOUNT_CURRENCY_REQUIRED";
+        public const string ArticleDiscountCurrencyNotAllowed = "ARTICLE_DISCOUNT_CURRENCY_NOT_ALLOWED";
+        public const string ArticleDiscountInvalidCurrency = "ARTICLE_DISCOUNT_INVALID_CURRENCY";
+        public const string ArticleDiscountInvalidDateRange = "ARTICLE_DISCOUNT_INVALID_DATE_RANGE";
+        public const string ArticleDiscountOverlapping = "ARTICLE_DISCOUNT_OVERLAPPING";
+
         // OrderApprovalStep
         public const string OrderApprovalStepNotFound = "ORDER_APPROVAL_STEP_NOT_FOUND";
         public const string OrderApprovalStepForbidden = "ORDER_APPROVAL_STEP_FORBIDDEN";

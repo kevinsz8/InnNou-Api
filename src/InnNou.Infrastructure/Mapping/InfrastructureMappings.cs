@@ -58,6 +58,7 @@ using CountryEntity = InnNou.Infrastructure.Repositories.DbEntities.Country;
 using ZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.Zone;
 using SupplierDeliveryZoneEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierDeliveryZone;
 using FamilyApprovalThresholdEntity = InnNou.Infrastructure.Repositories.DbEntities.FamilyApprovalThreshold;
+using ArticleDiscountEntity = InnNou.Infrastructure.Repositories.DbEntities.ArticleDiscount;
 using OrderApprovalStepEntity = InnNou.Infrastructure.Repositories.DbEntities.OrderApprovalStep;
 using SupplierPriceChangeSubscriptionEntity = InnNou.Infrastructure.Repositories.DbEntities.SupplierPriceChangeSubscription;
 using DepartmentEntity = InnNou.Infrastructure.Repositories.DbEntities.Department;
@@ -393,6 +394,36 @@ namespace InnNou.Infrastructure.Mapping
                 ApproverUserId = t.ApproverUserId,
                 ApproverUserToken = t.ApproverUserToken,
                 ApproverName = t.ApproverName,
+                IsActive = t.IsActive,
+                CreatedUtc = t.CreatedUtc,
+                CreatedBy = t.CreatedBy,
+                LastUpdatedUtc = t.LastUpdatedUtc,
+                LastUpdatedBy = t.LastUpdatedBy
+            });
+
+            mapper.Register<ArticleDiscountEntity, ArticleDiscountDto>(t => new ArticleDiscountDto
+            {
+                ArticleDiscountId = t.ArticleDiscountId,
+                ArticleDiscountToken = t.ArticleDiscountToken,
+                SupplierId = t.SupplierId,
+                SupplierToken = t.SupplierToken,
+                SupplierName = t.SupplierName,
+                ArticleId = t.ArticleId,
+                ArticleToken = t.ArticleToken,
+                ArticleName = t.ArticleName,
+                SubFamilyId = t.SubFamilyId,
+                SubFamilyToken = t.SubFamilyToken,
+                SubFamilyCode = t.SubFamilyCode,
+                FamilyId = t.FamilyId,
+                FamilyToken = t.FamilyToken,
+                FamilyCode = t.FamilyCode,
+                DiscountTypeId = t.DiscountTypeId,
+                DiscountTypeCode = t.DiscountTypeCode,
+                DiscountValue = t.DiscountValue,
+                CurrencyCode = t.CurrencyCode,
+                EffectiveFrom = t.EffectiveFrom,
+                EffectiveUntil = t.EffectiveUntil,
+                Description = t.Description,
                 IsActive = t.IsActive,
                 CreatedUtc = t.CreatedUtc,
                 CreatedBy = t.CreatedBy,
@@ -810,6 +841,10 @@ namespace InnNou.Infrastructure.Mapping
                 ContentQuantity = e.ContentQuantity,
                 UnitPrice = e.UnitPrice,
                 CurrencyCode = e.CurrencyCode,
+                BaseUnitPrice = e.BaseUnitPrice,
+                DiscountTypeId = e.DiscountTypeId,
+                DiscountTypeCode = e.DiscountTypeCode,
+                DiscountValue = e.DiscountValue,
                 CategoryId = e.CategoryId,
                 CategoryCode = e.CategoryCode,
                 SubCategoryId = e.SubCategoryId,
@@ -845,6 +880,10 @@ namespace InnNou.Infrastructure.Mapping
                 ContentQuantity = e.ContentQuantity,
                 UnitPrice = e.UnitPrice,
                 CurrencyCode = e.CurrencyCode,
+                BaseUnitPrice = e.BaseUnitPrice,
+                DiscountTypeId = e.DiscountTypeId,
+                DiscountTypeCode = e.DiscountTypeCode,
+                DiscountValue = e.DiscountValue,
                 CategoryId = e.CategoryId,
                 CategoryCode = e.CategoryCode,
                 SubCategoryId = e.SubCategoryId,

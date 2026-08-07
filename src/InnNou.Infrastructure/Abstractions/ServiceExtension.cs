@@ -82,6 +82,7 @@ namespace InnNou.Infrastructure.Abstractions
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IRequisitionService, RequisitionService>();
             services.AddScoped<IDepartmentParLevelService, DepartmentParLevelService>();
+            services.AddScoped<IArticleDiscountService, ArticleDiscountService>();
 
             services.AddScoped<IIdempotencyStore, IdempotencyStore>();
             services.AddHostedService<IdempotencyKeyCleanupService>();

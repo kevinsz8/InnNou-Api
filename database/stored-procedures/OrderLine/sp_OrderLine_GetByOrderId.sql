@@ -32,6 +32,7 @@ BEGIN
         ol.ContentUnitId, cu.Code AS ContentUnitCode,
         ol.ContentQuantity,
         ol.UnitPrice, ol.CurrencyCode,
+        ol.BaseUnitPrice, ol.DiscountTypeId, dt.Code AS DiscountTypeCode, ol.DiscountValue,
         ol.CategoryId, ol.CategoryCode, ol.SubCategoryId, ol.SubCategoryCode,
         f.Code AS FamilyCode, sf.Code AS SubFamilyCode,
         ol.Notes,
@@ -44,6 +45,7 @@ BEGIN
     JOIN dbo.UnitsOfMeasure cu      ON cu.UnitOfMeasureId = ol.ContentUnitId
     LEFT JOIN dbo.Families f        ON f.FamilyId         = a.FamilyId
     LEFT JOIN dbo.SubFamilies sf    ON sf.SubFamilyId     = a.SubFamilyId
+    LEFT JOIN dbo.DiscountTypes dt  ON dt.DiscountTypeId  = ol.DiscountTypeId
     WHERE ol.OrderId = @OrderId
     ORDER BY ol.OrderLineId;
 END;

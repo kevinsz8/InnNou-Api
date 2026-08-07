@@ -37,6 +37,7 @@ BEGIN
         COALESCE(effValues.NewQuantity, pol.Quantity) AS Quantity,
         COALESCE(effValues.NewUnitPrice, pol.UnitPrice) AS UnitPrice,
         COALESCE(effValues.NewCurrencyCode, pol.CurrencyCode) AS CurrencyCode,
+        pol.BaseUnitPrice, pol.DiscountTypeId, dt.Code AS DiscountTypeCode, pol.DiscountValue,
         pol.CategoryId, pol.CategoryCode, pol.SubCategoryId, pol.SubCategoryCode,
         pol.Notes,
         pol.CreatedUtc, pol.CreatedBy, pol.LastUpdatedUtc, pol.LastUpdatedBy,
@@ -48,6 +49,7 @@ BEGIN
     JOIN dbo.Suppliers s        ON s.SupplierId        = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu  ON pu.UnitOfMeasureId  = pol.PurchaseUnitId
     JOIN dbo.UnitsOfMeasure cu  ON cu.UnitOfMeasureId  = pol.ContentUnitId
+    LEFT JOIN dbo.DiscountTypes dt ON dt.DiscountTypeId = pol.DiscountTypeId
     -- Display values always come from the latest APPLIED quantity/price change, even if a LATER
     -- cancellation exists — a cancelled line still shows what it was last actually worth, it
     -- doesn't revert to the very first original snapshot. IsCancelled is resolved independently

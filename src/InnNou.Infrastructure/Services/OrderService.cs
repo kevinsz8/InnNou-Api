@@ -23,6 +23,7 @@ public class OrderService(
     IOrderPdfStorage orderPdfStorage,
     IEmailSender emailSender,
     INotificationService notificationService,
+    IArticleDiscountService articleDiscountService,
     ILogger<OrderService> logger,
     IConfiguration configuration) : IOrderService
 {
@@ -122,6 +123,9 @@ public class OrderService(
         table.Columns.Add("CategoryCode", typeof(string));
         table.Columns.Add("SubCategoryId", typeof(int));
         table.Columns.Add("SubCategoryCode", typeof(string));
+        table.Columns.Add("BaseUnitPrice", typeof(decimal));
+        table.Columns.Add("DiscountTypeId", typeof(int));
+        table.Columns.Add("DiscountValue", typeof(decimal));
         table.Columns.Add("Notes", typeof(string));
 
         foreach (var line in lines)
@@ -142,6 +146,9 @@ public class OrderService(
                 (object?)line.CategoryCode ?? DBNull.Value,
                 (object?)line.SubCategoryId ?? DBNull.Value,
                 (object?)line.SubCategoryCode ?? DBNull.Value,
+                (object?)line.BaseUnitPrice ?? DBNull.Value,
+                (object?)line.DiscountTypeId ?? DBNull.Value,
+                (object?)line.DiscountValue ?? DBNull.Value,
                 (object?)line.Notes ?? DBNull.Value);
         }
 
@@ -465,6 +472,39 @@ public class OrderService(
             currencyCode = normalizedCurrencyCode;
         }
 
+        // Resolve + apply a live discount (see .claude/ArticleDiscountModule.md) — only against a
+        // real catalog price (priceRow is not null); a manual SERVICE/MIXED negotiated price is
+        // already the agreed price for this order, never further discounted. A FIXED_AMOUNT
+        // discount whose CurrencyCode doesn't match the resolved price's currency is skipped
+        // rather than converted — this codebase has no FX conversion anywhere (see CLAUDE.md).
+        // BaseUnitPrice/DiscountTypeId/DiscountValue are frozen onto the line as the "why" for a
+        // discounted UnitPrice, same "freeze at line-add time" shape as CategoryId/CategoryCode.
+        decimal? baseUnitPrice = null;
+        int? discountTypeId = null;
+        decimal? discountValueApplied = null;
+
+        if (priceRow is not null)
+        {
+            var effectiveDiscount = await articleDiscountService.GetEffectiveForArticleAsync(article.ArticleId, DateTime.UtcNow.Date, cancellationToken);
+            if (effectiveDiscount is not null)
+            {
+                decimal? discountedPrice = effectiveDiscount.DiscountTypeCode switch
+                {
+                    DiscountTypeCodes.Percentage => Math.Round(unitPrice * (1 - effectiveDiscount.DiscountValue / 100m), 8),
+                    DiscountTypeCodes.FixedAmount when effectiveDiscount.CurrencyCode == currencyCode => Math.Max(0, unitPrice - effectiveDiscount.DiscountValue),
+                    _ => null
+                };
+
+                if (discountedPrice.HasValue)
+                {
+                    baseUnitPrice = unitPrice;
+                    discountTypeId = effectiveDiscount.DiscountTypeId;
+                    discountValueApplied = effectiveDiscount.DiscountValue;
+                    unitPrice = discountedPrice.Value;
+                }
+            }
+        }
+
         // Snapshot the Order's own organization's effective classification (own row, else
         // inherited from the nearest Super Asociado ancestor) — frozen onto the OrderLine as
         // plain CategoryId/CategoryCode/SubCategoryId/SubCategoryCode, never re-resolved live.
@@ -488,6 +528,9 @@ public class OrderService(
         linePararms.Add("@ContentQuantity", totalContentQuantity);
         linePararms.Add("@UnitPrice", unitPrice);
         linePararms.Add("@CurrencyCode", currencyCode);
+        linePararms.Add("@BaseUnitPrice", baseUnitPrice);
+        linePararms.Add("@DiscountTypeId", discountTypeId);
+        linePararms.Add("@DiscountValue", discountValueApplied);
         linePararms.Add("@CategoryId", classification?.CategoryId);
         linePararms.Add("@CategoryCode", classification?.CategoryCode);
         linePararms.Add("@SubCategoryId", classification?.SubCategoryId);

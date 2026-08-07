@@ -24,6 +24,16 @@ namespace InnNou.Infrastructure.Repositories.DbEntities
         public decimal UnitPrice { get; set; }
         public string CurrencyCode { get; set; } = default!;
 
+        // Frozen discount snapshot, resolved once at line-add time from
+        // sp_ArticleDiscount_GetEffective (see OrderService.AddLineAsync). NULL BaseUnitPrice
+        // means no discount applied — UnitPrice above already IS the base price in that case.
+        // When set, UnitPrice is the already-discounted price and these three fields are the
+        // frozen "why", for transparency on a historical line — see .claude/ArticleDiscountModule.md.
+        public decimal? BaseUnitPrice { get; set; }
+        public int? DiscountTypeId { get; set; }
+        public string? DiscountTypeCode { get; set; }
+        public decimal? DiscountValue { get; set; }
+
         // Frozen classification snapshot, resolved once at line-add time (see
         // OrderService.AddLineAsync) — never re-resolved live, so a later Article
         // reclassification or Category Code rename can't retroactively change a historical

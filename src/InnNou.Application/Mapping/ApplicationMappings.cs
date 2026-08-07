@@ -67,6 +67,7 @@ using CommonConsolidatedPurchaseOrder = InnNou.Application.Responses.Common.Cons
 using CommonConsolidatedPurchaseOrderMember = InnNou.Application.Responses.Common.ConsolidatedPurchaseOrderMember;
 using CommonOrderApprovalStep = InnNou.Application.Responses.Common.OrderApprovalStep;
 using CommonFamilyApprovalThreshold = InnNou.Application.Responses.Common.FamilyApprovalThreshold;
+using CommonArticleDiscount = InnNou.Application.Responses.Common.ArticleDiscount;
 using CommonOrderTemplate = InnNou.Application.Responses.Common.OrderTemplate;
 using CommonOrderTemplateLine = InnNou.Application.Responses.Common.OrderTemplateLine;
 using CommonApplyOrderTemplateLineResult = InnNou.Application.Responses.Common.ApplyOrderTemplateLineResult;
@@ -1377,6 +1378,9 @@ namespace InnNou.Application.Mapping
                 ContentQuantity = d.ContentQuantity,
                 UnitPrice = d.UnitPrice,
                 CurrencyCode = d.CurrencyCode,
+                BaseUnitPrice = d.BaseUnitPrice,
+                DiscountTypeCode = d.DiscountTypeCode,
+                DiscountValue = d.DiscountValue,
                 CategoryCode = d.CategoryCode,
                 SubCategoryCode = d.SubCategoryCode,
                 FamilyCode = d.FamilyCode,
@@ -1401,6 +1405,9 @@ namespace InnNou.Application.Mapping
                 ContentQuantity = d.ContentQuantity,
                 UnitPrice = d.UnitPrice,
                 CurrencyCode = d.CurrencyCode,
+                BaseUnitPrice = d.BaseUnitPrice,
+                DiscountTypeCode = d.DiscountTypeCode,
+                DiscountValue = d.DiscountValue,
                 CategoryCode = d.CategoryCode,
                 SubCategoryCode = d.SubCategoryCode,
                 Notes = d.Notes,
@@ -1951,6 +1958,30 @@ namespace InnNou.Application.Mapping
                 ThresholdAmount = d.ThresholdAmount,
                 ApproverUserToken = d.ApproverUserToken,
                 ApproverName = d.ApproverName,
+                IsActive = d.IsActive,
+                CreatedUtc = d.CreatedUtc,
+                CreatedBy = d.CreatedBy,
+                LastUpdatedUtc = d.LastUpdatedUtc,
+                LastUpdatedBy = d.LastUpdatedBy
+            });
+
+            mapper.Register<ArticleDiscountDto, CommonArticleDiscount>(d => new CommonArticleDiscount
+            {
+                ArticleDiscountToken = d.ArticleDiscountToken,
+                SupplierToken = d.SupplierToken,
+                SupplierName = d.SupplierName,
+                ArticleToken = d.ArticleToken,
+                ArticleName = d.ArticleName,
+                SubFamilyToken = d.SubFamilyToken,
+                SubFamilyCode = d.SubFamilyCode,
+                FamilyToken = d.FamilyToken,
+                FamilyCode = d.FamilyCode,
+                DiscountTypeCode = d.DiscountTypeCode,
+                DiscountValue = d.DiscountValue,
+                CurrencyCode = d.CurrencyCode,
+                EffectiveFrom = d.EffectiveFrom,
+                EffectiveUntil = d.EffectiveUntil,
+                Description = d.Description,
                 IsActive = d.IsActive,
                 CreatedUtc = d.CreatedUtc,
                 CreatedBy = d.CreatedBy,

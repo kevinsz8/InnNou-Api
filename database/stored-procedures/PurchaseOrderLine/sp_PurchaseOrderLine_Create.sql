@@ -27,6 +27,9 @@ CREATE OR ALTER PROCEDURE dbo.sp_PurchaseOrderLine_Create
     @ContentQuantity         DECIMAL(18,8) = NULL,
     @UnitPrice               DECIMAL(18,8),
     @CurrencyCode            VARCHAR(3),
+    @BaseUnitPrice           DECIMAL(18,8) = NULL,
+    @DiscountTypeId          INT           = NULL,
+    @DiscountValue           DECIMAL(18,8) = NULL,
     @CategoryId              INT           = NULL,
     @CategoryCode            NVARCHAR(50)  = NULL,
     @SubCategoryId           INT           = NULL,
@@ -41,11 +44,13 @@ BEGIN
     INSERT INTO dbo.PurchaseOrderLine
         (PurchaseOrderLineToken, PurchaseOrderId, OrderLineId, ArticleId, Quantity,
          PurchaseUnitId, PurchaseQuantity, ContentUnitId, ContentQuantity,
-         UnitPrice, CurrencyCode, CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
+         UnitPrice, CurrencyCode, BaseUnitPrice, DiscountTypeId, DiscountValue,
+         CategoryId, CategoryCode, SubCategoryId, SubCategoryCode, Notes, CreatedBy)
     VALUES
         (@PurchaseOrderLineToken, @PurchaseOrderId, @OrderLineId, @ArticleId, @Quantity,
          @PurchaseUnitId, @PurchaseQuantity, @ContentUnitId, @ContentQuantity,
-         @UnitPrice, @CurrencyCode, @CategoryId, @CategoryCode, @SubCategoryId, @SubCategoryCode, @Notes, @CreatedBy);
+         @UnitPrice, @CurrencyCode, @BaseUnitPrice, @DiscountTypeId, @DiscountValue,
+         @CategoryId, @CategoryCode, @SubCategoryId, @SubCategoryCode, @Notes, @CreatedBy);
 
     SELECT
         pol.PurchaseOrderLineId, pol.PurchaseOrderLineToken,
@@ -58,6 +63,7 @@ BEGIN
         pol.ContentUnitId, cu.Code AS ContentUnitCode,
         pol.ContentQuantity,
         pol.UnitPrice, pol.CurrencyCode,
+        pol.BaseUnitPrice, pol.DiscountTypeId, dt.Code AS DiscountTypeCode, pol.DiscountValue,
         pol.CategoryId, pol.CategoryCode, pol.SubCategoryId, pol.SubCategoryCode,
         pol.Notes,
         pol.CreatedUtc, pol.CreatedBy, pol.LastUpdatedUtc, pol.LastUpdatedBy
@@ -68,6 +74,7 @@ BEGIN
     JOIN dbo.Suppliers s       ON s.SupplierId        = a.SupplierId
     JOIN dbo.UnitsOfMeasure pu ON pu.UnitOfMeasureId  = pol.PurchaseUnitId
     JOIN dbo.UnitsOfMeasure cu ON cu.UnitOfMeasureId  = pol.ContentUnitId
+    LEFT JOIN dbo.DiscountTypes dt ON dt.DiscountTypeId = pol.DiscountTypeId
     WHERE pol.PurchaseOrderLineToken = @PurchaseOrderLineToken;
 END;
 GO

@@ -188,6 +188,44 @@ public class TestDataBuilder(IServiceProvider scopedProvider)
         });
     }
 
+    public async Task<Guid> CreateSubFamilyAsync(Guid familyToken, string namePrefix)
+    {
+        var subFamily = await SendAsync(new CreateSubFamilyCommandRequest
+        {
+            FamilyToken = familyToken,
+            Code = Truncate($"{namePrefix}_{Guid.NewGuid():N}", 30)
+        });
+        return subFamily.SubFamily.SubFamilyToken;
+    }
+
+    // ── Article Discounts (per-Supplier promotional/time-bound pricing) ────────────────────
+
+    public async Task<ArticleDiscount> CreateArticleDiscountAsync(
+        Guid supplierToken,
+        string discountTypeCode,
+        decimal discountValue,
+        DateTime effectiveFrom,
+        DateTime? effectiveUntil = null,
+        Guid? articleToken = null,
+        Guid? subFamilyToken = null,
+        Guid? familyToken = null,
+        string? currencyCode = null)
+    {
+        var response = await SendAsync(new CreateArticleDiscountCommandRequest
+        {
+            SupplierToken = supplierToken,
+            ArticleToken = articleToken,
+            SubFamilyToken = subFamilyToken,
+            FamilyToken = familyToken,
+            DiscountTypeCode = discountTypeCode,
+            DiscountValue = discountValue,
+            CurrencyCode = currencyCode,
+            EffectiveFrom = effectiveFrom,
+            EffectiveUntil = effectiveUntil
+        });
+        return response.ArticleDiscount;
+    }
+
     // ── Order -> PurchaseOrder -> GoodsReceipt, one article, one line ──────────────────────
 
     public async Task<Guid> CreateSubmittedOrderAsync(Guid warehouseToken, Guid articleToken, decimal quantity)
